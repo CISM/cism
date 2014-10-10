@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_precip_param.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_precip_param.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -30,7 +30,7 @@
 
 module glint_precip_param
 
-  !*FD The Roe/Lindzen precip downscaling parameterization
+  ! The Roe/Lindzen precip downscaling parameterization
 
   ! Author: Ian Rutt
   ! Date:   19/11/03
@@ -45,52 +45,52 @@ contains
 
   subroutine glint_precip(precip,xwind,ywind,temp,topo,dx,dy,fixed_a)
 
-    !*FD Calculates the precipitation field over 
-    !*FD the ice sheet using the parameterization given in 
-    !*FD Roe (2002)\footnote{{\em J. Glaciol.} {\bf 48,} no.160 pp.70--80}
-    !*FD Note that:
-    !*FD \begin{itemize}
-    !*FD \item All arrays are on the ice model grid, and must have the same shape.
-    !*FD \item There is some confusion in the lit between Roe (2002) and Roe and Lindzen (2001)
-    !*FD       over the dimensions of some quantities. I have used the combination
-    !*FD       that is most consistent.
-    !*FD \item For the value of a, which R\&L take to be $2.5\times 10^{-11}
-    !*FD        \mathrm{m}^2\,\mathrm{s\,kg}^{-1}$, I use
-    !*FD       the precip rate divided by the saturated vapour pressure, unless 
-    !*FD       \texttt{fixed\_a} is set.
-    !*FD \item The equation used is:
-    !*FD \[P=be_{\mathrm{sat}}(T_\mathrm{s})\left[\frac{|x_0|}{2}+\frac{|x_0|}{2}
-    !*FD \mathrm{erf}(|x_0|/\alpha)+\frac{\alpha}{2\sqrt{\pi}}\exp(-(1/\alpha)^2x_0^2)\right]\]
-    !*FD with $x_0=\frac{a}{b}-w_0$,
-    !*FD $w_0$ is the mean vertical velocity
-    !*FD $b=5.9\times 10^{-9}\,\mathrm{kg\,m\,s^2}$,
-    !*FD $\alpha=0.0115\,\mathrm{ms^{-1}}$,
-    !*FD and either $a=2.5\times 10^{-11}\,\mathrm{m^2\,s\,kg^{-1}}$, or
-    !*FD $a=P/e_{\mathrm{sat}}(T)$, depending on the value of \texttt{fixed\_a}.
-    !*FD \end{itemize}
+    ! Calculates the precipitation field over 
+    ! the ice sheet using the parameterization given in 
+    ! Roe (2002)\footnote{{\em J. Glaciol.} {\bf 48,} no.160 pp.70--80}
+    ! Note that:
+    ! \begin{itemize}
+    ! \item All arrays are on the ice model grid, and must have the same shape.
+    ! \item There is some confusion in the lit between Roe (2002) and Roe and Lindzen (2001)
+    !       over the dimensions of some quantities. I have used the combination
+    !       that is most consistent.
+    ! \item For the value of a, which R\&L take to be $2.5\times 10^{-11}
+    !        \mathrm{m}^2\,\mathrm{s\,kg}^{-1}$, I use
+    !       the precip rate divided by the saturated vapour pressure, unless 
+    !       \texttt{fixed\_a} is set.
+    ! \item The equation used is:
+    ! \[P=be_{\mathrm{sat}}(T_\mathrm{s})\left[\frac{|x_0|}{2}+\frac{|x_0|}{2}
+    ! \mathrm{erf}(|x_0|/\alpha)+\frac{\alpha}{2\sqrt{\pi}}\exp(-(1/\alpha)^2x_0^2)\right]\]
+    ! with $x_0=\frac{a}{b}-w_0$,
+    ! $w_0$ is the mean vertical velocity
+    ! $b=5.9\times 10^{-9}\,\mathrm{kg\,m\,s^2}$,
+    ! $\alpha=0.0115\,\mathrm{ms^{-1}}$,
+    ! and either $a=2.5\times 10^{-11}\,\mathrm{m^2\,s\,kg^{-1}}$, or
+    ! $a=P/e_{\mathrm{sat}}(T)$, depending on the value of \texttt{fixed\_a}.
+    ! \end{itemize}
 
     use glimmer_physcon, only: pi
     implicit none
 
     ! Arguments
 
-    real(dp),dimension(:,:),intent(inout) :: precip  !*FD Precipitation field (mm/a) 
-                                                     !*FD used for input and output. on
-                                                     !*FD input it contains the large-scale 
-                                                     !*FD field calculated by interpolation. 
-                                                     !*FD On output, it contains the field calculated by 
-                                                     !*FD this subroutine and used for the mass-balance.
-    real(dp), dimension(:,:),intent(in)    :: xwind   !*FD Annual mean wind field: $x$-component (m/s)
-    real(dp), dimension(:,:),intent(in)    :: ywind   !*FD Annual mean wind field: $y$-component (m/s)
-    real(dp), dimension(:,:),intent(in)    :: topo    !*FD Surface topography (m)
-    real(dp),dimension(:,:), intent(in)    :: temp    !*FD Mean annual surface temperature field,
-                                                      !*FD corrected for height ($^{\circ}$C)
-    real(dp),                intent(in)    :: dx      !*FD $x$ grid spacing (m)
-    real(dp),                intent(in)    :: dy      !*FD $y$ grid spacing (m)
-    logical,optional,        intent(in)    :: fixed_a !*FD Set to fix $\mathtt{a}=2.5\times 10^{-11} 
-                                                      !*FD \mathrm{m}^2\,\mathrm{s\,kg}^{-1}$ over the 
-                                                      !*FD whole domain, else scale \texttt{a} as described below. 
-                                                      !*FD If not present, assumed \texttt{.false.}.
+    real(dp),dimension(:,:),intent(inout) :: precip  ! Precipitation field (mm/a) 
+                                                     ! used for input and output. on
+                                                     ! input it contains the large-scale 
+                                                     ! field calculated by interpolation. 
+                                                     ! On output, it contains the field calculated by 
+                                                     ! this subroutine and used for the mass-balance.
+    real(dp), dimension(:,:),intent(in)    :: xwind   ! Annual mean wind field: $x$-component (m/s)
+    real(dp), dimension(:,:),intent(in)    :: ywind   ! Annual mean wind field: $y$-component (m/s)
+    real(dp), dimension(:,:),intent(in)    :: topo    ! Surface topography (m)
+    real(dp),dimension(:,:), intent(in)    :: temp    ! Mean annual surface temperature field,
+                                                      ! corrected for height ($^{\circ}$C)
+    real(dp),                intent(in)    :: dx      ! $x$ grid spacing (m)
+    real(dp),                intent(in)    :: dy      ! $y$ grid spacing (m)
+    logical,optional,        intent(in)    :: fixed_a ! Set to fix $\mathtt{a}=2.5\times 10^{-11} 
+                                                      ! \mathrm{m}^2\,\mathrm{s\,kg}^{-1}$ over the 
+                                                      ! whole domain, else scale \texttt{a} as described below. 
+                                                      ! If not present, assumed \texttt{.false.}.
 
     ! Internal variables
 
@@ -140,19 +140,19 @@ contains
 
   real(dp) function satvap(temp,kelvin)
 
-    !*FD Calculates the saturated vapour pressure using the 
-    !*FD Clausius-Clapyron equation (from Roe 2002)
-    !*FD Note that by default the units of temperature are degC,
-    !*FD unless the kelvin flag is present and set, in which
-    !*FD case they are Kelvin.
+    ! Calculates the saturated vapour pressure using the 
+    ! Clausius-Clapyron equation (from Roe 2002)
+    ! Note that by default the units of temperature are degC,
+    ! unless the kelvin flag is present and set, in which
+    ! case they are Kelvin.
     !*RV Saturated vapour pressure in Pascals.
 
     implicit none
 
     ! Arguments
 
-    real(dp),        intent(in) :: temp    !*FD Temperature ($^{\circ}$C or K)
-    logical,optional,intent(in) :: kelvin  !*FD Set if temperature is in Kelvin
+    real(dp),        intent(in) :: temp    ! Temperature ($^{\circ}$C or K)
+    logical,optional,intent(in) :: kelvin  ! Set if temperature is in Kelvin
 
     ! Internal variables
 
@@ -184,19 +184,19 @@ contains
 
   function calc_w0(u,v,h0,dx,dy)
 
-    !*FD Calculates the mean vertical velocity field, 
-    !*FD based on the horizontal flow, and the topography.
-    !*FD 
-    !*FD Note that:
-    !*FD \begin{itemize}
-    !*FD \item All input arrays must be of the same rank and size.
-    !*FD \item The vertical velocity is calculated from the divergence
-    !*FD       of the horizontal wind over the topography.
-    !*FD       \[w_0=u\frac{\partial h_0}{\partial x}+
-    !*FD       v\frac{\partial h_0}{\partial y} \]
-    !*FD \item Differentiation is done with conventional centred-differences,
-    !*FD       except at the corners, where uncentred differences are employed.
-    !*FD \end{itemize}
+    ! Calculates the mean vertical velocity field, 
+    ! based on the horizontal flow, and the topography.
+    ! 
+    ! Note that:
+    ! \begin{itemize}
+    ! \item All input arrays must be of the same rank and size.
+    ! \item The vertical velocity is calculated from the divergence
+    !       of the horizontal wind over the topography.
+    !       \[w_0=u\frac{\partial h_0}{\partial x}+
+    !       v\frac{\partial h_0}{\partial y} \]
+    ! \item Differentiation is done with conventional centred-differences,
+    !       except at the corners, where uncentred differences are employed.
+    ! \end{itemize}
 
     !*RV An array of the same size as \texttt{u} is 
     !*RV returned. The units are m/s.
@@ -205,11 +205,11 @@ contains
 
     ! Arguments
 
-    real(dp),dimension(:,:),intent(in) :: u   !*FD The $x$ component of the mean wind field (m/s)
-    real(dp),dimension(:,:),intent(in) :: v   !*FD The $y$ component of the mean wind field (m/s)
-    real(dp),dimension(:,:),intent(in) :: h0  !*FD The topography (m)
-    real(dp),               intent(in) :: dx  !*FD The $x$ grid-spacing (m)
-    real(dp),               intent(in) :: dy  !*FD The $y$ grid-spacing (m)
+    real(dp),dimension(:,:),intent(in) :: u   ! The $x$ component of the mean wind field (m/s)
+    real(dp),dimension(:,:),intent(in) :: v   ! The $y$ component of the mean wind field (m/s)
+    real(dp),dimension(:,:),intent(in) :: h0  ! The topography (m)
+    real(dp),               intent(in) :: dx  ! The $x$ grid-spacing (m)
+    real(dp),               intent(in) :: dy  ! The $y$ grid-spacing (m)
 
     ! Returned array
 
@@ -258,25 +258,25 @@ contains
 
   real(dp) function error_func(y)
 
-    !*FD The error function
-    !*FD
-    !*FD The error function may be approximated by:
-    !*FD \[ \mathrm{erf}(y)=1-(\gamma_1 t+\gamma_2 t^2+\gamma_3 t^3)\exp(-y^2)\]
-    !*FD with
-    !*FD \[t=\frac{1}{1+\gamma_0 y}\]  
-    !*FD and
-    !*FD \[\gamma_0 = 0.47047, \]
-    !*FD \[\gamma_1 = 0.3480242, \]
-    !*FD \[\gamma_2 = -0.0958798, \]
-    !*FD \[\gamma_3 = 0.7478556 \]
-    !*FD (from Abramowitz and Stegun 1965)
-    !*FD However, this doesn't seem to be right for $\mathtt{y}<0$, but ok for $\mathtt{y}\geq 0$.
-    !*FD Since the input is always $>0$, this isn't a problem here.
+    ! The error function
+    !
+    ! The error function may be approximated by:
+    ! \[ \mathrm{erf}(y)=1-(\gamma_1 t+\gamma_2 t^2+\gamma_3 t^3)\exp(-y^2)\]
+    ! with
+    ! \[t=\frac{1}{1+\gamma_0 y}\]  
+    ! and
+    ! \[\gamma_0 = 0.47047, \]
+    ! \[\gamma_1 = 0.3480242, \]
+    ! \[\gamma_2 = -0.0958798, \]
+    ! \[\gamma_3 = 0.7478556 \]
+    ! (from Abramowitz and Stegun 1965)
+    ! However, this doesn't seem to be right for $\mathtt{y}<0$, but ok for $\mathtt{y}\geq 0$.
+    ! Since the input is always $>0$, this isn't a problem here.
     !*RV The value of the error function at \texttt{y}.
 
     implicit none
 
-    real(dp),intent(in) :: y !*FD The independent variable
+    real(dp),intent(in) :: y ! The independent variable
 
     real(dp) :: t
     real(dp),parameter :: g0 =  0.47047d0

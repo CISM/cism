@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_example_clim.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_example_clim.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -44,26 +44,26 @@ module glint_example_clim
      integer                 :: climate_tstep = 6  ! Climate time-step in hours
 
      ! Filenames --------------------------------------------------------
-     character(fname_length) :: precip_file = '' !*FD Name of precip file
-     character(fname_length) :: stemp_file  = '' !*FD Name of surface temp file
-     character(fname_length) :: orog_file   = '' !*FD Name of orography file
+     character(fname_length) :: precip_file = '' !> Name of precip file
+     character(fname_length) :: stemp_file  = '' !> Name of surface temp file
+     character(fname_length) :: orog_file   = '' !> Name of orography file
 
      ! Variable names ---------------------------------------------------
-     character(fname_length) :: precip_varname = '' !*FD precip variable name
-     character(fname_length) :: stemp_varname  = '' !*FD temperature variable name
-     character(fname_length) :: orog_varname   = '' !*FD orography variable name
+     character(fname_length) :: precip_varname = '' !> precip variable name
+     character(fname_length) :: stemp_varname  = '' !> temperature variable name
+     character(fname_length) :: orog_varname   = '' !> orography variable name
 
      ! Arrays for holding climatology -----------------------------------
-     real(dp),dimension(:,:),  pointer :: orog_clim     => null()  !*FD Orography
-     real(dp),dimension(:,:,:),pointer :: precip_clim   => null()  !*FD Precip
-     real(dp),dimension(:,:,:),pointer :: surftemp_clim => null()  !*FD Surface temperature
+     real(dp),dimension(:,:),  pointer :: orog_clim     => null()  !> Orography
+     real(dp),dimension(:,:,:),pointer :: precip_clim   => null()  !> Precip
+     real(dp),dimension(:,:,:),pointer :: surftemp_clim => null()  !> Surface temperature
 
      ! Grid variables ---------------------------------------------------
      type(global_grid) :: clim_grid
 
      ! Time variables ---------------------------------------------------
-     real(dp),dimension(:),pointer :: pr_time => null() !*FD Time in precip climatology
-     real(dp),dimension(:),pointer :: st_time => null() !*FD Time in surftemp climatology
+     real(dp),dimension(:),pointer :: pr_time => null() !> Time in precip climatology
+     real(dp),dimension(:),pointer :: st_time => null() !> Time in surftemp climatology
 
      ! Other parameters -------------------------------------------------
      integer  :: days_in_year  = 365
@@ -92,10 +92,10 @@ contains
     use glimmer_config
     use glimmer_log
 
-    type(glex_climate) :: params   !*FD Climate parameters
-    character(*)       :: filename !*FD config filename
+    type(glex_climate) :: params   !> Climate parameters
+    character(*)       :: filename !> config filename
 
-    type(ConfigSection),pointer :: config !*FD structure holding sections of configuration file   
+    type(ConfigSection),pointer :: config !> structure holding sections of configuration file   
     type(global_grid) :: pgrid,sgrid,ogrid 
     character(20) :: sttu,prtu ! Units
     integer :: ierr,i
@@ -154,8 +154,8 @@ contains
     use glimmer_config
     use glimmer_log
 
-    type(glex_climate)           :: params !*FD Climate parameters
-    type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file   
+    type(glex_climate)           :: params !> Climate parameters
+    type(ConfigSection), pointer :: config !> structure holding sections of configuration file   
     type(ConfigSection), pointer :: section
 
     call GetSection(config,section,'GLEX climate')
@@ -248,7 +248,7 @@ contains
     use netcdf
     use glimmer_log
 
-   !*FD Constructs a global grid data type from file
+   !> Constructs a global grid data type from file
 
     character(*),intent(in)       :: fname
     type(global_grid),intent(out) :: ggrid
@@ -313,7 +313,7 @@ contains
 
     use glimmer_log
 
-    !*FD Compares three grids to make sure they are all the same
+    !> Compares three grids to make sure they are all the same
 
     type(global_grid),intent(in) :: g1,g2,g3
     logical :: fail
@@ -338,15 +338,15 @@ contains
     use netcdf
     use glimmer_log
 
-    !*FD Returns the name and id of the first found variable which has
-    !*FD the requested standard name attribute
+    !> Returns the name and id of the first found variable which has
+    !> the requested standard name attribute
 
-    integer,intent(in) :: ncid !*FD ID of an open netcdf file
-    character(*),dimension(:),intent(in)  :: stdnames !*FD standard names sought
-    character(*),intent(out) :: varname !*FD variable name
-    integer,intent(out) :: varid !*FD variable ID
-    integer,intent(out) :: ndims !*FD Number of dimensions of variable
-    logical,intent(in),optional :: fatal !*FD set true to halt if name not found
+    integer,intent(in) :: ncid !> ID of an open netcdf file
+    character(*),dimension(:),intent(in)  :: stdnames !> standard names sought
+    character(*),intent(out) :: varname !> variable name
+    integer,intent(out) :: varid !> variable ID
+    integer,intent(out) :: ndims !> Number of dimensions of variable
+    logical,intent(in),optional :: fatal !> set true to halt if name not found
 
     integer :: nvars,iv,natts,ia,nd,nsn,in
     integer :: ncerr

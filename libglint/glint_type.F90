@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_type.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_type.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -33,7 +33,7 @@
 
 module glint_type
 
-  !*FD contains type definitions for GLINT
+  !> contains type definitions for GLINT
 
   use glimmer_global, only: dp
   use glint_interp
@@ -62,9 +62,6 @@ module glint_type
   integer, parameter :: PRECIP_STANDARD = 1    ! use large-scale precip field as is
   integer, parameter :: PRECIP_RL = 2          ! use Roe-Lindzen paramterization
   
-  integer, parameter :: ZERO_GCM_FLUXES_FALSE = 0 ! send true fluxes to the GCM
-  integer, parameter :: ZERO_GCM_FLUXES_TRUE  = 1 ! zero out all fluxes sent to the GCM
-
   !TODO - Add other Glint options here to avoid hardwiring of case numbers?
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -74,54 +71,54 @@ module glint_type
 
   type glint_instance
 
-     !*FD Derived type holding information about ice model instance. 
-     !*FD Note that variables used for downscaling & upscaling are only valid on the main task,
-     !*FD since all downscaling and upscaling is done there.
+     !> Derived type holding information about ice model instance. 
+     !> Note that variables used for downscaling & upscaling are only valid on the main task,
+     !> since all downscaling and upscaling is done there.
 
-     type(coordsystem_type)           :: lgrid              !*FD Local grid for interfacing with glide (grid on this task)
-                                                            !*FD (WJS: Note that origin may be incorrect with multiple tasks;
-                                                            !*FD  as far as I can tell, this isn't currently a problem)
-     type(coordsystem_type)           :: lgrid_fulldomain   !*FD Local grid on the full domain (across all tasks),
-                                                            !*FD used for downscaling & upscaling
-                                                            !*FD (ONLY VALID ON MAIN TASK)
-     type(downscale)                  :: downs              !*FD Downscaling parameters.
-                                                            !*FD (ONLY VALID ON MAIN TASK)
-     type(upscale)                    :: ups                !*FD Upscaling parameters
-                                                            !*FD (ONLY VALID ON MAIN TASK)
-     type(upscale)                    :: ups_orog           !*FD Upscaling parameters for orography (to cope
-                                                            !*FD with need to convert to spectral form).
-                                                            !*FD (ONLY VALID ON MAIN TASK)
-     type(glide_global_type)          :: model              !*FD The instance and all its arrays.
-     character(fname_length)          :: paramfile          !*FD The name of the configuration file.
-     integer                          :: ice_tstep          !*FD Ice timestep in hours
-     integer                          :: mbal_tstep         !*FD Mass-balance timestep in hours
-     integer                          :: mbal_accum_time    !*FD Accumulation time for mass-balance (hours)
-                                                            !*FD (defaults to ice time-step)
-     integer                          :: ice_tstep_multiply=1 !*FD Ice time multiplier (non-dimensional)
-     integer                          :: n_icetstep         !*FD Number of ice time-steps per mass-balance accumulation
-     real(dp)                         :: glide_time         !*FD Time as seen by glide (years)
-     integer                          :: next_time          !*FD The next time we expect to be called (hours)
+     type(coordsystem_type)           :: lgrid              !> Local grid for interfacing with glide (grid on this task)
+                                                            !> (WJS: Note that origin may be incorrect with multiple tasks;
+                                                            !>  as far as I can tell, this isn't currently a problem)
+     type(coordsystem_type)           :: lgrid_fulldomain   !> Local grid on the full domain (across all tasks),
+                                                            !> used for downscaling & upscaling
+                                                            !> (ONLY VALID ON MAIN TASK)
+     type(downscale)                  :: downs              !> Downscaling parameters.
+                                                            !> (ONLY VALID ON MAIN TASK)
+     type(upscale)                    :: ups                !> Upscaling parameters
+                                                            !> (ONLY VALID ON MAIN TASK)
+     type(upscale)                    :: ups_orog           !> Upscaling parameters for orography (to cope
+                                                            !> with need to convert to spectral form).
+                                                            !> (ONLY VALID ON MAIN TASK)
+     type(glide_global_type)          :: model              !> The instance and all its arrays.
+     character(fname_length)          :: paramfile          !> The name of the configuration file.
+     integer                          :: ice_tstep          !> Ice timestep in hours
+     integer                          :: mbal_tstep         !> Mass-balance timestep in hours
+     integer                          :: mbal_accum_time    !> Accumulation time for mass-balance (hours)
+                                                            !> (defaults to ice time-step)
+     integer                          :: ice_tstep_multiply=1 !> Ice time multiplier (non-dimensional)
+     integer                          :: n_icetstep         !> Number of ice time-steps per mass-balance accumulation
+     real(dp)                         :: glide_time         !> Time as seen by glide (years)
+     integer                          :: next_time          !> The next time we expect to be called (hours)
 
      ! Climate inputs from global model --------------------------
 
-     real(dp),dimension(:,:),pointer :: artm        => null() !*FD Annual mean air temperature
-     real(dp),dimension(:,:),pointer :: arng        => null() !*FD Annual air temperature half-range
-     real(dp),dimension(:,:),pointer :: prcp        => null() !*FD Precipitation (mm or m)
-     real(dp),dimension(:,:),pointer :: snowd       => null() !*FD Snow depth (m)
-     real(dp),dimension(:,:),pointer :: siced       => null() !*FD Superimposed ice depth (m)
-     real(dp),dimension(:,:),pointer :: xwind       => null() !*FD $x$-component of surface winds (m/s)
-     real(dp),dimension(:,:),pointer :: ywind       => null() !*FD $y$-component of surface winds (m/s)
-     real(dp),dimension(:,:),pointer :: humid       => null() !*FD Surface humidity (%)
-     real(dp),dimension(:,:),pointer :: lwdown      => null() !*FD Downwelling longwave (W/m^2)
-     real(dp),dimension(:,:),pointer :: swdown      => null() !*FD Downwelling shortwave (W/m^2)
-     real(dp),dimension(:,:),pointer :: airpress    => null() !*FD Surface air pressure (Pa)
-     real(dp),dimension(:,:),pointer :: global_orog => null() !*FD Global orography (m)
-     real(dp),dimension(:,:),pointer :: local_orog  => null() !*FD Local orography (m)
+     real(dp),dimension(:,:),pointer :: artm        => null() !> Annual mean air temperature
+     real(dp),dimension(:,:),pointer :: arng        => null() !> Annual air temperature half-range
+     real(dp),dimension(:,:),pointer :: prcp        => null() !> Precipitation (mm or m)
+     real(dp),dimension(:,:),pointer :: snowd       => null() !> Snow depth (m)
+     real(dp),dimension(:,:),pointer :: siced       => null() !> Superimposed ice depth (m)
+     real(dp),dimension(:,:),pointer :: xwind       => null() !> $x$-component of surface winds (m/s)
+     real(dp),dimension(:,:),pointer :: ywind       => null() !> $y$-component of surface winds (m/s)
+     real(dp),dimension(:,:),pointer :: humid       => null() !> Surface humidity (%)
+     real(dp),dimension(:,:),pointer :: lwdown      => null() !> Downwelling longwave (W/m^2)
+     real(dp),dimension(:,:),pointer :: swdown      => null() !> Downwelling shortwave (W/m^2)
+     real(dp),dimension(:,:),pointer :: airpress    => null() !> Surface air pressure (Pa)
+     real(dp),dimension(:,:),pointer :: global_orog => null() !> Global orography (m)
+     real(dp),dimension(:,:),pointer :: local_orog  => null() !> Local orography (m)
 
      ! Locally calculated climate/mass-balance fields ------------
 
-     real(dp),dimension(:,:),pointer :: ablt => null() !*FD Annual ablation (m/y water equiv)
-     real(dp),dimension(:,:),pointer :: acab => null() !*FD Annual mass balance (m/y water equiv)
+     real(dp),dimension(:,:),pointer :: ablt => null() !> Annual ablation (m/y water equiv)
+     real(dp),dimension(:,:),pointer :: acab => null() !> Annual mass balance (m/y water equiv)
 
      ! Arrays to accumulate mass-balance quantities --------------
 
@@ -130,73 +127,65 @@ module glint_type
      ! Fractional coverage information ---------------------------
 
      real(dp) ,dimension(:,:),pointer :: frac_coverage => null() 
-     !*FD Fractional coverage of each global gridbox by the projected grid.
-     !*FD (ONLY VALID ON MAIN TASK)
+     !> Fractional coverage of each global gridbox by the projected grid.
+     !> (ONLY VALID ON MAIN TASK)
 
      real(dp) ,dimension(:,:),pointer :: frac_cov_orog => null() 
-     !*FD Fractional coverage of each global gridbox by the projected grid (orography).
-     !*FD (ONLY VALID ON MAIN TASK)
+     !> Fractional coverage of each global gridbox by the projected grid (orography).
+     !> (ONLY VALID ON MAIN TASK)
 
      ! Output masking --------------------------------------------
 
      integer, dimension(:,:),pointer :: out_mask => null() 
 
-     !*FD Array indicating whether a point should be considered or ignored 
-     !*FD when upscaling data for output. 1 means use, 0 means ignore.
+     !> Array indicating whether a point should be considered or ignored 
+     !> when upscaling data for output. 1 means use, 0 means ignore.
 
      ! Climate options -------------------------------------------
 
      integer :: evolve_ice = 1
 
-     !*FD Whether the ice sheet can evolve:
-     !*FD \begin{description}
-     !*FD \item[0] The ice sheet cannot evolve; hold fixed at initial state
-     !*FD \item[1] The ice sheet can evolve
+     !> Whether the ice sheet can evolve:
+     !> \begin{description}
+     !> \item[0] The ice sheet cannot evolve; hold fixed at initial state
+     !> \item[1] The ice sheet can evolve
 
      integer :: whichacab = 1
      
      logical :: test_coupling = .false.
 
-     !*FD Which mass-balance scheme: 
-     !*FD \begin{description}
-     !*FD \item[0] Receive surface mass balance from climate model
-     !*FD \item[1] PDD mass-balance model
-     !*FD \item[2] Accumulation only 
-     !*FD \item[3] RAPID energy balance model
-     !*FD \item[4] daily PDD mass-balance model
-     !*FD \end{description}
+     !> Which mass-balance scheme: 
+     !> \begin{description}
+     !> \item[0] Receive surface mass balance from climate model
+     !> \item[1] PDD mass-balance model
+     !> \item[2] Accumulation only 
+     !> \item[3] RAPID energy balance model
+     !> \item[4] daily PDD mass-balance model
+     !> \end{description}
 
      integer :: whichprecip = 1
 
-     !*FD Source of precipitation:
-     !*FD \begin{description}
-     !*FD \item[1] Use large-scale precip as is
-     !*FD \item[2] Use parameterization of Roe and Lindzen
-     !*FD \end{description}
+     !> Source of precipitation:
+     !> \begin{description}
+     !> \item[1] Use large-scale precip as is
+     !> \item[2] Use parameterization of Roe and Lindzen
+     !> \end{description}
 
      integer :: use_mpint = 0
    
-     !*FD Flag to control if mean-preserving interpolation is used
-
-     integer :: zero_gcm_fluxes = ZERO_GCM_FLUXES_FALSE
-     
-     !*FD Whether to zero out the fluxes (e.g., calving flux) sent to the GCM
-     !*FD \begin{description}
-     !*FD \item[0] send true fluxes to the GCM
-     !*FD \item[1] zero out all fluxes sent to the GCM
-     !*FD \end{description}
+     !> Flag to control if mean-preserving interpolation is used
 
      ! Climate parameters ----------------------------------------------------------
 
-     real(dp) :: ice_albedo   =   0.4d0 !*FD Ice albedo. (fraction)
-     real(dp) :: lapse_rate   =   8.d0  !*FD Uniform lapse rate in deg C/km 
-     !*FD (N.B. This should be \emph{positive} for temperature falling with height!)
-     real(dp) :: data_lapse_rate = 8.d0 !*FD Implied lapse rate in large-scale data (used for
-                                        !*FD tuning). Set equal to lapse\_rate if not supplied.
+     real(dp) :: ice_albedo   =   0.4d0 !> Ice albedo. (fraction)
+     real(dp) :: lapse_rate   =   8.d0  !> Uniform lapse rate in deg C/km 
+     !> (N.B. This should be \emph{positive} for temperature falling with height!)
+     real(dp) :: data_lapse_rate = 8.d0 !> Implied lapse rate in large-scale data (used for
+                                        !> tuning). Set equal to lapse\_rate if not supplied.
 
      ! Counter for averaging temperature input --------------------------------------
 
-     integer  :: av_count = 0 !*FD Counter for averaging temperature input
+     integer  :: av_count = 0 !> Counter for averaging temperature input
 
      !WHL - added these for upscaling
      ! Counters and fields for averaging dycore output
@@ -209,29 +198,29 @@ module glint_type
 
      ! Pointers to file input and output
 
-     type(glimmer_nc_output),pointer :: out_first => null() !*FD first element of linked list defining netCDF outputs
-     type(glimmer_nc_input), pointer :: in_first => null()  !*FD first element of linked list defining netCDF inputs
+     type(glimmer_nc_output),pointer :: out_first => null() !> first element of linked list defining netCDF outputs
+     type(glimmer_nc_input), pointer :: in_first => null()  !> first element of linked list defining netCDF inputs
 
   end type glint_instance
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   type output_flags
-     !*FD A derived type used internally to communicate the outputs which need
-     !*FD to be upscaled, thus avoiding unnecessary calculation
+     !> A derived type used internally to communicate the outputs which need
+     !> to be upscaled, thus avoiding unnecessary calculation
 
-     logical :: orog         !*FD Set if we need to upscale the orography
-     logical :: albedo       !*FD Set if we need to upscale the albedo
-     logical :: ice_frac     !*FD Set if we need to upscale the ice fraction
-     logical :: veg_frac     !*FD Set if we need to upscale the veg fraction
-     logical :: snowice_frac !*FD Set if we need to upscale the snow-covered ice fraction
-     logical :: snowveg_frac !*FD Set if we need to upscale the snow-covered veg fraction
-     logical :: snow_depth   !*FD Set if we need to upscale the snow depth
-     logical :: water_in     !*FD Set if we need to upscale the input water flux
-     logical :: water_out    !*FD Set if we need to upscale the output water flux
-     logical :: total_win    !*FD Set if we need to sum the total water taken up by ice sheet
-     logical :: total_wout   !*FD Set if we need to sum the total ablation by the ice sheet
-     logical :: ice_vol      !*FD Set if we need to calculate the total ice volume
+     logical :: orog         !> Set if we need to upscale the orography
+     logical :: albedo       !> Set if we need to upscale the albedo
+     logical :: ice_frac     !> Set if we need to upscale the ice fraction
+     logical :: veg_frac     !> Set if we need to upscale the veg fraction
+     logical :: snowice_frac !> Set if we need to upscale the snow-covered ice fraction
+     logical :: snowveg_frac !> Set if we need to upscale the snow-covered veg fraction
+     logical :: snow_depth   !> Set if we need to upscale the snow depth
+     logical :: water_in     !> Set if we need to upscale the input water flux
+     logical :: water_out    !> Set if we need to upscale the output water flux
+     logical :: total_win    !> Set if we need to sum the total water taken up by ice sheet
+     logical :: total_wout   !> Set if we need to sum the total ablation by the ice sheet
+     logical :: ice_vol      !> Set if we need to calculate the total ice volume
   end type output_flags
 
 
@@ -248,15 +237,15 @@ contains
 
   subroutine glint_i_allocate(instance,nxg,nyg,nxgo,nygo)
 
-    !*FD Allocate top-level arrays in the model instance, and ice model arrays.
+    !> Allocate top-level arrays in the model instance, and ice model arrays.
 
     implicit none
 
-    type(glint_instance),intent(inout) :: instance  !*FD Instance whose elements are to be allocated.
-    integer,             intent(in)    :: nxg       !*FD Longitudinal size of global grid (grid-points).
-    integer,             intent(in)    :: nyg       !*FD Latitudinal size of global grid (grid-points).
-    integer,             intent(in)    :: nxgo      !*FD Longitudinal size of global orog grid (grid-points).
-    integer,             intent(in)    :: nygo      !*FD Latitudinal size of global orog grid (grid-points).
+    type(glint_instance),intent(inout) :: instance  !> Instance whose elements are to be allocated.
+    integer,             intent(in)    :: nxg       !> Longitudinal size of global grid (grid-points).
+    integer,             intent(in)    :: nyg       !> Latitudinal size of global grid (grid-points).
+    integer,             intent(in)    :: nxgo      !> Longitudinal size of global orog grid (grid-points).
+    integer,             intent(in)    :: nygo      !> Latitudinal size of global orog grid (grid-points).
 
     integer ewn,nsn
 
@@ -335,9 +324,9 @@ contains
 
     implicit none
 
-    type(glint_instance),intent(inout) :: instance  !*FD Instance whose elements are to be allocated.
-    integer,             intent(in)    :: nxg       !*FD Longitudinal size of global grid (grid-points).
-    integer,             intent(in)    :: nyg       !*FD Latitudinal size of global grid (grid-points).
+    type(glint_instance),intent(inout) :: instance  !> Instance whose elements are to be allocated.
+    integer,             intent(in)    :: nxg       !> Longitudinal size of global grid (grid-points).
+    integer,             intent(in)    :: nyg       !> Latitudinal size of global grid (grid-points).
 
     integer :: ewn,nsn    ! dimensions of local grid
 
@@ -378,7 +367,7 @@ contains
 
   subroutine glint_i_readconfig(instance,config)
 
-    !*FD read glint configuration
+    !> read glint configuration
 
     use glimmer_config
     use glimmer_log
@@ -388,8 +377,8 @@ contains
 
     ! Arguments
 
-    type(ConfigSection), pointer       :: config      !*FD structure holding sections of configuration file   
-    type(glint_instance),intent(inout) :: instance    !*FD The instance being initialised.
+    type(ConfigSection), pointer       :: config      !> structure holding sections of configuration file   
+    type(glint_instance),intent(inout) :: instance    !> The instance being initialised.
 
     ! Internals
 
@@ -411,7 +400,6 @@ contains
        call GetValue(section,'mbal_accum_time',mbal_time_temp)
        call GetValue(section,'ice_tstep_multiply',instance%ice_tstep_multiply)
        call GetValue(section,'mean_preserving',instance%use_mpint)
-       call GetValue(section,'zero_gcm_fluxes',instance%zero_gcm_fluxes)
     end if
 
     if (mbal_time_temp > 0.0) then
@@ -428,15 +416,15 @@ contains
   
   subroutine glint_nc_readparams(instance,config)
 
-    !*FD read netCDF I/O related configuration file
-    !*FD based on glimmer_ncparams
+    !> read netCDF I/O related configuration file
+    !> based on glimmer_ncparams
 
     use glimmer_config
     use glimmer_ncparams, only: handle_output, handle_input, configstring
     implicit none
 
-    type(glint_instance)         :: instance  !*FD GLINT instance
-    type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file
+    type(glint_instance)         :: instance  !> GLINT instance
+    type(ConfigSection), pointer :: config !> structure holding sections of configuration file
     
     ! local variables
     type(ConfigSection), pointer :: section
@@ -484,7 +472,7 @@ contains
 
     ! Argument
 
-    type(glint_instance),intent(inout) :: instance    !*FD The instance to be printed
+    type(glint_instance),intent(inout) :: instance    !> The instance to be printed
 
     ! Internal
 
@@ -514,7 +502,8 @@ contains
 
        !TODO - Get the PDD scheme to work on multiple processors?
        if (tasks > 1) then
-          call write_log('GLINT: Must use GCM mass balance option to run on more than one processor', GM_FATAL)
+          write(message,*) 
+          call write_log('GLINT: Must use GCM mass balance option if running on more than one processor', GM_FATAL)
        endif
 
        write(message,*) 'ice_albedo  ',instance%ice_albedo
@@ -546,9 +535,6 @@ contains
        write(message,*) 'Unrecognised value of instance%use_mpint'
        call write_log(message,GM_FATAL)
     end select
-
-    write(message,*) 'zero_gcm_fluxes: ', instance%zero_gcm_fluxes
-    call write_log(message)
 
   end subroutine glint_i_printconfig
 

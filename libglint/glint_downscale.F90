@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_downscale.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_downscale.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -60,19 +60,19 @@ contains
 
     use glint_interp
 
-    !*FD Downscale global input fields to the local ice sheet grid
+    !> Downscale global input fields to the local ice sheet grid
 
     type(glint_instance) :: instance
-    real(dp),dimension(:,:),intent(in)   :: g_temp       !*FD Global mean surface temperature field ($^{\circ}$C)
-    real(dp),dimension(:,:),intent(in)   :: g_temp_range !*FD Global surface temperature half-range field ($^{\circ}$C)
-    real(dp),dimension(:,:),intent(in)   :: g_precip     !*FD Global precip field total (mm)
-    real(dp),dimension(:,:),intent(in)   :: g_orog       !*FD Input global orography (m)
-    real(dp),dimension(:,:),intent(in)   :: g_zonwind    !*FD Global mean surface zonal wind (m/s)
-    real(dp),dimension(:,:),intent(in)   :: g_merwind    !*FD Global mean surface meridonal wind (m/s)
-    real(dp),dimension(:,:),intent(in)   :: g_humid      !*FD Global surface humidity (%)
-    real(dp),dimension(:,:),intent(in)   :: g_lwdown     !*FD Global downwelling longwave (W/m^2)
-    real(dp),dimension(:,:),intent(in)   :: g_swdown     !*FD Global downwelling shortwave (W/m^2)
-    real(dp),dimension(:,:),intent(in)   :: g_airpress   !*FD Global surface air pressure (Pa)
+    real(dp),dimension(:,:),intent(in)   :: g_temp       !> Global mean surface temperature field ($^{\circ}$C)
+    real(dp),dimension(:,:),intent(in)   :: g_temp_range !> Global surface temperature half-range field ($^{\circ}$C)
+    real(dp),dimension(:,:),intent(in)   :: g_precip     !> Global precip field total (mm)
+    real(dp),dimension(:,:),intent(in)   :: g_orog       !> Input global orography (m)
+    real(dp),dimension(:,:),intent(in)   :: g_zonwind    !> Global mean surface zonal wind (m/s)
+    real(dp),dimension(:,:),intent(in)   :: g_merwind    !> Global mean surface meridonal wind (m/s)
+    real(dp),dimension(:,:),intent(in)   :: g_humid      !> Global surface humidity (%)
+    real(dp),dimension(:,:),intent(in)   :: g_lwdown     !> Global downwelling longwave (W/m^2)
+    real(dp),dimension(:,:),intent(in)   :: g_swdown     !> Global downwelling shortwave (W/m^2)
+    real(dp),dimension(:,:),intent(in)   :: g_airpress   !> Global surface air pressure (Pa)
     logical,                intent(in)   :: orogflag
 
     call interp_to_local(instance%lgrid_fulldomain, g_temp,       instance%downs, localdp=instance%artm)
@@ -242,7 +242,8 @@ contains
        enddo ! i
     enddo ! j
 
-    if (GLC_DEBUG .and. main_task) then
+!WHL - debug
+    if (main_task) then
        print*, 'glint_downscaling_gcm, max/min qsmb_g, this_rank =', this_rank
        do n = 0, nec
           print*, n, maxval(qsmb_g(:,:,n)), minval(qsmb_g(:,:,n))
@@ -255,6 +256,7 @@ contains
        print*, ' '
        print*, 'glint_downscaling_gcm, this_rank, max/min acab:', this_rank, maxval(instance%acab), minval(instance%acab)
     endif
+!WHL - end debug
 
     deallocate(qsmb_l, tsfc_l, topo_l)
     
@@ -344,9 +346,9 @@ contains
     use glint_constants, only: hours2years
 
     type(glint_mbc)  :: params
-    integer,                intent(in)    :: dt     !*FD mbal accumulation time (hours)
-    real(dp),dimension(:,:),intent(out)   :: artm   !*FD Mean air temperature (degC)
-    real(dp),dimension(:,:),intent(out)   :: acab   !*FD Mass-balance (m/yr)
+    integer,                intent(in)    :: dt     !> mbal accumulation time (hours)
+    real(dp),dimension(:,:),intent(out)   :: artm   !> Mean air temperature (degC)
+    real(dp),dimension(:,:),intent(out)   :: acab   !> Mass-balance (m/yr)
 
     if (.not. params%new_accum) then
        params%artm_save = params%artm_save / real(params%av_count,dp)

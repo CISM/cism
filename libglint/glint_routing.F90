@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_routing.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_routing.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -41,18 +41,18 @@ contains
 
   subroutine flow_router(surface,input,output,mask,dx,dy)
 
-    !*FD Routes water from input field to its destination, 
-    !*FD according to a surface elevation field. The method used 
-    !*FD is by Quinn et. al. (1991)
+    ! Routes water from input field to its destination, 
+    ! according to a surface elevation field. The method used 
+    ! is by Quinn et. al. (1991)
 
     !NOTE: This subroutine will *not* work for multiple tasks.
 
-    real(dp),dimension(:,:),intent(in)  :: surface !*FD Surface elevation
-    real(dp),dimension(:,:),intent(in)  :: input   !*FD Input water field
-    real(dp),dimension(:,:),intent(out) :: output  !*FD Output water field
-    integer, dimension(:,:),intent(in)  :: mask    !*FD Masked points
-    real(dp),               intent(in)  :: dx      !*FD $x$ grid-length
-    real(dp),               intent(in)  :: dy      !*FD $y$ grid-length
+    real(dp),dimension(:,:),intent(in)  :: surface ! Surface elevation
+    real(dp),dimension(:,:),intent(in)  :: input   ! Input water field
+    real(dp),dimension(:,:),intent(out) :: output  ! Output water field
+    integer, dimension(:,:),intent(in)  :: mask    ! Masked points
+    real(dp),               intent(in)  :: dx      ! $x$ grid-length
+    real(dp),               intent(in)  :: dy      ! $y$ grid-length
 
     ! Internal variables --------------------------------------
 
@@ -287,17 +287,17 @@ contains
 
     use glimmer_log
 
-    !*FD Performs an index sort of \texttt{array} and returns the result in
-    !*FD \texttt{index}. The order of elements in \texttt{array} is unchanged.
-    !*FD
-    !*FD This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
-    !*FD It is not derived from any NR code, but are based on a quicksort routine by
-    !*FD Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
-    !*FD in C, and issued under the GNU General Public License. The conversion to 
-    !*FD Fortran 90, and modification to do an index sort was done by Ian Rutt.
+    ! Performs an index sort of \texttt{array} and returns the result in
+    ! \texttt{index}. The order of elements in \texttt{array} is unchanged.
+    !
+    ! This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
+    ! It is not derived from any NR code, but are based on a quicksort routine by
+    ! Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
+    ! in C, and issued under the GNU General Public License. The conversion to 
+    ! Fortran 90, and modification to do an index sort was done by Ian Rutt.
 
-    real(dp),dimension(:), pointer :: array !*FD Array to be indexed.
-    integer, dimension(:), pointer :: index !*FD Index of elements of \texttt{array}.
+    real(dp),dimension(:), pointer :: array ! Array to be indexed.
+    integer, dimension(:), pointer :: index ! Index of elements of \texttt{array}.
     integer :: i
 
     if (size(array) /= size(index)) then
@@ -316,19 +316,19 @@ contains
 
   recursive subroutine q_sort_index(numbers,index,left,right)
 
-    !*FD This is the recursive subroutine actually used by \texttt{indexx}. 
-    !*FD
-    !*FD This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
-    !*FD It is not derived from any NR code, but are based on a quicksort routine by
-    !*FD Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
-    !*FD in C, and issued under the GNU General Public License. The conversion to 
-    !*FD Fortran 90, and modification to do an index sort was done by Ian Rutt.
+    ! This is the recursive subroutine actually used by \texttt{indexx}. 
+    !
+    ! This is a GPL-licenced replacement for the Numerical Recipes routine indexx. 
+    ! It is not derived from any NR code, but are based on a quicksort routine by
+    ! Michael Lamont (http://linux.wku.edu/~lamonml/kb.html), originally written
+    ! in C, and issued under the GNU General Public License. The conversion to 
+    ! Fortran 90, and modification to do an index sort was done by Ian Rutt.
 
     implicit none
 
-    real(dp),dimension(:), pointer :: numbers !*FD Numbers being sorted
-    integer, dimension(:), pointer :: index   !*FD Returned index
-    integer :: left, right           !*FD Limit of sort region
+    real(dp),dimension(:), pointer :: numbers ! Numbers being sorted
+    integer, dimension(:), pointer :: index   ! Returned index
+    integer :: left, right           ! Limit of sort region
 
     integer :: ll,rr
     integer :: pv_int,l_hold, r_hold,pivpos

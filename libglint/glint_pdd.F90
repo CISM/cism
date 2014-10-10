@@ -1,27 +1,27 @@
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_pdd.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_pdd.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -31,18 +31,18 @@
 
 module glint_pdd
 
-  !*FD The Glint annual poe degree day mass-balance scheme.
-  !*FD Based on the original pdd mass-balance code from Tony's model.
-  !*FD 
-  !*FD {\bf N.B.} the module variables in this module are used for back-door 
-  !*FD message passing, to make the integration of the PDD table look more 
-  !*FD comprehensible, and avoid the need to have two customised copies of 
-  !*FD the integration code.
-  !*FD
-  !*FD Note also that this code now deals in {\it unscaled} variables.
-  !*FD 
-  !*FD All precip and mass-balance amounts are as meters of water equivalent. PDD
-  !*FD factors are no longer converted in the code.
+  ! The Glint annual poe degree day mass-balance scheme.
+  ! Based on the original pdd mass-balance code from Tony's model.
+  ! 
+  ! {\bf N.B.} the module variables in this module are used for back-door 
+  ! message passing, to make the integration of the PDD table look more 
+  ! comprehensible, and avoid the need to have two customised copies of 
+  ! the integration code.
+  !
+  ! Note also that this code now deals in {\it unscaled} variables.
+  ! 
+  ! All precip and mass-balance amounts are as meters of water equivalent. PDD
+  ! factors are no longer converted in the code.
 
   use glimmer_global, only : dp
 
@@ -52,45 +52,45 @@ module glint_pdd
 
   type glint_pdd_params
 
-    !*FD Holds parameters for positive-degree-day mass-balance
-    !*FD calculation. The table has two axes - the $x$ axis is the
-    !*FD difference between mean annual and July temps, while the
-    !*FD $y$- axis is the mean annual temp
+    ! Holds parameters for positive-degree-day mass-balance
+    ! calculation. The table has two axes - the $x$ axis is the
+    ! difference between mean annual and July temps, while the
+    ! $y$- axis is the mean annual temp
 
-    integer  :: dx        = 1   !*FD Spacing of values in x-direction ($^{\circ}$C)
-    integer  :: dy        = 1   !*FD Spacing of values in y-direction ($^{\circ}$C)
-    integer  :: ix        = 0   !*FD Lower bound of $x$-axis ($^{\circ}$C)
-    integer  :: iy        = -50 !*FD Lower bound of $y$-axis ($^{\circ}$C)
-    integer  :: nx        = 31  !*FD Number of values in x-direction
-    integer  :: ny        = 71  !*FD Number of values in y-direction
+    integer  :: dx        = 1   ! Spacing of values in x-direction ($^{\circ}$C)
+    integer  :: dy        = 1   ! Spacing of values in y-direction ($^{\circ}$C)
+    integer  :: ix        = 0   ! Lower bound of $x$-axis ($^{\circ}$C)
+    integer  :: iy        = -50 ! Lower bound of $y$-axis ($^{\circ}$C)
+    integer  :: nx        = 31  ! Number of values in x-direction
+    integer  :: ny        = 71  ! Number of values in y-direction
     real(dp) :: dailytemp = 0.d0 
     real(dp) :: tma       = 0.d0
     real(dp) :: tmj       = 0.d0
     real(dp) :: dtmj      = 0.d0
-    real(dp) :: dd_sigma  = 5.d0 !*FD Standard deviation of daily temperature (K)
+    real(dp) :: dd_sigma  = 5.d0 ! Standard deviation of daily temperature (K)
  
     ! The actual PDD table ---------------------------------------------
 
     real(dp),dimension(:,:),pointer :: pddtab  => null() 
     
-    !*FD PDD table - must be allocated with dimensions nx,ny.
+    ! PDD table - must be allocated with dimensions nx,ny.
 
     ! Parameters for the PDD calculation
 
-    real(dp) :: wmax        = 0.6d0    !*FD Fraction of melted snow that refreezes
-!WHL real(dp) :: pddfac_ice  = 0.008   !*FD PDD factor for ice (m water day$^{-1}$ $^{\circ}C$^{-1}$)
-!    real(dp) :: pddfac_snow = 0.003   !*FD PDD factor for snow (m water day$^{-1}$ $^{\circ}C$^{-1}$)
-    real(dp) :: pddfac_ice  = 8.0d-3   !*FD PDD factor for ice (m water day$^{-1}$ $^{\circ}C$^{-1}$)
-    real(dp) :: pddfac_snow = 3.0d-3   !*FD PDD factor for snow (m water day$^{-1}$ $^{\circ}C$^{-1}$)
+    real(dp) :: wmax        = 0.6d0    ! Fraction of melted snow that refreezes
+!WHL real(dp) :: pddfac_ice  = 0.008   ! PDD factor for ice (m water day$^{-1}$ $^{\circ}C$^{-1}$)
+!    real(dp) :: pddfac_snow = 0.003   ! PDD factor for snow (m water day$^{-1}$ $^{\circ}C$^{-1}$)
+    real(dp) :: pddfac_ice  = 8.0d-3   ! PDD factor for ice (m water day$^{-1}$ $^{\circ}C$^{-1}$)
+    real(dp) :: pddfac_snow = 3.0d-3   ! PDD factor for snow (m water day$^{-1}$ $^{\circ}C$^{-1}$)
 
   end type glint_pdd_params
  	 
   ! Module parameters use for back-door message-passing
 
-  real(dp) :: dd_sigma            !*FD The value of $\sigma$ in the PDD integral
-  real(dp) :: t_a_prime           !*FD The value of $T'_{a}$ in the PDD integral
-  real(dp) :: mean_annual_temp    !*FD Mean annual temperature
-  real(dp) :: mean_july_temp      !*FD Mean july temperature
+  real(dp) :: dd_sigma            ! The value of $\sigma$ in the PDD integral
+  real(dp) :: t_a_prime           ! The value of $T'_{a}$ in the PDD integral
+  real(dp) :: mean_annual_temp    ! Mean annual temperature
+  real(dp) :: mean_july_temp      ! Mean july temperature
 
   private
   public :: glint_pdd_params, glint_pdd_init, glint_pdd_mbal
@@ -105,8 +105,8 @@ contains
 
     use glimmer_config
 
-    type(glint_pdd_params),intent(inout) :: params !*FD The positive-degree-day parameters
-    type(ConfigSection), pointer         :: config !*FD structure holding sections of configuration file   
+    type(glint_pdd_params),intent(inout) :: params ! The positive-degree-day parameters
+    type(ConfigSection), pointer         :: config ! structure holding sections of configuration file   
 
     ! Read the config file and output to log
 
@@ -128,20 +128,20 @@ contains
 
   subroutine glint_pdd_mbal(params,artm,arng,prcp,ablt,acab,landsea)
 
-    !*FD Calculates mass-balance over the ice model domain, by the
-    !*FD positive-degree-day method.
+    ! Calculates mass-balance over the ice model domain, by the
+    ! positive-degree-day method.
 
     implicit none 
  
-    type(glint_pdd_params),   intent(inout) :: params  !*FD The positive-degree-day parameters
-    real(dp), dimension(:,:), intent(in)    :: artm    !*FD Annual mean air-temperature 
-                                                       !*FD ($^{\circ}$C)
-    real(dp), dimension(:,:), intent(in)    :: arng    !*FD Annual temperature half-range ($^{\circ}$C)
-    real(dp), dimension(:,:), intent(in)    :: prcp    !*FD Annual accumulated precipitation 
-                                                       !*FD (m water equivalent)
-    real(dp), dimension(:,:), intent(out)   :: ablt    !*FD Annual ablation (m water equivalent)
-    real(dp), dimension(:,:), intent(out)   :: acab    !*FD Annual mass-balance (m water equivalent)
-    logical,  dimension(:,:), intent(in)    :: landsea !*FD Land-sea mask (land is TRUE)
+    type(glint_pdd_params),   intent(inout) :: params  ! The positive-degree-day parameters
+    real(dp), dimension(:,:), intent(in)    :: artm    ! Annual mean air-temperature 
+                                                       ! ($^{\circ}$C)
+    real(dp), dimension(:,:), intent(in)    :: arng    ! Annual temperature half-range ($^{\circ}$C)
+    real(dp), dimension(:,:), intent(in)    :: prcp    ! Annual accumulated precipitation 
+                                                       ! (m water equivalent)
+    real(dp), dimension(:,:), intent(out)   :: ablt    ! Annual ablation (m water equivalent)
+    real(dp), dimension(:,:), intent(out)   :: acab    ! Annual mass-balance (m water equivalent)
+    logical,  dimension(:,:), intent(in)    :: landsea ! Land-sea mask (land is TRUE)
 
     ! Internal variables
 
@@ -255,12 +255,12 @@ contains
 
   subroutine pdd_readconfig(params,config)
 
-    !*FD Reads in configuration data for the annual PDD scheme.
+    ! Reads in configuration data for the annual PDD scheme.
 
     use glimmer_config
 
-    type(glint_pdd_params),intent(inout) :: params !*FD The positive-degree-day parameters
-    type(ConfigSection), pointer         :: config !*FD structure holding sections of configuration file   
+    type(glint_pdd_params),intent(inout) :: params ! The positive-degree-day parameters
+    type(ConfigSection), pointer         :: config ! structure holding sections of configuration file   
 
     ! local variables
     type(ConfigSection), pointer :: section
@@ -287,7 +287,7 @@ contains
 
     use glimmer_log
 
-    type(glint_pdd_params),intent(inout) :: params !*FD The positive-degree-day parameters
+    type(glint_pdd_params),intent(inout) :: params ! The positive-degree-day parameters
     character(len=100) :: message
 
     call write_log_div
@@ -322,7 +322,7 @@ contains
         
   subroutine pddtabgrn(params)
 
-    !*FD Initialises the positive-degree-day-table.
+    ! Initialises the positive-degree-day-table.
 
     use glimmer_global, only: dp
     use glimmer_physcon, only: pi
@@ -331,7 +331,7 @@ contains
 
     implicit none
 
-    type(glint_pdd_params),intent(inout) :: params !*FD PDD parameters
+    type(glint_pdd_params),intent(inout) :: params ! PDD parameters
 
     ! Internal variables
 
@@ -386,16 +386,16 @@ contains
 
   real(dp) function inner_integral(day)
 
-    !*FD Calculates the value of the inner integral, i.e.
-    !*FD \begin{equation}
-    !*FD \int^{T_{a}'+2.5\sigma}_{0}T_{a}\times
-    !*FD \exp\left(\frac{-(T_a-T_{a}')^2}{2\sigma^2}\right)\,dT
-    !*FD \end{equation}
+    ! Calculates the value of the inner integral, i.e.
+    ! \begin{equation}
+    ! \int^{T_{a}'+2.5\sigma}_{0}T_{a}\times
+    ! \exp\left(\frac{-(T_a-T_{a}')^2}{2\sigma^2}\right)\,dT
+    ! \end{equation}
     use glimmer_integrate
 
     implicit none
 
-    real(dp), intent(in) :: day !*FD The `day', in radians, so that a year is $2\pi$ long.
+    real(dp), intent(in) :: day ! The `day', in radians, so that a year is $2\pi$ long.
 
     real(dp) :: upper_limit
 
@@ -415,16 +415,16 @@ contains
         
   real(dp) function pdd_integrand(artm)
 
-    !*FD The expression to be integrated in the calculation of the PDD table. The whole
-    !*FD integral is:
-    !*FD \begin{equation}
-    !*FD D=\frac{1}{\sigma\sqrt{2\pi}}\int^{A}_{0}\int^{T_{a}'+2.5\sigma}_{0}T_{a}\times
-    !*FD \exp\left(\frac{-(T_a-T_{a}')^2}{2\sigma^2}\right)\,dTdt
-    !*FD \end{equation}
+    ! The expression to be integrated in the calculation of the PDD table. The whole
+    ! integral is:
+    ! \begin{equation}
+    ! D=\frac{1}{\sigma\sqrt{2\pi}}\int^{A}_{0}\int^{T_{a}'+2.5\sigma}_{0}T_{a}\times
+    ! \exp\left(\frac{-(T_a-T_{a}')^2}{2\sigma^2}\right)\,dTdt
+    ! \end{equation}
 
     implicit none
 
-    real(dp), intent(in) :: artm      !*FD The annual mean air temperature (degC)
+    real(dp), intent(in) :: artm      ! The annual mean air temperature (degC)
 
      pdd_integrand = artm *  exp(- (artm - t_a_prime)**2 / (2.d0 * dd_sigma**2))
 
@@ -434,20 +434,20 @@ contains
 
   integer function findgrid(rin,init,step)
 
-    !*FD Calculates which row or column of the pdd table corresponds
-    !*FD to a given value on the appropriate axis, so that:
-    !*FD \[
-    !*FD \mathtt{findgrid}=\frac{\mathtt{rin}-\mathtt{init}}{\mathtt{step}+1}
-    !*FD \] 
+    ! Calculates which row or column of the pdd table corresponds
+    ! to a given value on the appropriate axis, so that:
+    ! \[
+    ! \mathtt{findgrid}=\frac{\mathtt{rin}-\mathtt{init}}{\mathtt{step}+1}
+    ! \] 
     !*RV The relevant array index.
 
     use glimmer_global, only : dp
     
     implicit none
     
-    real(dp), intent(in) :: rin  !*FD Value of axis variable at current point.
-    real(dp), intent(in) :: init !*FD Value of axis variable at first point.
-    real(dp), intent(in) :: step !*FD Grid spacing.
+    real(dp), intent(in) :: rin  ! Value of axis variable at current point.
+    real(dp), intent(in) :: init ! Value of axis variable at first point.
+    real(dp), intent(in) :: step ! Grid spacing.
     
     findgrid = (rin - init) / step + 1
 

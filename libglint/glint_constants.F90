@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_constants.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_constants.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -39,18 +39,18 @@ module glint_constants
   ! global parameters
   ! ------------------------------------------------------------
 
-  real(dp), parameter :: lapse = 0.0065d0          ! atm temperature lapse rate, deg/m
-  real(dp), parameter :: days2hours = 24.d0
-  real(dp), parameter :: hours2seconds = 3600.d0   ! hours to seconds conversion factor
+  real(dp), parameter :: lapse = 0.0065_dp   ! atm lapse rate, deg/m
+  real(dp),parameter :: days2hours = 24.d0
+  real(dp),parameter :: hours2seconds = 3600.d0   !> Hours to seconds conversion factor
 
-  real(dp), parameter :: default_diy = 360.d0                    ! Default number of days in year
-  real(dp), parameter :: default_y2h = days2hours*default_diy    ! Default years to hours conversion
+  real(dp), parameter :: default_diy = 360.d0                    !> Default number of days in year
+  real(dp), parameter :: default_y2h = days2hours*default_diy     !> Default years to hours conversion
 
   ! Constants set at run-time
 
-  integer  :: days_in_year = default_diy        !*FD The number of days in a year  
-  real(dp) :: years2hours = default_y2h        !*FD Years to hours conversion factor
-  real(dp) :: hours2years = 1.d0/default_y2h !*FD Hours to years conversion factor
+  integer  :: days_in_year = default_diy        !> The number of days in a year  
+  real(dp) :: years2hours = default_y2h        !> Years to hours conversion factor
+  real(dp) :: hours2years = 1.d0/default_y2h !> Hours to years conversion factor
 
   private :: default_diy, default_y2h
   

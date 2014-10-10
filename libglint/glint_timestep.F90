@@ -3,27 +3,27 @@
 #endif
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_timestep.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_timestep.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -34,7 +34,7 @@
 #include "glide_mask.inc"
 
 module glint_timestep
-  !*FD timestep of a GLINT instance
+  !> timestep of a GLINT instance
 
   use glint_type
   use glint_constants
@@ -56,9 +56,9 @@ contains
                            ice_vol,         out_f,          &
                            ice_tstep)
 
-    !*FD Performs time-step of an ice model instance. 
-    !*FD Note that input quantities here are accumulated/average totals since the last call.
-    !*FD Global output arrays are only valid on the main task.
+    !> Performs time-step of an ice model instance. 
+    !> Note that input quantities here are accumulated/average totals since the last call.
+    !> Global output arrays are only valid on the main task.
     !
     
     use glimmer_paramets
@@ -82,22 +82,22 @@ contains
     ! Arguments
     ! ------------------------------------------------------------------------  
 
-    integer,                intent(in)   :: time         !*FD Current time in hours
-    type(glint_instance), intent(inout)  :: instance     !*FD Model instance
-    real(dp),dimension(:,:),intent(out)  :: g_orog_out   !*FD Output orography (m)
-    real(dp),dimension(:,:),intent(out)  :: g_albedo     !*FD Output surface albedo 
-    real(dp),dimension(:,:),intent(out)  :: g_ice_frac   !*FD Output ice fraction
-    real(dp),dimension(:,:),intent(out)  :: g_veg_frac   !*FD Output veg fraction
-    real(dp),dimension(:,:),intent(out)  :: g_snowice_frac !*FD Output snow-ice fraction
-    real(dp),dimension(:,:),intent(out)  :: g_snowveg_frac !*FD Output snow-veg fraction
-    real(dp),dimension(:,:),intent(out)  :: g_snow_depth !*FD Output snow depth (m)
-    real(dp),dimension(:,:),intent(out)  :: g_water_in   !*FD Input water flux (m)
-    real(dp),dimension(:,:),intent(out)  :: g_water_out  !*FD Output water flux (m)
-    real(dp),               intent(out)  :: t_win        !*FD Total water input (kg)
-    real(dp),               intent(out)  :: t_wout       !*FD Total water output (kg)
-    real(dp),               intent(out)  :: ice_vol      !*FD Output ice volume (m$^3$)
-    type(output_flags),     intent(in)   :: out_f        !*FD Flags to tell us whether to do output   
-    logical,                intent(out)  :: ice_tstep    !*FD Set if we have done an ice time step
+    integer,                intent(in)   :: time         !> Current time in hours
+    type(glint_instance), intent(inout)  :: instance     !> Model instance
+    real(dp),dimension(:,:),intent(out)  :: g_orog_out   !> Output orography (m)
+    real(dp),dimension(:,:),intent(out)  :: g_albedo     !> Output surface albedo 
+    real(dp),dimension(:,:),intent(out)  :: g_ice_frac   !> Output ice fraction
+    real(dp),dimension(:,:),intent(out)  :: g_veg_frac   !> Output veg fraction
+    real(dp),dimension(:,:),intent(out)  :: g_snowice_frac !> Output snow-ice fraction
+    real(dp),dimension(:,:),intent(out)  :: g_snowveg_frac !> Output snow-veg fraction
+    real(dp),dimension(:,:),intent(out)  :: g_snow_depth !> Output snow depth (m)
+    real(dp),dimension(:,:),intent(out)  :: g_water_in   !> Input water flux (m)
+    real(dp),dimension(:,:),intent(out)  :: g_water_out  !> Output water flux (m)
+    real(dp),               intent(out)  :: t_win        !> Total water input (kg)
+    real(dp),               intent(out)  :: t_wout       !> Total water output (kg)
+    real(dp),               intent(out)  :: ice_vol      !> Output ice volume (m$^3$)
+    type(output_flags),     intent(in)   :: out_f        !> Flags to tell us whether to do output   
+    logical,                intent(out)  :: ice_tstep    !> Set if we have done an ice time step
 
     ! ------------------------------------------------------------------------  
     ! Internal variables
@@ -182,6 +182,10 @@ contains
 
        if (instance%mbal_accum_time < instance%ice_tstep) then 
           instance%next_time = instance%next_time + instance%ice_tstep - instance%mbal_tstep
+
+          !WHL - debug
+          print*, 'Adjust next_time:', instance%next_time
+
        end if
 
        ice_tstep = .true.
@@ -526,6 +530,9 @@ contains
 
     integer :: i, j, k, nx, ny, il, jl, ig, jg
 
+!WHL - debug
+    print*, 'In glint_i_tstep_gcm, this_rank =', this_rank
+
     ice_tstep = .false.
 
     call coordsystem_allocate(instance%lgrid, thck_temp)
@@ -568,6 +575,10 @@ contains
        write(stdout,*) 'n_icetstep =', instance%n_icetstep
     end if
 
+
+!WHL - debug
+    print*, 'Begin ice timestep'
+
     ! ------------------------------------------------------------------------  
     ! ICE TIMESTEP begins HERE ***********************************************
     ! ------------------------------------------------------------------------  
@@ -585,6 +596,9 @@ contains
        ! ---------------------------------------------------------------------
 
        do i = 1, instance%n_icetstep
+
+!WHL - debug
+    print*, 'Take a step, i =', i
 
           if (GLC_DEBUG .and. main_task) then
              write (stdout,*) 'Ice sheet timestep, iteration =', i
@@ -663,11 +677,17 @@ contains
 
              else   ! glam/glissade dycore
 
+!WHL - debug
+    print*, 'call glissade_tstep'
+
                 call glissade_tstep(instance%model, instance%glide_time)
 
              endif
 
           endif  ! evolve_ice
+
+!WHL - debug
+    print*, 'write diagnostics'
 
           ! write ice sheet diagnostics at specified interval (model%numerics%dt_diag)
 
@@ -692,6 +712,9 @@ contains
        end do   ! instance%n_icetstep
 
     end if   ! time - instance%mbal_accum%start_time + instance%mbal_tstep == instance%mbal_accum_time
+
+!WHL - debug
+    print*, 'output instantaneous values'
 
     ! Output instantaneous values
 
@@ -724,8 +747,8 @@ contains
     use glimmer_log
     use parallel, only : tasks
 
-    real(dp),dimension(:,:),intent(inout) :: orog !*FD Orography --- used for input and output
-    integer,                intent(in)    :: x,y  !*FD Location of starting point (index)
+    real(dp),dimension(:,:),intent(inout) :: orog !> Orography --- used for input and output
+    integer,                intent(in)    :: x,y  !> Location of starting point (index)
 
     integer :: nx,ny
 
@@ -749,11 +772,11 @@ contains
 
   recursive subroutine glint_find_bath(orog,x,y,nx,ny)
 
-    !*FD Recursive subroutine called by {\tt glimmer\_remove\_bath}.
+    !> Recursive subroutine called by {\tt glimmer\_remove\_bath}.
 
-    real(dp),dimension(:,:),intent(inout) :: orog  !*FD Orography --- used for input and output
-    integer,                intent(in)    :: x,y   !*FD Starting point
-    integer,                intent(in)    :: nx,ny !*FD Size of array {\tt orography}
+    real(dp),dimension(:,:),intent(inout) :: orog  !> Orography --- used for input and output
+    integer,                intent(in)    :: x,y   !> Starting point
+    integer,                intent(in)    :: nx,ny !> Size of array {\tt orography}
 
     integer,dimension(4) :: xi = (/ -1,1,0,0 /)
     integer,dimension(4) :: yi = (/ 0,0,-1,1 /)
@@ -774,22 +797,24 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!WHL - This used to be called glint_lapserate_dp
+
   subroutine glint_lapserate(temp,topo,lr)
 
-    !*FD Corrects the temperature field
-    !*FD for height, using a constant lapse rate.
-    !*FD
-    !*FD This is the double-precision version, aliased as \texttt{glimmer\_lapserate}.
+    !> Corrects the temperature field
+    !> for height, using a constant lapse rate.
+    !>
+    !> This is the double-precision version, aliased as \texttt{glimmer\_lapserate}.
 
     implicit none
 
-    real(dp),dimension(:,:), intent(inout) :: temp !*FD temperature at sea-level in $^{\circ}$C
-                                                   !*FD used for input and output
-    real(dp),dimension(:,:), intent(in)    :: topo !*FD topography field (m above msl)
-    real(dp),                intent(in)    :: lr   !*FD Lapse rate ($^{\circ}\mathrm{C\,km}^{-1}$).
-                                                   !*FD
-                                                   !*FD NB: the lapse rate is positive for 
-                                                   !*FD falling temp with height\ldots
+    real(dp),dimension(:,:), intent(inout) :: temp !> temperature at sea-level in $^{\circ}$C
+                                                   !> used for input and output
+    real(dp),dimension(:,:), intent(in)    :: topo !> topography field (m above msl)
+    real(dp),                intent(in)    :: lr   !> Lapse rate ($^{\circ}\mathrm{C\,km}^{-1}$).
+                                                   !>
+                                                   !> NB: the lapse rate is positive for 
+                                                   !> falling temp with height\ldots
 
     temp = temp-(lr*topo/1000.d0)                  ! The lapse rate calculation.
 
@@ -797,12 +822,16 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!WHL - Removed subroutine glint_lapserate_sp
+
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
   subroutine glint_calc_precip(instance)
 
     use glint_precip_param
     use glimmer_log
 
-    !*FD Process precip if necessary
+    !> Process precip if necessary
 
     type(glint_instance) :: instance
 

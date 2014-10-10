@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_global_grid.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_global_grid.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -43,37 +43,37 @@ module glint_global_grid
 
   type global_grid
 
-     !*FD Contains parameters specifying the global grid configuration.
+     ! Contains parameters specifying the global grid configuration.
 
      ! Dimensions of grid ---------------------------------------
 
-     integer :: nx = 0  !*FD Number of points in the $x$-direction.
-     integer :: ny = 0  !*FD Number of points in the $y$-direction.
-     integer :: nec = 1 !*FD Number of elevation classes
+     integer :: nx = 0  ! Number of points in the $x$-direction.
+     integer :: ny = 0  ! Number of points in the $y$-direction.
+     integer :: nec = 1 ! Number of elevation classes
 
      ! Locations of grid-points ---------------------------------
 
      real(dp),pointer,dimension(:) :: lats      => null() 
-     !*FD Latitudinal locations of data-points in global fields (degrees)
+     ! Latitudinal locations of data-points in global fields (degrees)
      real(dp),pointer,dimension(:) :: lons      => null() 
-     !*FD Longitudinal locations of data-points in global fields (degrees)
+     ! Longitudinal locations of data-points in global fields (degrees)
 
      ! Locations of grid-box boundaries -------------------------
 
      real(dp),pointer,dimension(:) :: lat_bound => null() 
-     !*FD Latitudinal boundaries of data-points in global fields (degrees)
+     ! Latitudinal boundaries of data-points in global fields (degrees)
      real(dp),pointer,dimension(:) :: lon_bound => null() 
-     !*FD Longitudinal boundaries of data-points in global fields (degrees)
+     ! Longitudinal boundaries of data-points in global fields (degrees)
 
      ! Areas of grid-boxes --------------------------------------
 
      real(dp),pointer,dimension(:,:) :: box_areas => null() 
-     !*FD The areas of the grid-boxes (m$^2$). This is a two-dimensional array to take
-     !*FD account of the possibility of a grid irregularly spaced in longitude
+     ! The areas of the grid-boxes (m$^2$). This is a two-dimensional array to take
+     ! account of the possibility of a grid irregularly spaced in longitude
 
      integer,pointer,dimension(:,:) :: mask => null()
-     !*FD This mask = 1 where the global data are valid, = 0 elsewhere
-     !*FD (e.g., over ocean, where the GCM does not compute a surface mass balance)
+     ! This mask = 1 where the global data are valid, = 0 elsewhere
+     ! (e.g., over ocean, where the GCM does not compute a surface mass balance)
 
   end type global_grid
 
@@ -109,17 +109,17 @@ contains
 
     use glimmer_log
 
-    !*FD Initialises a new global grid type
+    ! Initialises a new global grid type
 
-    type(global_grid),              intent(inout) :: grid !*FD The grid to be initialised
-    real(dp),dimension(:),          intent(in)    :: lons !*FD Longitudinal positions of grid-points (degrees)
-    real(dp),dimension(:),          intent(in)    :: lats !*FD Latitudinal positions of grid-points (degrees)
-    real(dp),dimension(:), optional,intent(in)    :: lonb !*FD Longitudinal boundaries of grid-boxes (degrees)
-    real(dp),dimension(:), optional,intent(in)    :: latb !*FD Latitudinal boundaries of grid-boxes (degrees)
-    real(dp),              optional,intent(in)    :: radius  !*FD  The radius of the Earth (m)
-    logical,               optional,intent(in)    :: correct !*FD  Set to correct for boundaries (default is .true.)
-    integer,               optional,intent(in)    :: nec     !*FD  Number of elevation classes    
-    integer,dimension(:,:),optional,intent(in)    :: mask    !*FD  Mask indicating where global data are valid 
+    type(global_grid),              intent(inout) :: grid ! The grid to be initialised
+    real(dp),dimension(:),          intent(in)    :: lons ! Longitudinal positions of grid-points (degrees)
+    real(dp),dimension(:),          intent(in)    :: lats ! Latitudinal positions of grid-points (degrees)
+    real(dp),dimension(:), optional,intent(in)    :: lonb ! Longitudinal boundaries of grid-boxes (degrees)
+    real(dp),dimension(:), optional,intent(in)    :: latb ! Latitudinal boundaries of grid-boxes (degrees)
+    real(dp),              optional,intent(in)    :: radius  !  The radius of the Earth (m)
+    logical,               optional,intent(in)    :: correct !  Set to correct for boundaries (default is .true.)
+    integer,               optional,intent(in)    :: nec     !  Number of elevation classes    
+    integer,dimension(:,:),optional,intent(in)    :: mask    !  Mask indicating where global data are valid 
 
     ! Internal variables
 
@@ -242,10 +242,10 @@ contains
 
   subroutine copy_global_grid(in,out)
 
-    !*FD Copies a global grid type.
+    ! Copies a global grid type.
 
-    type(global_grid),intent(in)  :: in  !*FD Input grid
-    type(global_grid),intent(out) :: out !*FD Output grid
+    type(global_grid),intent(in)  :: in  ! Input grid
+    type(global_grid),intent(out) :: out ! Output grid
 
     ! Copy dimensions
 
@@ -339,16 +339,16 @@ contains
 
   subroutine calc_bounds_lon(lons,lonb,correct)
 
-    !*FD Calculates the longitudinal boundaries between
-    !*FD global grid-boxes. Note that we assume that the boundaries lie 
-    !*FD half-way between the points, although 
-    !*FD this isn't strictly true for a Gaussian grid.
+    ! Calculates the longitudinal boundaries between
+    ! global grid-boxes. Note that we assume that the boundaries lie 
+    ! half-way between the points, although 
+    ! this isn't strictly true for a Gaussian grid.
 
     implicit none
 
-    real(dp),dimension(:),intent(in)  :: lons    !*FD locations of global grid-points (degrees)
-    real(dp),dimension(:),intent(out) :: lonb    !*FD boundaries of grid-boxes (degrees)
-    logical,              intent(in)  :: correct !*FD Set to correct for longitudinal grid boundary
+    real(dp),dimension(:),intent(in)  :: lons    ! locations of global grid-points (degrees)
+    real(dp),dimension(:),intent(out) :: lonb    ! boundaries of grid-boxes (degrees)
+    logical,              intent(in)  :: correct ! Set to correct for longitudinal grid boundary
 
     integer :: nxg,i
 
@@ -369,16 +369,16 @@ contains
 
   subroutine calc_bounds_lat(lat,latb)
 
-    !*FD Calculates the boundaries between
-    !*FD global grid-boxes. Note that we assume that the boundaries lie 
-    !*FD half-way between the 
-    !*FD points, both latitudinally and longitudinally, although 
-    !*FD this isn't strictly true for a Gaussian grid.
+    ! Calculates the boundaries between
+    ! global grid-boxes. Note that we assume that the boundaries lie 
+    ! half-way between the 
+    ! points, both latitudinally and longitudinally, although 
+    ! this isn't strictly true for a Gaussian grid.
 
     implicit none
 
-    real(dp),dimension(:),intent(in)  :: lat  !*FD locations of global grid-points (degrees)
-    real(dp),dimension(:),intent(out) :: latb !*FD boundaries of grid-boxes (degrees)
+    real(dp),dimension(:),intent(in)  :: lat  ! locations of global grid-points (degrees)
+    real(dp),dimension(:),intent(out) :: latb ! boundaries of grid-boxes (degrees)
 
     integer :: nyg,j
 
@@ -403,8 +403,8 @@ contains
 
     use glimmer_log
 
-    !*FD Calculates the mid-point between two longitudes.
-    !*FD \texttt{a} must be west of \texttt{b}.
+    ! Calculates the mid-point between two longitudes.
+    ! \texttt{a} must be west of \texttt{b}.
 
     real(dp),intent(in) :: a,b
     logical :: correct
@@ -442,7 +442,7 @@ contains
 
   real(dp) function sin_deg(a)
 
-    !*FD Calculate sin(a), where a is in degrees
+    ! Calculate sin(a), where a is in degrees
 
     real(dp) :: a
     real(dp) :: aa

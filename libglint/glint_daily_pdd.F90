@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_daily_pdd.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_daily_pdd.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -30,9 +30,9 @@
 
 module glint_daily_pdd
 
-  !*FD The daily PDD model.
-  !*FD N.B. all quantities, inputs and outputs are in m water equivalent.
-  !*FD PDD factors are no longer converted to ice equivalent.
+  ! The daily PDD model.
+  ! N.B. all quantities, inputs and outputs are in m water equivalent.
+  ! PDD factors are no longer converted to ice equivalent.
 
   use glimmer_global, only: dp 
   use glimmer_physcon, only: pi,scyr,rhow,rhoi
@@ -41,21 +41,21 @@ module glint_daily_pdd
 
   type glint_daily_pdd_params
 
-     !*FD Holds parameters for daily positive-degree-day mass-balance
-     !*FD calculation. 
+     ! Holds parameters for daily positive-degree-day mass-balance
+     ! calculation. 
 
      !TODO - Change to dp
-     real(dp) :: wmax        = 0.6d0       !*FD Fraction of firn that must be ice before run-off occurs
-     real(dp) :: pddfac_ice  = 0.008d0     !*FD PDD factor for ice (m water day$^{-1}$ $^{\circ}C$^{-1}$)
-     real(dp) :: pddfac_snow = 0.003d0     !*FD PDD factor for snow (m water day$^{-1}$ $^{\circ}C$^{-1}$)
-     real(dp) :: rain_threshold = 1.d0     !*FD Threshold for precip melting (degC)
-     integer  :: whichrain = 1             !*FD method for determining whether precip is rain or snow
-     real(dp) :: tau0 = 10.d0*scyr         !*FD Snow densification timescale (seconds)
-     real(dp) :: constC = 0.0165d0         !*FD Snow density profile factor C (m$^{-1}$)
-     real(dp) :: firnbound = 0.872d0       !*FD Ice-firn boundary as fraction of density of ice
-     real(dp) :: snowdensity = 300.d0      !*FD Density of fresh snow ($\mathrm{kg}\,\mathrm{m}^{-3}$)
-     real(dp) :: tstep = 24.d0*60.d0*60.d0 !*FD Scheme time-step (seconds)
-     real(dp) :: a1,a2,a3                  !*FD Factors for relaxation of depth
+     real(dp) :: wmax        = 0.6d0       ! Fraction of firn that must be ice before run-off occurs
+     real(dp) :: pddfac_ice  = 0.008d0     ! PDD factor for ice (m water day$^{-1}$ $^{\circ}C$^{-1}$)
+     real(dp) :: pddfac_snow = 0.003d0     ! PDD factor for snow (m water day$^{-1}$ $^{\circ}C$^{-1}$)
+     real(dp) :: rain_threshold = 1.d0     ! Threshold for precip melting (degC)
+     integer  :: whichrain = 1             ! method for determining whether precip is rain or snow
+     real(dp) :: tau0 = 10.d0*scyr         ! Snow densification timescale (seconds)
+     real(dp) :: constC = 0.0165d0         ! Snow density profile factor C (m$^{-1}$)
+     real(dp) :: firnbound = 0.872d0       ! Ice-firn boundary as fraction of density of ice
+     real(dp) :: snowdensity = 300.d0      ! Density of fresh snow ($\mathrm{kg}\,\mathrm{m}^{-3}$)
+     real(dp) :: tstep = 24.d0*60.d0*60.d0 ! Scheme time-step (seconds)
+     real(dp) :: a1,a2,a3                  ! Factors for relaxation of depth
 
   end type glint_daily_pdd_params
 
@@ -72,7 +72,7 @@ contains
     use glimmer_config
   
     type(glint_daily_pdd_params) :: params
-    type(ConfigSection), pointer         :: config !*FD structure holding sections of configuration file
+    type(ConfigSection), pointer         :: config ! structure holding sections of configuration file
 
     ! Read the config file and output to log
 
@@ -89,12 +89,12 @@ contains
 
   subroutine daily_pdd_readconfig(params,config)
 
-    !*FD Reads in configuration data for the daily PDD scheme.
+    ! Reads in configuration data for the daily PDD scheme.
 
     use glimmer_config
 
-    type(glint_daily_pdd_params),intent(inout) :: params !*FD The positive-degree-day parameters
-    type(ConfigSection), pointer         :: config !*FD structure holding sections of configuration file   
+    type(glint_daily_pdd_params),intent(inout) :: params ! The positive-degree-day parameters
+    type(ConfigSection), pointer         :: config ! structure holding sections of configuration file   
 
     ! local variables
     type(ConfigSection), pointer :: section
@@ -125,7 +125,7 @@ contains
 
     use glimmer_log
 
-    type(glint_daily_pdd_params),intent(inout) :: params !*FD The positive-degree-day parameters
+    type(glint_daily_pdd_params),intent(inout) :: params ! The positive-degree-day parameters
     character(len=100) :: message
 
     call write_log_div
@@ -158,15 +158,15 @@ contains
 
   subroutine glint_daily_pdd_mbal(params,artm,arng,prcp,snowd,siced,ablt,acab,landsea)
 
-    type(glint_daily_pdd_params)          :: params !*FD Daily PDD scheme parameters
-    real(dp),dimension(:,:),intent(in)    :: artm   !*FD Daily mean air-temperature ($^{\circ}$C)
-    real(dp),dimension(:,:),intent(in)    :: arng   !*FD Daily temperature half-range ($^{\circ}$C)
-    real(dp),dimension(:,:),intent(in)    :: prcp   !*FD Daily precipitation (m)
-    real(dp),dimension(:,:),intent(inout) :: snowd  !*FD Snow depth (m)
-    real(dp),dimension(:,:),intent(inout) :: siced  !*FD Superimposed ice depth (m)
-    real(dp),dimension(:,:),intent(out)   :: ablt   !*FD Daily ablation (m)
-    real(dp),dimension(:,:),intent(out)   :: acab   !*FD Daily mass-balance (m)
-    logical, dimension(:,:),intent(in)    :: landsea !*FD Land-sea mask (land is TRUE)
+    type(glint_daily_pdd_params)          :: params ! Daily PDD scheme parameters
+    real(dp),dimension(:,:),intent(in)    :: artm   ! Daily mean air-temperature ($^{\circ}$C)
+    real(dp),dimension(:,:),intent(in)    :: arng   ! Daily temperature half-range ($^{\circ}$C)
+    real(dp),dimension(:,:),intent(in)    :: prcp   ! Daily precipitation (m)
+    real(dp),dimension(:,:),intent(inout) :: snowd  ! Snow depth (m)
+    real(dp),dimension(:,:),intent(inout) :: siced  ! Superimposed ice depth (m)
+    real(dp),dimension(:,:),intent(out)   :: ablt   ! Daily ablation (m)
+    real(dp),dimension(:,:),intent(out)   :: acab   ! Daily mass-balance (m)
+    logical, dimension(:,:),intent(in)    :: landsea ! Land-sea mask (land is TRUE)
 
     real(dp),dimension(size(prcp,1),size(prcp,2)) :: rain ! Daily rain
     real(dp),dimension(size(prcp,1),size(prcp,2)) :: degd ! Degree-day
@@ -208,12 +208,12 @@ contains
 
   elemental real(dp) function finddegdays(localartm,localarng)
 
-    !*FD Finds the degree-day as a function of mean daily temperature and
-    !*FD half-range. The calculation is made on the assumption that
-    !*FD daily temperatures vary as $T = T_{0} - \Delta T * \cos(\theta)$.
+    ! Finds the degree-day as a function of mean daily temperature and
+    ! half-range. The calculation is made on the assumption that
+    ! daily temperatures vary as $T = T_{0} - \Delta T * \cos(\theta)$.
 
-    real(dp), intent(in) :: localartm !*FD Mean daily temperature (degC)
-    real(dp), intent(in) :: localarng !*FD Daily temperture half-range (degC)
+    real(dp), intent(in) :: localartm ! Mean daily temperature (degC)
+    real(dp), intent(in) :: localarng ! Daily temperture half-range (degC)
 
     real(dp) :: time
 
@@ -232,14 +232,14 @@ contains
 
   elemental real(dp) function rainorsnw(which,localartm,localarng,localprcp,threshold)
 
-    !*FD Determines a value for snow precipitation, dependent on air temperature and half-range.
-    !*FD Takes precipitation as input and returns amount of rain.
+    ! Determines a value for snow precipitation, dependent on air temperature and half-range.
+    ! Takes precipitation as input and returns amount of rain.
 
-    integer, intent(in) :: which     !*FD Selects method of calculation
-    real(dp),intent(in) :: localartm !*FD Air temperature (degC)
-    real(dp),intent(in) :: localarng !*FD Temperature half-range (degC)
-    real(dp),intent(in) :: localprcp !*FD Precipitation (arbitrary units)
-    real(dp),intent(in) :: threshold !*FD Snow/rain threshold (degC)
+    integer, intent(in) :: which     ! Selects method of calculation
+    real(dp),intent(in) :: localartm ! Air temperature (degC)
+    real(dp),intent(in) :: localarng ! Temperature half-range (degC)
+    real(dp),intent(in) :: localprcp ! Precipitation (arbitrary units)
+    real(dp),intent(in) :: threshold ! Snow/rain threshold (degC)
 
     real(dp) :: acosarg
 
@@ -286,18 +286,18 @@ contains
 
   subroutine degdaymodel(params,snowdepth,sicedepth,gicedepth,degd,rain,prcp)
 
-    !*FD Applies the positive degree-day model.
-    !*FD The output of this subroutine is in the variables \texttt{snowdepth},
-    !*FD \texttt{sicedepth}, and \texttt{gicedepth}, which give the new depths
-    !*FD of snow, superimposed ice and glacial ice, respectively.
+    ! Applies the positive degree-day model.
+    ! The output of this subroutine is in the variables \texttt{snowdepth},
+    ! \texttt{sicedepth}, and \texttt{gicedepth}, which give the new depths
+    ! of snow, superimposed ice and glacial ice, respectively.
 
-    type(glint_daily_pdd_params) :: params !*FD PDD parameters
-    real(dp), intent(inout) :: snowdepth     !*FD Snow depth (m)
-    real(dp), intent(inout) :: sicedepth     !*FD Superimposed ice depth (m)
-    real(dp), intent(inout) :: gicedepth     !*FD Glacial ice depth (m)
-    real(dp), intent(in)    :: degd          !*FD The degree-day (degC day)
-    real(dp), intent(in)    :: prcp          !*FD Total precip (m)
-    real(dp), intent(in)    :: rain          !*FD Rain (m)
+    type(glint_daily_pdd_params) :: params ! PDD parameters
+    real(dp), intent(inout) :: snowdepth     ! Snow depth (m)
+    real(dp), intent(inout) :: sicedepth     ! Superimposed ice depth (m)
+    real(dp), intent(inout) :: gicedepth     ! Glacial ice depth (m)
+    real(dp), intent(in)    :: degd          ! The degree-day (degC day)
+    real(dp), intent(in)    :: prcp          ! Total precip (m)
+    real(dp), intent(in)    :: rain          ! Rain (m)
 
     real(dp) :: potablt, wfrac, rfrez
 
@@ -371,9 +371,9 @@ contains
 
   subroutine firn_densify(params,snowdepth,sicedepth)
 
-    type(glint_daily_pdd_params) :: params   !*FD PDD parameters
-    real(dp), intent(inout) :: snowdepth     !*FD Snow depth (m)
-    real(dp), intent(inout) :: sicedepth     !*FD Superimposed ice depth (m)
+    type(glint_daily_pdd_params) :: params   ! PDD parameters
+    real(dp), intent(inout) :: snowdepth     ! Snow depth (m)
+    real(dp), intent(inout) :: sicedepth     ! Superimposed ice depth (m)
 
     real(dp) :: fracice,fracsnow,firndepth,equfdepth,newdepth
 

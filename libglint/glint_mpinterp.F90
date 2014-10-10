@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_mpinterp.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_mpinterp.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -30,28 +30,28 @@
 
 module glint_mpinterp
 
-  !*FD Uses SLAP to calculate the field needed to perform
-  !*FD mean-preserving interpolation on a sphere
+  ! Uses SLAP to calculate the field needed to perform
+  ! mean-preserving interpolation on a sphere
 
   use glimmer_global, only: dp
   use glimmer_physcon, only: pi
   implicit none
 
   type mpinterp
-     integer :: nx,ny !*FD Grid sizes
-     integer :: lenw,leniw !*FD Lengths of work arrays
+     integer :: nx,ny ! Grid sizes
+     integer :: lenw,leniw ! Lengths of work arrays
      ! Column vectors
-     real(dp),dimension(:),  pointer :: rhs   => null() !*FD Right-hand side
-     real(dp),dimension(:),  pointer :: answ  => null() !*FD Answer
+     real(dp),dimension(:),  pointer :: rhs   => null() ! Right-hand side
+     real(dp),dimension(:),  pointer :: answ  => null() ! Answer
      ! Sparse matrix storage
-     integer, dimension(:),  pointer :: row   => null() !*FD Row indicies
-     integer, dimension(:),  pointer :: col   => null() !*FD Column indices
-     real(dp),dimension(:),  pointer :: arr   => null() !*FD Array elements
+     integer, dimension(:),  pointer :: row   => null() ! Row indicies
+     integer, dimension(:),  pointer :: col   => null() ! Column indices
+     real(dp),dimension(:),  pointer :: arr   => null() ! Array elements
      ! Work arrays
-     real(dp),dimension(:),  pointer :: rwork => null() !*FD Real work array
-     integer, dimension(:),  pointer :: iwork => null() !*FD Int work array
+     real(dp),dimension(:),  pointer :: rwork => null() ! Real work array
+     integer, dimension(:),  pointer :: iwork => null() ! Int work array
      ! Grid-box areas
-     real(dp),dimension(:,:),pointer :: areas => null() !*FD Grid-box areas
+     real(dp),dimension(:,:),pointer :: areas => null() ! Grid-box areas
   end type mpinterp
 
   private
@@ -138,7 +138,7 @@ contains
 
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +                                                           +
-! +  xls.f90 - part of the Glimmer-CISM ice model             + 
+! +  xls.f90 - part of the CISM ice model             + 
 ! +                                                           +
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! 

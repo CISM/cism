@@ -9,27 +9,27 @@
 #endif
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_initialise.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_initialise.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -39,7 +39,7 @@
 
 module glint_initialise
 
-  !*FD Initialise GLINT model instance
+  !> Initialise GLINT model instance
 
   use glint_type
   use glimmer_global, only: dp
@@ -58,7 +58,7 @@ contains
                                 gcm_restart,      gcm_restart_file, &
                                 gcm_config_unit)
 
-    !*FD Initialise a GLINT ice model instance
+    !> Initialise a GLINT ice model instance
 
     use glimmer_paramets, only: GLC_DEBUG
     use glimmer_log
@@ -80,20 +80,20 @@ contains
     implicit none
 
     ! Arguments
-    type(ConfigSection), pointer         :: config           !*FD structure holding sections of configuration file   
-    type(glint_instance),  intent(inout) :: instance         !*FD The instance being initialised.
-    type(global_grid),     intent(in)    :: grid             !*FD Global grid to use
-    type(global_grid),     intent(in)    :: grid_orog        !*FD Global grid to use for orography
-    integer,               intent(out)   :: mbts             !*FD mass-balance time-step (hours)
-    integer,               intent(out)   :: idts             !*FD ice dynamics time-step (hours)
-    logical,               intent(inout) :: need_winds       !*FD Set if this instance needs wind input
-    logical,               intent(inout) :: enmabal          !*FD Set if this instance uses the energy balance
+    type(ConfigSection), pointer         :: config           !> structure holding sections of configuration file   
+    type(glint_instance),  intent(inout) :: instance         !> The instance being initialised.
+    type(global_grid),     intent(in)    :: grid             !> Global grid to use
+    type(global_grid),     intent(in)    :: grid_orog        !> Global grid to use for orography
+    integer,               intent(out)   :: mbts             !> mass-balance time-step (hours)
+    integer,               intent(out)   :: idts             !> ice dynamics time-step (hours)
+    logical,               intent(inout) :: need_winds       !> Set if this instance needs wind input
+    logical,               intent(inout) :: enmabal          !> Set if this instance uses the energy balance
                                                              !    mass-bal model
-    integer,               intent(in)    :: force_start      !*FD glint forcing start time (hours)
-    integer,               intent(in)    :: force_dt         !*FD glint forcing time step (hours)
-    logical,     optional, intent(in)    :: gcm_restart      !*FD logical flag to read from a restart file
-    character(*),optional, intent(in)    :: gcm_restart_file !*FD restart filename for restart
-    integer,     optional, intent(in)    :: gcm_config_unit  !*FD fileunit for reading config files
+    integer,               intent(in)    :: force_start      !> glint forcing start time (hours)
+    integer,               intent(in)    :: force_dt         !> glint forcing time step (hours)
+    logical,     optional, intent(in)    :: gcm_restart      !> logical flag to read from a restart file
+    character(*),optional, intent(in)    :: gcm_restart_file !> restart filename for restart
+    integer,     optional, intent(in)    :: gcm_config_unit  !> fileunit for reading config files
 
     ! Internal
     real(dp),dimension(:,:),allocatable :: thk
@@ -560,12 +560,12 @@ contains
 
   subroutine glint_i_end(instance)
 
-    !*FD Tidy up 
+    !> Tidy up 
 
     use glide
     use glimmer_ncio
     implicit none
-    type(glint_instance),  intent(inout) :: instance    !*FD The instance being initialised.
+    type(glint_instance),  intent(inout) :: instance    !> The instance being initialised.
 
     call glide_finalise(instance%model)
     call closeall_out(instance%model,outfiles=instance%out_first)
@@ -576,13 +576,13 @@ contains
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine glint_i_readdata(instance)
-    !*FD read data from netCDF file and initialise climate
+    !> read data from netCDF file and initialise climate
 
     use glint_io
     use glide_thck, only: glide_calclsrf
     implicit none
 
-    type(glint_instance),intent(inout)   :: instance    !*FD Instance whose elements are to be allocated.
+    type(glint_instance),intent(inout)   :: instance    !> Instance whose elements are to be allocated.
 
     ! read data
     call glint_io_readall(instance,instance%model)
@@ -597,15 +597,15 @@ contains
 
   subroutine setup_lgrid_fulldomain(instance, grid, grid_orog)
 
-    !*FD Set up the local (icesheet) grid spanning the full domain (i.e., across all tasks).
-    !*FD This also sets up auxiliary variables that depend on this full domain lgrid,
-    !*FD such as the downscaling and upscaling derived types.
-    !*FD This routine is required because we currently do downscaling and upscaling just
-    !*FD on the main task, with the appropriate gathers / scatters.
-    !*FD Thus, this creates a lgrid spanning the full domain on the main task;
-    !*FD other tasks are left with an uninitialized lgrid_fulldomain.
-    !*FD Tasks other than the main task also have uninitialized ups, downs and frac_coverage
-    !*FD (along with the similar *_orog variables).
+    !> Set up the local (icesheet) grid spanning the full domain (i.e., across all tasks).
+    !> This also sets up auxiliary variables that depend on this full domain lgrid,
+    !> such as the downscaling and upscaling derived types.
+    !> This routine is required because we currently do downscaling and upscaling just
+    !> on the main task, with the appropriate gathers / scatters.
+    !> Thus, this creates a lgrid spanning the full domain on the main task;
+    !> other tasks are left with an uninitialized lgrid_fulldomain.
+    !> Tasks other than the main task also have uninitialized ups, downs and frac_coverage
+    !> (along with the similar *_orog variables).
     
     use glint_type         , only : glint_instance
     use glint_global_grid  , only : global_grid
@@ -662,7 +662,7 @@ contains
                              instance%frac_cov_orog)
        endif
 
-    end if  ! main_task
+    end if
 
   end subroutine setup_lgrid_fulldomain
 
@@ -679,12 +679,12 @@ contains
 
     ! Arguments
 
-    type(coordsystem_type), intent(in)  :: lgrid_fulldomain  !*FD Local grid, spanning full domain (all tasks)
-    type(upscale),          intent(in)  :: ups               !*FD Upscaling used
-    type(global_grid),      intent(in)  :: grid              !*FD Global grid used
-    integer, dimension(:,:),intent(in)  :: mask_fulldomain   !*FD Mask of points for upscaling, spanning full domain (all tasks)
-    real(dp),dimension(:,:),intent(out) :: frac_coverage     !*FD Map of fractional 
-                                                             !*FD coverage of global by local grid-boxes.
+    type(coordsystem_type), intent(in)  :: lgrid_fulldomain  !> Local grid, spanning full domain (all tasks)
+    type(upscale),          intent(in)  :: ups               !> Upscaling used
+    type(global_grid),      intent(in)  :: grid              !> Global grid used
+    integer, dimension(:,:),intent(in)  :: mask_fulldomain   !> Mask of points for upscaling, spanning full domain (all tasks)
+    real(dp),dimension(:,:),intent(out) :: frac_coverage     !> Map of fractional 
+                                                             !> coverage of global by local grid-boxes.
     ! Internal variables
 
     integer,dimension(grid%nx,grid%ny) :: tempcount
@@ -854,7 +854,7 @@ contains
     !------------------------------------------------------------------------------------
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
-    type(glint_instance), intent (in) :: instance  !*FD Derived type that includes all glint options
+    type(glint_instance), intent (in) :: instance  !> Derived type that includes all glint options
 
     !------------------------------------------------------------------------------------
     ! Internal variables

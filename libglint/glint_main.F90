@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_main.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_main.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !!
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM. 
+!   This file is part of CISM. 
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -30,8 +30,8 @@
 
 module glint_main
 
-  !*FD  This is the main glimmer module, which contains the top-level 
-  !*FD  subroutines and derived types comprising the glimmer ice model.
+  !>  This is the main glimmer module, which contains the top-level 
+  !>  subroutines and derived types comprising the glimmer ice model.
 
   use glimmer_global, only: dp, fname_length
   use glint_type
@@ -53,79 +53,79 @@ module glint_main
 
   type glint_params 
 
-     !*FD Derived type containing parameters relevant to all instances of 
-     !*FD the model - i.e. those parameters which pertain to the global model. 
+     !> Derived type containing parameters relevant to all instances of 
+     !> the model - i.e. those parameters which pertain to the global model. 
 
      ! Global grids used ----------------------------------------
 
-     type(global_grid) :: g_grid      !*FD The main global grid, used for 
-                                      !*FD input and most outputs
-     type(global_grid) :: g_grid_orog !*FD Global grid used for orography output.
+     type(global_grid) :: g_grid      !> The main global grid, used for 
+                                      !> input and most outputs
+     type(global_grid) :: g_grid_orog !> Global grid used for orography output.
 
      ! Ice model instances --------------------------------------
 
-     integer                                   :: ninstances = 1       !*FD Number of ice model instances
-     type(glint_instance),pointer,dimension(:) :: instances  => null() !*FD Array of glimmer\_instances
+     integer                                   :: ninstances = 1       !> Number of ice model instances
+     type(glint_instance),pointer,dimension(:) :: instances  => null() !> Array of glimmer\_instances
 
      ! Global model parameters ----------------------------------
 
-     integer  :: tstep_mbal = 1        !*FD Mass-balance timestep (hours)
-     integer  :: start_time            !*FD Time of first call to glint (hours)
-     integer  :: time_step             !*FD Calling timestep of global model (hours)
+     integer  :: tstep_mbal = 1        !> Mass-balance timestep (hours)
+     integer  :: start_time            !> Time of first call to glint (hours)
+     integer  :: time_step             !> Calling timestep of global model (hours)
 
      ! Parameters that can be set by the GCM calling Glint
 
-     logical  :: gcm_smb = .false.     !*FD If true, receive surface mass balance from the GCM 
-     logical  :: gcm_restart = .false. !*FD If true, restart the model from a GCM restart file
-     character(fname_length) :: gcm_restart_file   !*FD Name of restart file
-     integer  :: gcm_fileunit = 99     !*FD Fileunit specified by GCM for reading config files
+     logical  :: gcm_smb = .false.     !> If true, receive surface mass balance from the GCM 
+     logical  :: gcm_restart = .false. !> If true, restart the model from a GCM restart file
+     character(fname_length) :: gcm_restart_file   !> Name of restart file
+     integer  :: gcm_fileunit = 99     !> Fileunit specified by GCM for reading config files
    
      ! Averaging parameters -------------------------------------
 
-     integer  :: av_start_time = 0   !*FD Holds the value of time from 
-                                     !*FD the last occasion averaging was restarted (hours)
-     integer  :: av_steps      = 0   !*FD Holds the number of times glimmer has 
-                                     !*FD been called in current round of averaging.
-     integer  :: next_av_start = 0   !*FD Time when we expect next averaging to start
-     logical  :: new_av     = .true. !*FD Set to true if the next correct call starts a new averaging round
+     integer  :: av_start_time = 0   !> Holds the value of time from 
+                                     !> the last occasion averaging was restarted (hours)
+     integer  :: av_steps      = 0   !> Holds the number of times glimmer has 
+                                     !> been called in current round of averaging.
+     integer  :: next_av_start = 0   !> Time when we expect next averaging to start
+     logical  :: new_av     = .true. !> Set to true if the next correct call starts a new averaging round
 
      ! Averaging arrays -----------------------------------------
 
-     real(dp),pointer,dimension(:,:) :: g_av_precip  => null()  !*FD globally averaged precip
-     real(dp),pointer,dimension(:,:) :: g_av_temp    => null()  !*FD globally averaged temperature 
-     real(dp),pointer,dimension(:,:) :: g_max_temp   => null()  !*FD global maximum temperature
-     real(dp),pointer,dimension(:,:) :: g_min_temp   => null()  !*FD global minimum temperature
-     real(dp),pointer,dimension(:,:) :: g_temp_range => null()  !*FD global temperature range
-     real(dp),pointer,dimension(:,:) :: g_av_zonwind => null()  !*FD globally averaged zonal wind 
-     real(dp),pointer,dimension(:,:) :: g_av_merwind => null()  !*FD globally averaged meridional wind 
-     real(dp),pointer,dimension(:,:) :: g_av_humid   => null()  !*FD globally averaged humidity (%)
-     real(dp),pointer,dimension(:,:) :: g_av_lwdown  => null()  !*FD globally averaged downwelling longwave (W/m$^2$)
-     real(dp),pointer,dimension(:,:) :: g_av_swdown  => null()  !*FD globally averaged downwelling shortwave (W/m$^2$)
-     real(dp),pointer,dimension(:,:) :: g_av_airpress => null() !*FD globally averaged surface air pressure (Pa)
+     real(dp),pointer,dimension(:,:) :: g_av_precip  => null()  !> globally averaged precip
+     real(dp),pointer,dimension(:,:) :: g_av_temp    => null()  !> globally averaged temperature 
+     real(dp),pointer,dimension(:,:) :: g_max_temp   => null()  !> global maximum temperature
+     real(dp),pointer,dimension(:,:) :: g_min_temp   => null()  !> global minimum temperature
+     real(dp),pointer,dimension(:,:) :: g_temp_range => null()  !> global temperature range
+     real(dp),pointer,dimension(:,:) :: g_av_zonwind => null()  !> globally averaged zonal wind 
+     real(dp),pointer,dimension(:,:) :: g_av_merwind => null()  !> globally averaged meridional wind 
+     real(dp),pointer,dimension(:,:) :: g_av_humid   => null()  !> globally averaged humidity (%)
+     real(dp),pointer,dimension(:,:) :: g_av_lwdown  => null()  !> globally averaged downwelling longwave (W/m$^2$)
+     real(dp),pointer,dimension(:,:) :: g_av_swdown  => null()  !> globally averaged downwelling shortwave (W/m$^2$)
+     real(dp),pointer,dimension(:,:) :: g_av_airpress => null() !> globally averaged surface air pressure (Pa)
      real(dp),pointer,dimension(:,:,:) :: g_av_qsmb => null()   ! globally averaged surface mass balance (kg m-2 s-1)
      real(dp),pointer,dimension(:,:,:) :: g_av_tsfc => null()   ! globally averaged surface temperature (deg C)
      real(dp),pointer,dimension(:,:,:) :: g_av_topo => null()   ! globally averaged surface elevation   (m)
 
      ! Fractional coverage information --------------------------
      ! Note: these are only valid on the main task
-     real(dp),pointer,dimension(:,:) :: total_coverage  => null()     !*FD Fractional coverage by 
-                                                                      !*FD all ice model instances.
-     real(dp),pointer,dimension(:,:) :: total_cov_orog  => null()     !*FD Fractional coverage by 
-                                                                      !*FD all ice model instances (orog).
-     logical                         :: coverage_calculated = .false. !*FD Have we calculated the
-                                                                      !*FD coverage map yet?
+     real(dp),pointer,dimension(:,:) :: total_coverage  => null()     !> Fractional coverage by 
+                                                                      !> all ice model instances.
+     real(dp),pointer,dimension(:,:) :: total_cov_orog  => null()     !> Fractional coverage by 
+                                                                      !> all ice model instances (orog).
+     logical                         :: coverage_calculated = .false. !> Have we calculated the
+                                                                      !> coverage map yet?
      ! File information -----------------------------------------
 
-     character(fname_length) :: paramfile      !*FD Name of global parameter file
+     character(fname_length) :: paramfile      !> Name of global parameter file
 
      ! Accumulation/averaging flags -----------------------------
 
-     logical :: need_winds=.false. !*FD Set if we need the winds to be accumulated/downscaled
-     logical :: enmabal=.false.    !*FD Set if we're using the energy balance mass balance model anywhere
+     logical :: need_winds=.false. !> Set if we need the winds to be accumulated/downscaled
+     logical :: enmabal=.false.    !> Set if we're using the energy balance mass balance model anywhere
 
      ! Anomaly coupling for global climate ------------------------------------------
 
-     type(anomaly_coupling) :: anomaly_params !*FD Parameters for anomaly coupling
+     type(anomaly_coupling) :: anomaly_params !> Parameters for anomaly coupling
 
   end type glint_params
 
@@ -134,7 +134,6 @@ module glint_main
   private glint_allocate_arrays
   private glint_readconfig, calc_bounds, check_init_args
   private compute_ice_sheet_grid_mask
-  private compute_icemask_coupled_fluxes
 
     !---------------------------------------------------------------------------------------
     ! Some notes on coupling to the Community Earth System Model (CESM).  These may be applicable
@@ -193,10 +192,10 @@ contains
                               gcm_restart,  gcm_restart_file, &
                               gcm_debug,    gcm_fileunit)
 
-    !*FD Initialises the model
-    !*FD For a multi-processor run, the main task should specify lats & longs spanning
-    !*FD the full global domain; the other tasks should give 0-size lats & longs arrays
-    !*FD Output arrays on the global grid are only valid on the main task
+    !> Initialises the model
+    !> For a multi-processor run, the main task should specify lats & longs spanning
+    !> the full global domain; the other tasks should give 0-size lats & longs arrays
+    !> Output arrays on the global grid are only valid on the main task
 
     use glimmer_config
     use glint_initialise
@@ -208,39 +207,39 @@ contains
 
     ! Subroutine argument declarations --------------------------------------------------------
 
-    type(glint_params),              intent(inout) :: params      !*FD parameters to be set
-    real(dp),dimension(:),           intent(in)    :: lats,longs  !*FD location of gridpoints 
-                                                                  !*FD in global data.
-    integer,                         intent(in)    :: time_step   !*FD Timestep of calling model (hours)
-    character(*),dimension(:),       intent(in)    :: paramfile   !*FD array of configuration filenames.
-    real(dp),dimension(:),  optional,intent(in)    :: latb        !*FD Locations of the latitudinal 
-                                                                  !*FD boundaries of the grid-boxes.
-    real(dp),dimension(:),  optional,intent(in)    :: lonb        !*FD Locations of the longitudinal
-                                                                  !*FD boundaries of the grid-boxes.
-    real(dp),dimension(:,:),optional,intent(out)   :: orog        !*FD Initial global orography
-    real(dp),dimension(:,:),optional,intent(out)   :: albedo      !*FD Initial albedo
-    real(dp),dimension(:,:),optional,intent(out)   :: ice_frac    !*FD Initial ice fraction 
-    real(dp),dimension(:,:),optional,intent(out)   :: veg_frac    !*FD Initial veg fraction
-    real(dp),dimension(:,:),optional,intent(out)   :: snowice_frac !*FD Initial snow-covered ice fraction
-    real(dp),dimension(:,:),optional,intent(out)   :: snowveg_frac !*FD Initial snow-covered veg fraction
-    real(dp),dimension(:,:),optional,intent(out)   :: snow_depth  !*FD Initial snow depth 
-    real(dp),dimension(:),  optional,intent(in)    :: orog_lats   !*FD Latitudinal location of gridpoints 
-                                                                  !*FD for global orography output.
-    real(dp),dimension(:),  optional,intent(in)    :: orog_longs  !*FD Longitudinal location of gridpoints 
-                                                                  !*FD for global orography output.
-    real(dp),dimension(:),  optional,intent(in)    :: orog_latb   !*FD Locations of the latitudinal 
-                                                                  !*FD boundaries of the grid-boxes (orography).
-    real(dp),dimension(:),  optional,intent(in)    :: orog_lonb   !*FD Locations of the longitudinal
-                                                                  !*FD boundaries of the grid-boxes (orography).
-    logical,                optional,intent(out)   :: output_flag !*FD Flag to show output set (provided for
-                                                                  !*FD consistency)
-    integer,                optional,intent(in)    :: daysinyear  !*FD Number of days in the year
-    logical,                optional,intent(out)   :: snow_model  !*FD Set if the mass-balance scheme has a snow-depth model
-    integer,                optional,intent(out)   :: ice_dt      !*FD Ice dynamics time-step in hours
-    type(ConfigData),dimension(:),optional ::  extraconfigs !*FD Additional configuration information - overwrites
-                                                                  !*FD config data read from files
-    integer,                optional,intent(in)    :: start_time  !*FD Time of first call to glint (hours)
-    integer, dimension(:,:),  optional,intent(in)  :: gmask       !*FD mask = 1 where global data are valid
+    type(glint_params),              intent(inout) :: params      !> parameters to be set
+    real(dp),dimension(:),           intent(in)    :: lats,longs  !> location of gridpoints 
+                                                                  !> in global data.
+    integer,                         intent(in)    :: time_step   !> Timestep of calling model (hours)
+    character(*),dimension(:),       intent(in)    :: paramfile   !> array of configuration filenames.
+    real(dp),dimension(:),  optional,intent(in)    :: latb        !> Locations of the latitudinal 
+                                                                  !> boundaries of the grid-boxes.
+    real(dp),dimension(:),  optional,intent(in)    :: lonb        !> Locations of the longitudinal
+                                                                  !> boundaries of the grid-boxes.
+    real(dp),dimension(:,:),optional,intent(out)   :: orog        !> Initial global orography
+    real(dp),dimension(:,:),optional,intent(out)   :: albedo      !> Initial albedo
+    real(dp),dimension(:,:),optional,intent(out)   :: ice_frac    !> Initial ice fraction 
+    real(dp),dimension(:,:),optional,intent(out)   :: veg_frac    !> Initial veg fraction
+    real(dp),dimension(:,:),optional,intent(out)   :: snowice_frac !> Initial snow-covered ice fraction
+    real(dp),dimension(:,:),optional,intent(out)   :: snowveg_frac !> Initial snow-covered veg fraction
+    real(dp),dimension(:,:),optional,intent(out)   :: snow_depth  !> Initial snow depth 
+    real(dp),dimension(:),  optional,intent(in)    :: orog_lats   !> Latitudinal location of gridpoints 
+                                                                  !> for global orography output.
+    real(dp),dimension(:),  optional,intent(in)    :: orog_longs  !> Longitudinal location of gridpoints 
+                                                                  !> for global orography output.
+    real(dp),dimension(:),  optional,intent(in)    :: orog_latb   !> Locations of the latitudinal 
+                                                                  !> boundaries of the grid-boxes (orography).
+    real(dp),dimension(:),  optional,intent(in)    :: orog_lonb   !> Locations of the longitudinal
+                                                                  !> boundaries of the grid-boxes (orography).
+    logical,                optional,intent(out)   :: output_flag !> Flag to show output set (provided for
+                                                                  !> consistency)
+    integer,                optional,intent(in)    :: daysinyear  !> Number of days in the year
+    logical,                optional,intent(out)   :: snow_model  !> Set if the mass-balance scheme has a snow-depth model
+    integer,                optional,intent(out)   :: ice_dt      !> Ice dynamics time-step in hours
+    type(ConfigData),dimension(:),optional ::  extraconfigs !> Additional configuration information - overwrites
+                                                                  !> config data read from files
+    integer,                optional,intent(in)    :: start_time  !> Time of first call to glint (hours)
+    integer, dimension(:,:),  optional,intent(in)  :: gmask       !> mask = 1 where global data are valid
     logical,                  optional,intent(in)  :: gcm_restart ! logical flag to restart from a GCM restart file
     character(*),             optional, intent(in) :: gcm_restart_file ! restart filename for a GCM restart
                                                                   ! (currently assumed to be CESM)
@@ -590,7 +589,6 @@ contains
                                   gfrac,        gtopo,            &
                                   grofi,        grofl,            &
                                   ice_sheet_grid_mask,            &
-                                  icemask_coupled_fluxes,         &
                                   ghflx,        gmask,            &
                                   gcm_restart,  gcm_restart_file, &
                                   gcm_debug,    gcm_fileunit)
@@ -599,13 +597,6 @@ contains
     ! For a multi-processor run, the main task should specify lats & longs spanning
     !  the full global domain; the other tasks should give 0-size lats & longs arrays
     ! Output arrays on the global grid are only valid on the main task
-    !
-    ! Note about ice_sheet_grid_mask and icemask_coupled_fluxes: ice_sheet_grid_mask is
-    ! non-zero wherever CISM is operating - i.e., grid cells with icesheet or bare land
-    ! (but not ocean). icemask_coupled_fluxes is similar, but is 0 for icesheet instances
-    ! that have zero_gcm_fluxes = .true. Thus, icemask_coupled_fluxes can be used to
-    ! determine the regions of the world in which CISM is operating and potentially
-    ! sending non-zero fluxes to the climate model.
 
     use glimmer_config
     use glint_initialise
@@ -619,24 +610,23 @@ contains
 
     ! Subroutine argument declarations --------------------------------------------------------
 
-    type(glint_params),              intent(inout) :: params      !*FD parameters to be set
-    real(dp),dimension(:),             intent(in)  :: lats,longs  !*FD location of gridpoints 
-                                                                  !*FD in global data.
-    integer,                           intent(in)  :: time_step   !*FD Timestep of calling model (hours)
-    character(*),dimension(:),         intent(in)  :: paramfile   !*FD array of configuration filenames.
-    integer,                  optional,intent(in)  :: daysinyear  !*FD Number of days in the year
-    integer,                  optional,intent(in)  :: start_time  !*FD Time of first call to glint (hours)
-    integer,                  optional,intent(out) :: ice_dt      !*FD Ice dynamics time-step in hours
-    logical,                  optional,intent(out) :: output_flag !*FD Flag to show output set (provided for consistency)
-    integer,                  optional,intent(in)  :: glc_nec     !*FD number of elevation classes for GCM input
-    real(dp),dimension(:,:,0:),optional,intent(out) :: gfrac       !*FD ice+bare land fractional area [0,1]
-    real(dp),dimension(:,:,0:),optional,intent(out) :: gtopo       !*FD surface elevation (m)
-    real(dp),dimension(:,:,0:),optional,intent(out) :: ghflx       !*FD heat flux (W/m^2, positive down)
-    real(dp),dimension(:,:),  optional,intent(out) :: grofi       !*FD ice runoff (kg/m^2/s = mm H2O/s)
-    real(dp),dimension(:,:),  optional,intent(out) :: grofl       !*FD liquid runoff (kg/m^2/s = mm H2O/s)
+    type(glint_params),              intent(inout) :: params      !> parameters to be set
+    real(dp),dimension(:),             intent(in)  :: lats,longs  !> location of gridpoints 
+                                                                  !> in global data.
+    integer,                           intent(in)  :: time_step   !> Timestep of calling model (hours)
+    character(*),dimension(:),         intent(in)  :: paramfile   !> array of configuration filenames.
+    integer,                  optional,intent(in)  :: daysinyear  !> Number of days in the year
+    integer,                  optional,intent(in)  :: start_time  !> Time of first call to glint (hours)
+    integer,                  optional,intent(out) :: ice_dt      !> Ice dynamics time-step in hours
+    logical,                  optional,intent(out) :: output_flag !> Flag to show output set (provided for consistency)
+    integer,                  optional,intent(in)  :: glc_nec     !> number of elevation classes for GCM input
+    real(dp),dimension(:,:,0:),optional,intent(out) :: gfrac       !> ice+bare land fractional area [0,1]
+    real(dp),dimension(:,:,0:),optional,intent(out) :: gtopo       !> surface elevation (m)
+    real(dp),dimension(:,:,0:),optional,intent(out) :: ghflx       !> heat flux (W/m^2, positive down)
+    real(dp),dimension(:,:),  optional,intent(out) :: grofi       !> ice runoff (kg/m^2/s = mm H2O/s)
+    real(dp),dimension(:,:),  optional,intent(out) :: grofl       !> liquid runoff (kg/m^2/s = mm H2O/s)
     real(dp),dimension(:,:),  optional,intent(out) :: ice_sheet_grid_mask !mask of ice sheet grid coverage
-    real(dp),dimension(:,:),  optional,intent(out) :: icemask_coupled_fluxes !mask of ice sheet grid coverage where we are potentially sending non-zero fluxes
-    integer, dimension(:,:),  optional,intent(in)  :: gmask       !*FD mask = 1 where global data are valid
+    integer, dimension(:,:),  optional,intent(in)  :: gmask       !> mask = 1 where global data are valid
     logical,                  optional,intent(in)  :: gcm_restart ! logical flag to restart from a GCM restart file
     character(*),             optional,intent(in)  :: gcm_restart_file ! restart filename for a GCM restart
                                                                   ! (currently assumed to be CESM)
@@ -660,7 +650,7 @@ contains
                gfrac_temp, gtopo_temp, ghflx_temp ! Temporary output arrays
 
     real(dp),dimension(:,:),allocatable ::   &
-               grofi_temp, grofl_temp, ice_sheet_grid_mask_temp, icemask_coupled_fluxes_temp  ! Temporary output arrays
+               grofi_temp, grofl_temp             ! Temporary output arrays
 
     integer :: n
     integer :: nec       ! number of elevation classes
@@ -872,7 +862,6 @@ contains
     if (present(grofi)) grofi(:,:)   = 0.d0
     if (present(grofl)) grofl(:,:)   = 0.d0
     if (present(ice_sheet_grid_mask))  ice_sheet_grid_mask(:,:)   = 0.d0
-    if (present(icemask_coupled_fluxes))  icemask_coupled_fluxes(:,:)   = 0.d0
 
     ! Allocate arrays
 
@@ -881,8 +870,6 @@ contains
     allocate(ghflx_temp(params%g_grid%nx, params%g_grid%ny, 0:params%g_grid%nec))
     allocate(grofi_temp(params%g_grid%nx, params%g_grid%ny))
     allocate(grofl_temp(params%g_grid%nx, params%g_grid%ny))
-    allocate(ice_sheet_grid_mask_temp(params%g_grid%nx, params%g_grid%ny))
-    allocate(icemask_coupled_fluxes_temp(params%g_grid%nx, params%g_grid%ny))
 
     if (GLC_DEBUG .and. main_task) then
        write(stdout,*) 'Upscale and splice the initial fields'
@@ -908,11 +895,6 @@ contains
                                 ghflx_temp,                             &
                                 init_call = .true.)
 
-       call compute_ice_sheet_grid_mask(ice_sheet_grid_mask_temp, gfrac_temp)
-       call compute_icemask_coupled_fluxes(icemask_coupled_fluxes_temp, &
-                                           ice_sheet_grid_mask_temp, &
-                                           params%instances(i))
-
        ! Splice together with the global output
 
        if (GLC_DEBUG .and. main_task) then
@@ -922,22 +904,21 @@ contains
        call splice_fields_gcm(gfrac_temp, gtopo_temp,    &
                               grofi_temp, grofl_temp,    &
                               ghflx_temp,                &
-                              ice_sheet_grid_mask_temp,  &
-                              icemask_coupled_fluxes_temp, &
                               gfrac,      gtopo,         &
                               grofi,      grofl,         &
                               ghflx,                     &
-                              ice_sheet_grid_mask,       &
-                              icemask_coupled_fluxes,    &
                               params%g_grid%nec,         &
                               params%instances(i)%frac_coverage)
 
     end do       ! ninstances
 
+    if (present(ice_sheet_grid_mask)) then
+       call compute_ice_sheet_grid_mask(ice_sheet_grid_mask, gfrac)
+    end if
+    
     ! Deallocate
 
     deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
-    deallocate(ice_sheet_grid_mask_temp, icemask_coupled_fluxes_temp)
 
     ! Set output flag       !TODO - Is this ever used?
     if (present(output_flag)) output_flag = .true.
@@ -965,25 +946,25 @@ contains
                    total_water_in, total_water_out, &
                    ice_volume,     ice_tstep)
 
-    !*FD Main Glint subroutine.
-    !*FD
-    !*FD This should be called daily or hourly, depending on
-    !*FD the mass-balance scheme being used. It does all necessary 
-    !*FD spatial and temporal averaging, and calls the dynamics 
-    !*FD part of the model when required. 
-    !*FD
-    !*FD Input fields should be taken as means over the period since the last call.
-    !*FD See the user documentation for more information.
-    !*FD
-    !*FD Global output fields are only valid on the main task. Fields that are integrated
-    !*FD over the whole domain (total_water_in, total_water_out, ice_volume) are only
-    !*FD valid in single-task runs; trying to compute these in multi-task runs will generate a
-    !*FD fatal error.
-    !*FD
-    !*FD Note that the total ice volume returned is the total at the end of the time-step;
-    !*FD the water fluxes are valid over the duration of the timestep. Thus the difference
-    !*FD between \texttt{total\_water\_in} and \texttt{total\_water\_out} should be equal
-    !*FD to the change in \texttt{ice\_volume}, after conversion between m$^3$ and kg.
+    !> Main Glint subroutine.
+    !>
+    !> This should be called daily or hourly, depending on
+    !> the mass-balance scheme being used. It does all necessary 
+    !> spatial and temporal averaging, and calls the dynamics 
+    !> part of the model when required. 
+    !>
+    !> Input fields should be taken as means over the period since the last call.
+    !> See the user documentation for more information.
+    !>
+    !> Global output fields are only valid on the main task. Fields that are integrated
+    !> over the whole domain (total_water_in, total_water_out, ice_volume) are only
+    !> valid in single-task runs; trying to compute these in multi-task runs will generate a
+    !> fatal error.
+    !>
+    !> Note that the total ice volume returned is the total at the end of the time-step;
+    !> the water fluxes are valid over the duration of the timestep. Thus the difference
+    !> between \texttt{total\_water\_in} and \texttt{total\_water\_out} should be equal
+    !> to the change in \texttt{ice\_volume}, after conversion between m$^3$ and kg.
 
     use glimmer_utils
     use glint_interp
@@ -997,32 +978,32 @@ contains
 
     ! Subroutine argument declarations -------------------------------------------------------------
 
-    type(glint_params),              intent(inout) :: params          !*FD parameters for this run
-    integer,                         intent(in)    :: time            !*FD Current model time        (hours)
-    real(dp),dimension(:,:),target,  intent(in)    :: rawtemp         !*FD Surface temperature field (deg C)
-    real(dp),dimension(:,:),target,  intent(in)    :: rawprecip       !*FD Precipitation rate        (mm/s)
-    real(dp),dimension(:,:),         intent(in)    :: orog            !*FD The large-scale orography (m)
-    real(dp),dimension(:,:),optional,intent(in)    :: zonwind,merwind !*FD Zonal and meridional components 
-                                                                      !*FD of the wind field         (m/s)
-    real(dp),dimension(:,:),optional,intent(in)    :: humid           !*FD Surface humidity (%)
-    real(dp),dimension(:,:),optional,intent(in)    :: lwdown          !*FD Downwelling longwave (W/m$^2$)
-    real(dp),dimension(:,:),optional,intent(in)    :: swdown          !*FD Downwelling shortwave (W/m$^2$)
-    real(dp),dimension(:,:),optional,intent(in)    :: airpress        !*FD surface air pressure (Pa)
-    logical,                optional,intent(out)   :: output_flag     !*FD Set true if outputs set
-    real(dp),dimension(:,:),optional,intent(inout) :: orog_out        !*FD The fed-back, output orography (m)
-    real(dp),dimension(:,:),optional,intent(inout) :: albedo          !*FD surface albedo
-    real(dp),dimension(:,:),optional,intent(inout) :: ice_frac        !*FD grid-box ice-fraction
-    real(dp),dimension(:,:),optional,intent(inout) :: veg_frac        !*FD grid-box veg-fraction
-    real(dp),dimension(:,:),optional,intent(inout) :: snowice_frac    !*FD grid-box snow-covered ice fraction
-    real(dp),dimension(:,:),optional,intent(inout) :: snowveg_frac    !*FD grid-box snow-covered veg fraction
-    real(dp),dimension(:,:),optional,intent(inout) :: snow_depth      !*FD grid-box mean snow depth (m water equivalent)
-    real(dp),dimension(:,:),optional,intent(inout) :: water_in        !*FD Input water flux          (mm)
-    real(dp),dimension(:,:),optional,intent(inout) :: water_out       !*FD Output water flux         (mm)
-    real(dp),               optional,intent(inout) :: total_water_in  !*FD Area-integrated water flux in (kg)
-    real(dp),               optional,intent(inout) :: total_water_out !*FD Area-integrated water flux out (kg)
-    real(dp),               optional,intent(inout) :: ice_volume      !*FD Total ice volume (m$^3$)
-    logical,                optional,intent(out)   :: ice_tstep       !*FD Set when an ice-timestep has been done, and
-                                                                      !*FD water balance information is available
+    type(glint_params),              intent(inout) :: params          !> parameters for this run
+    integer,                         intent(in)    :: time            !> Current model time        (hours)
+    real(dp),dimension(:,:),target,  intent(in)    :: rawtemp         !> Surface temperature field (deg C)
+    real(dp),dimension(:,:),target,  intent(in)    :: rawprecip       !> Precipitation rate        (mm/s)
+    real(dp),dimension(:,:),         intent(in)    :: orog            !> The large-scale orography (m)
+    real(dp),dimension(:,:),optional,intent(in)    :: zonwind,merwind !> Zonal and meridional components 
+                                                                      !> of the wind field         (m/s)
+    real(dp),dimension(:,:),optional,intent(in)    :: humid           !> Surface humidity (%)
+    real(dp),dimension(:,:),optional,intent(in)    :: lwdown          !> Downwelling longwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: swdown          !> Downwelling shortwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: airpress        !> surface air pressure (Pa)
+    logical,                optional,intent(out)   :: output_flag     !> Set true if outputs set
+    real(dp),dimension(:,:),optional,intent(inout) :: orog_out        !> The fed-back, output orography (m)
+    real(dp),dimension(:,:),optional,intent(inout) :: albedo          !> surface albedo
+    real(dp),dimension(:,:),optional,intent(inout) :: ice_frac        !> grid-box ice-fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: veg_frac        !> grid-box veg-fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snowice_frac    !> grid-box snow-covered ice fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snowveg_frac    !> grid-box snow-covered veg fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snow_depth      !> grid-box mean snow depth (m water equivalent)
+    real(dp),dimension(:,:),optional,intent(inout) :: water_in        !> Input water flux          (mm)
+    real(dp),dimension(:,:),optional,intent(inout) :: water_out       !> Output water flux         (mm)
+    real(dp),               optional,intent(inout) :: total_water_in  !> Area-integrated water flux in (kg)
+    real(dp),               optional,intent(inout) :: total_water_out !> Area-integrated water flux out (kg)
+    real(dp),               optional,intent(inout) :: ice_volume      !> Total ice volume (m$^3$)
+    logical,                optional,intent(out)   :: ice_tstep       !> Set when an ice-timestep has been done, and
+                                                                      !> water balance information is available
 
     ! Internal variables ----------------------------------------------------------------------------
 
@@ -1350,7 +1331,6 @@ contains
                        gfrac,          gtopo,           &
                        grofi,          grofl,           &
                        ice_sheet_grid_mask,             &
-                       icemask_coupled_fluxes,          &
                        ghflx)
 
     ! Main Glint subroutine for GCM coupling.
@@ -1364,13 +1344,6 @@ contains
     ! Global output fields are only valid on the main task. Fields that are integrated
     ! over the whole domain are only valid in single-task runs; trying to compute these 
     ! in multi-task runs will generate a fatal error.
-    !
-    ! Note about ice_sheet_grid_mask and icemask_coupled_fluxes: ice_sheet_grid_mask is
-    ! non-zero wherever CISM is operating - i.e., grid cells with icesheet or bare land
-    ! (but not ocean). icemask_coupled_fluxes is similar, but is 0 for icesheet instances
-    ! that have zero_gcm_fluxes = .true. Thus, icemask_coupled_fluxes can be used to
-    ! determine the regions of the world in which CISM is operating and potentially
-    ! sending non-zero fluxes to the climate model.
 
     use glimmer_utils
     use glint_interp
@@ -1385,8 +1358,8 @@ contains
 
     ! Subroutine argument declarations -------------------------------------------------------------
 
-    type(glint_params),              intent(inout) :: params          !*FD parameters for this run
-    integer,                         intent(in)    :: time            !*FD Current model time        (hours)
+    type(glint_params),              intent(inout) :: params          !> parameters for this run
+    integer,                         intent(in)    :: time            !> Current model time        (hours)
 
     real(dp),dimension(:,:,0:),intent(in)    :: qsmb          ! input surface mass balance of glacier ice (kg/m^2/s)
     real(dp),dimension(:,:,0:),intent(in)    :: tsfc          ! input surface ground temperature (deg C)
@@ -1403,7 +1376,6 @@ contains
     real(dp),dimension(:,:),  optional,intent(inout) :: grofi         ! output ice runoff (kg/m^2/s = mm H2O/s)
     real(dp),dimension(:,:),  optional,intent(inout) :: grofl         ! output liquid runoff (kg/m^2/s = mm H2O/s)
     real(dp),dimension(:,:),  optional,intent(inout) :: ice_sheet_grid_mask !mask of ice sheet grid coverage
-    real(dp),dimension(:,:),  optional,intent(inout) :: icemask_coupled_fluxes !mask of ice sheet grid coverage where we are potentially sending non-zero fluxes
 
     ! Internal variables ----------------------------------------------------------------------------
 
@@ -1419,9 +1391,7 @@ contains
 
     real(dp), dimension(:,:), allocatable ::   &
        grofi_temp    ,&! grofi for a single instance
-       grofl_temp    ,&! grofl for a single instance
-       ice_sheet_grid_mask_temp, &    ! ice_sheet_grid_mask for a single instance
-       icemask_coupled_fluxes_temp    ! icemask_coupled_fluxes for a single instance
+       grofl_temp      ! grofl for a single instance
 
     if (GLC_DEBUG .and. main_task) then
        if (params%new_av) then
@@ -1495,8 +1465,6 @@ contains
        allocate(ghflx_temp(params%g_grid%nx, params%g_grid%ny, 0:params%g_grid%nec))
        allocate(grofi_temp(params%g_grid%nx, params%g_grid%ny))
        allocate(grofl_temp(params%g_grid%nx, params%g_grid%ny))
-       allocate(ice_sheet_grid_mask_temp(params%g_grid%nx, params%g_grid%ny))
-       allocate(icemask_coupled_fluxes_temp(params%g_grid%nx, params%g_grid%ny))
 
        ! Zero global outputs if present
 
@@ -1506,7 +1474,6 @@ contains
        if (present(grofi)) grofi(:,:)   = 0.d0
        if (present(grofl)) grofl(:,:)   = 0.d0
        if (present(ice_sheet_grid_mask))  ice_sheet_grid_mask(:,:)   = 0.d0
-       if (present(icemask_coupled_fluxes))  icemask_coupled_fluxes(:,:)   = 0.d0
 
        ! Calculate averages by dividing by number of steps elapsed
        ! since last model timestep.
@@ -1534,14 +1501,14 @@ contains
              ! Downscale input fields from global to local grid
              ! This subroutine computes instance%acab and instance%artm, the key inputs to Glide.
 
-             if (GLC_DEBUG .and. main_task) write(stdout,*) 'Downscale fields to local grid, time (hr) =', time
+             if (main_task) write(stdout,*) 'Downscale fields to local grid, time (hr) =', time
              call glint_downscaling_gcm (params%instances(i),   &
                                          params%g_av_qsmb,      &
                                          params%g_av_tsfc,      &
                                          params%g_av_topo,      &
                                          params%g_grid%mask)
 
-             if (GLC_DEBUG .and. main_task) write(stdout,*) 'Take a glint time step, instance', i
+             if (main_task) write(stdout,*) 'Take a glint time step, instance', i
              call glint_i_tstep_gcm(time,                  &
                                     params%instances(i),   &
                                     icets)
@@ -1554,7 +1521,7 @@ contains
 
              ! Upscale the output to elevation classes on the global grid
 
-             if (GLC_DEBUG .and. main_task) write(stdout,*) 'Upscale fields to global grid, time(hr) =', time
+             if (main_task) write(stdout,*) 'Upscale fields to global grid, time(hr) =', time
              call glint_upscaling_gcm(params%instances(i), params%g_grid%nec, &
                                       params%instances(i)%lgrid%size%pt(1),   &
                                       params%instances(i)%lgrid%size%pt(2),   &
@@ -1563,30 +1530,25 @@ contains
                                       gfrac_temp,          gtopo_temp,        &
                                       grofi_temp,          grofl_temp,        &
                                       ghflx_temp )
-             
-             call compute_ice_sheet_grid_mask(ice_sheet_grid_mask_temp, gfrac_temp)
-             call compute_icemask_coupled_fluxes(icemask_coupled_fluxes_temp, &
-                                                 ice_sheet_grid_mask_temp, &
-                                                 params%instances(i))
 
              ! Add the contribution from this instance to the global output
 
              call splice_fields_gcm(gfrac_temp, gtopo_temp,    & !gfrac_temp here is fractional area, for each elevation level,
                                     grofi_temp, grofl_temp,    & !  of the total land+ice area
                                     ghflx_temp,                &
-                                    ice_sheet_grid_mask_temp,  &
-                                    icemask_coupled_fluxes_temp, &
                                     gfrac,      gtopo,         & !gfrac here is the fractional area, for each elevation level, 
                                     grofi,      grofl,         & ! of the fractional area of the total grid cell that is covered by CISM-owned land
                                     ghflx,                     &
-                                    ice_sheet_grid_mask,       &
-                                    icemask_coupled_fluxes,    &
                                     params%g_grid%nec,         &
                                     params%instances(i)%frac_coverage)
                          
           endif   ! time = next_time
 
        enddo    ! ninstances
+
+       if (present(ice_sheet_grid_mask)) then
+          call compute_ice_sheet_grid_mask(ice_sheet_grid_mask, gfrac)
+       end if
 
        ! ---------------------------------------------------------
        ! Reset averaging fields, flags and counters
@@ -1601,7 +1563,6 @@ contains
        params%next_av_start = time + params%time_step
 
        deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
-       deallocate(ice_sheet_grid_mask_temp, icemask_coupled_fluxes_temp)
 
        if (GLC_DEBUG .and. main_task) then
           write(stdout,*) 'Done in glint_gcm'
@@ -1615,7 +1576,7 @@ contains
 
   subroutine end_glint(params,close_logfile)
 
-    !*FD tidy-up operations for Glint
+    !> tidy-up operations for Glint
     use glint_initialise
     use glimmer_log
     implicit none
@@ -1643,10 +1604,10 @@ contains
 
   integer function glint_coverage_map(params, coverage, cov_orog)
 
-    !*FD Retrieve ice model fractional coverage map. 
-    !*FD This function is provided so that glimmer may
-    !*FD be restructured without altering the interface.
-    !*FD This is currently only valid on the main task.
+    !> Retrieve ice model fractional coverage map. 
+    !> This function is provided so that glimmer may
+    !> be restructured without altering the interface.
+    !> This is currently only valid on the main task.
     !*RV Three return values are possible:
     !*RV \begin{description}
     !*RV \item[0 ---] Successful return
@@ -1656,9 +1617,9 @@ contains
 
     implicit none
 
-    type(glint_params),intent(in) :: params                  !*FD ice model parameters
-    real(dp),dimension(:,:),intent(out) :: coverage          !*FD array to hold coverage map
-    real(dp),dimension(:,:),intent(out),optional :: cov_orog !*FD Orography coverage
+    type(glint_params),intent(in) :: params                  !> ice model parameters
+    real(dp),dimension(:,:),intent(out) :: coverage          !> array to hold coverage map
+    real(dp),dimension(:,:),intent(out),optional :: cov_orog !> Orography coverage
 
     if (.not. params%coverage_calculated) then
        glint_coverage_map = 1
@@ -1685,11 +1646,11 @@ contains
 
   subroutine glint_allocate_arrays(params)
 
-    !*FD allocates glimmer arrays
+    !> allocates glimmer arrays
 
     implicit none
 
-    type(glint_params),intent(inout) :: params !*FD ice model parameters
+    type(glint_params),intent(inout) :: params !> ice model parameters
 
     allocate(params%g_av_precip (params%g_grid%nx, params%g_grid%ny))
     allocate(params%g_av_temp   (params%g_grid%nx, params%g_grid%ny))
@@ -1713,13 +1674,9 @@ contains
   subroutine splice_fields_gcm(gfrac_temp, gtopo_temp,    &
                                grofi_temp, grofl_temp,    &
                                ghflx_temp,                &
-                               ice_sheet_grid_mask_temp,  &
-                               icemask_coupled_fluxes_temp, &
                                gfrac,      gtopo,         &
                                grofi,      grofl,         &
                                ghflx,                     &
-                               ice_sheet_grid_mask,       &
-                               icemask_coupled_fluxes,    &
                                nec,                       &
                                frac_coverage)
 
@@ -1732,16 +1689,12 @@ contains
      real(dp), dimension(:,:,0:), intent(in) :: ghflx_temp  ! output fields for this instance
      real(dp), dimension(:,:),   intent(in) :: grofi_temp  ! output fields for this instance
      real(dp), dimension(:,:),   intent(in) :: grofl_temp  ! output fields for this instance
-     real(dp), dimension(:,:),   intent(in) :: ice_sheet_grid_mask_temp  ! output fields for this instance
-     real(dp), dimension(:,:),   intent(in) :: icemask_coupled_fluxes_temp  ! output fields for this instance
 
      real(dp), dimension(:,:,0:), intent(inout) :: gfrac    ! spliced global output field
      real(dp), dimension(:,:,0:), intent(inout) :: gtopo    ! spliced global output field
      real(dp), dimension(:,:,0:), intent(inout) :: ghflx    ! spliced global output field
      real(dp), dimension(:,:),   intent(inout) :: grofi    ! spliced global output field
      real(dp), dimension(:,:),   intent(inout) :: grofl    ! spliced global output field
-     real(dp), dimension(:,:),   intent(inout) :: ice_sheet_grid_mask    ! spliced global output field
-     real(dp), dimension(:,:),   intent(inout) :: icemask_coupled_fluxes ! spliced global output field
 
      integer, intent(in) :: nec   ! number of elevation classes
 
@@ -1792,19 +1745,6 @@ contains
                                   frac_coverage,           &
                                   area_weighting=.false.)
 
-        ! area_weighting for ice_sheet_grid_mask agrees with area_weighting for gfrac,
-        ! since they are similar variables
-
-        ice_sheet_grid_mask(:,:) = splice_field(ice_sheet_grid_mask(:,:), &
-                                                ice_sheet_grid_mask_temp(:,:), &
-                                                frac_coverage, &
-                                                area_weighting = .true.)
-
-        icemask_coupled_fluxes(:,:) = splice_field(icemask_coupled_fluxes(:,:), &
-                                                   icemask_coupled_fluxes_temp(:,:), &
-                                                   frac_coverage, &
-                                                   area_weighting = .true.)
-
      endif  ! main_task
 
   end subroutine splice_fields_gcm
@@ -1813,14 +1753,14 @@ contains
 
   function splice_field(global, local, coverage, area_weighting)
 
-    !*FD Splices an upscaled field into a global field
+    !> Splices an upscaled field into a global field
 
     ! Note that this does not handle multiple overlapping ice sheet instances
 
-    real(dp),dimension(:,:),intent(in) :: global    !*FD Field to receive the splice
-    real(dp),dimension(:,:),intent(in) :: local     !*FD The field to be spliced in
-    real(dp),dimension(:,:),intent(in) :: coverage  !*FD The coverage fraction of the ice sheet grid on the global grid cell
-    logical,intent(in) :: area_weighting            !*FD Do/not do area weighting
+    real(dp),dimension(:,:),intent(in) :: global    !> Field to receive the splice
+    real(dp),dimension(:,:),intent(in) :: local     !> The field to be spliced in
+    real(dp),dimension(:,:),intent(in) :: coverage  !> The coverage fraction of the ice sheet grid on the global grid cell
+    logical,intent(in) :: area_weighting            !> Do/not do area weighting
     real(dp),dimension(size(global,1),size(global,2)) :: splice_field
 
     where (coverage == 0.d0) splice_field = global
@@ -1845,9 +1785,9 @@ contains
 
   subroutine glint_readconfig(config, ninstances, fnames, infnames)
 
-    !*FD Determine whether a given config file is a
-    !*FD top-level glint config file, and return parameters
-    !*FD accordingly.
+    !> Determine whether a given config file is a
+    !> top-level glint config file, and return parameters
+    !> accordingly.
 
     use glimmer_config
     use glimmer_log
@@ -1855,10 +1795,10 @@ contains
 
     ! Arguments -------------------------------------------
 
-    type(ConfigSection),      pointer :: config !*FD structure holding sections of configuration file
-    integer,              intent(out) :: ninstances !*FD Number of instances to create
-    character(fname_length),dimension(:),pointer :: fnames !*FD list of filenames (output)
-    character(fname_length),dimension(:) :: infnames !*FD list of filenames (input)
+    type(ConfigSection),      pointer :: config !> structure holding sections of configuration file
+    integer,              intent(out) :: ninstances !> Number of instances to create
+    character(fname_length),dimension(:),pointer :: fnames !> list of filenames (output)
+    character(fname_length),dimension(:) :: infnames !> list of filenames (input)
 
     ! Internal variables ----------------------------------
 
@@ -1900,17 +1840,17 @@ contains
 
   subroutine calc_bounds(lon, lat, lonb, latb)
 
-    !*FD Calculates the boundaries between global grid-boxes. 
-    !*FD Note that we assume that the boundaries lie half-way between the 
-    !*FD points, both latitudinally and longitudinally, although 
-    !*FD this isn't strictly true for a Gaussian grid.
+    !> Calculates the boundaries between global grid-boxes. 
+    !> Note that we assume that the boundaries lie half-way between the 
+    !> points, both latitudinally and longitudinally, although 
+    !> this isn't strictly true for a Gaussian grid.
 
     use glimmer_map_trans, only: loncorrect
 
     implicit none
 
-    real(dp),dimension(:),intent(in) :: lon,lat    !*FD locations of global grid-points (degrees)
-    real(dp),dimension(:),intent(out) :: lonb,latb !*FD boundaries of grid-boxes (degrees)
+    real(dp),dimension(:),intent(in) :: lon,lat    !> locations of global grid-points (degrees)
+    real(dp),dimension(:),intent(out) :: lonb,latb !> boundaries of grid-boxes (degrees)
 
     real(dp) :: dlon
 
@@ -1957,15 +1897,15 @@ contains
 
   integer function check_mbts(timesteps)
 
-    !*FD Checks to see that all mass-balance time-steps are
-    !*FD the same. Flags a fatal error if not, else assigns that
-    !*FD value to the output
+    !> Checks to see that all mass-balance time-steps are
+    !> the same. Flags a fatal error if not, else assigns that
+    !> value to the output
 
     use glimmer_log
 
     implicit none
 
-    integer,dimension(:) :: timesteps !*FD Array of mass-balance timsteps
+    integer,dimension(:) :: timesteps !> Array of mass-balance timsteps
 
     integer :: n,i
 
@@ -1990,8 +1930,8 @@ contains
 
   subroutine check_init_args(orog_lats, orog_longs, orog_latb, orog_lonb)
 
-    !*FD Checks which combination arguments have been supplied to
-    !*FD define the global grid, and rejects unsuitable combinations
+    !> Checks which combination arguments have been supplied to
+    !> define the global grid, and rejects unsuitable combinations
 
     use glimmer_log
 
@@ -2023,13 +1963,13 @@ contains
 
     use glimmer_log
 
-    type(glint_params),              intent(inout) :: params   !*FD parameters for this run
-    real(dp),dimension(:,:),optional,intent(in)    :: humid    !*FD Surface humidity (%)
-    real(dp),dimension(:,:),optional,intent(in)    :: lwdown   !*FD Downwelling longwave (W/m$^2$)
-    real(dp),dimension(:,:),optional,intent(in)    :: swdown   !*FD Downwelling shortwave (W/m$^2$)
-    real(dp),dimension(:,:),optional,intent(in)    :: airpress !*FD surface air pressure (Pa)
-    real(dp),dimension(:,:),optional,intent(in)    :: zonwind  !*FD Zonal component of the wind field (m/s)
-    real(dp),dimension(:,:),optional,intent(in)    :: merwind  !*FD Meridional component of the wind field (m/s)
+    type(glint_params),              intent(inout) :: params   !> parameters for this run
+    real(dp),dimension(:,:),optional,intent(in)    :: humid    !> Surface humidity (%)
+    real(dp),dimension(:,:),optional,intent(in)    :: lwdown   !> Downwelling longwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: swdown   !> Downwelling shortwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: airpress !> surface air pressure (Pa)
+    real(dp),dimension(:,:),optional,intent(in)    :: zonwind  !> Zonal component of the wind field (m/s)
+    real(dp),dimension(:,:),optional,intent(in)    :: merwind  !> Meridional component of the wind field (m/s)
 
     if (params%enmabal) then
        if (.not.(present(humid)  .and. present(lwdown)  .and. &
@@ -2051,15 +1991,15 @@ contains
 
   subroutine accumulate_averages(params, temp, precip, zonwind, merwind, humid, lwdown, swdown, airpress)
 
-    type(glint_params),              intent(inout) :: params   !*FD parameters for this run
-    real(dp),dimension(:,:),         intent(in)    :: temp     !*FD Surface temperature field (celsius)
-    real(dp),dimension(:,:),         intent(in)    :: precip   !*FD Precipitation rate        (mm/s)
-    real(dp),dimension(:,:),optional,intent(in)    :: zonwind  !*FD Zonal component of the wind field (m/s)
-    real(dp),dimension(:,:),optional,intent(in)    :: merwind  !*FD Meridional component of the wind field (m/s)
-    real(dp),dimension(:,:),optional,intent(in)    :: humid    !*FD Surface humidity (%)
-    real(dp),dimension(:,:),optional,intent(in)    :: lwdown   !*FD Downwelling longwave (W/m$^2$)
-    real(dp),dimension(:,:),optional,intent(in)    :: swdown   !*FD Downwelling shortwave (W/m$^2$)
-    real(dp),dimension(:,:),optional,intent(in)    :: airpress !*FD surface air pressure (Pa)
+    type(glint_params),              intent(inout) :: params   !> parameters for this run
+    real(dp),dimension(:,:),         intent(in)    :: temp     !> Surface temperature field (celsius)
+    real(dp),dimension(:,:),         intent(in)    :: precip   !> Precipitation rate        (mm/s)
+    real(dp),dimension(:,:),optional,intent(in)    :: zonwind  !> Zonal component of the wind field (m/s)
+    real(dp),dimension(:,:),optional,intent(in)    :: merwind  !> Meridional component of the wind field (m/s)
+    real(dp),dimension(:,:),optional,intent(in)    :: humid    !> Surface humidity (%)
+    real(dp),dimension(:,:),optional,intent(in)    :: lwdown   !> Downwelling longwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: swdown   !> Downwelling shortwave (W/m$^2$)
+    real(dp),dimension(:,:),optional,intent(in)    :: airpress !> surface air pressure (Pa)
 
     params%g_av_temp    = params%g_av_temp    + temp
     params%g_av_precip  = params%g_av_precip  + precip
@@ -2106,7 +2046,7 @@ contains
 
   subroutine calculate_averages(params)
 
-    type(glint_params), intent(inout) :: params   !*FD parameters for this run
+    type(glint_params), intent(inout) :: params   !> parameters for this run
 
     params%g_av_temp    = params%g_av_temp   / real(params%av_steps,dp)
     params%g_av_precip  = params%g_av_precip / real(params%av_steps,dp)
@@ -2125,7 +2065,7 @@ contains
 
   subroutine calculate_averages_gcm(params)
 
-    type(glint_params),              intent(inout) :: params   !*FD parameters for this run
+    type(glint_params),              intent(inout) :: params   !> parameters for this run
     
     integer :: nec
     
@@ -2150,18 +2090,18 @@ contains
 
     type(output_flags),intent(inout) :: out_f
 
-    real(dp),dimension(:,:),optional,intent(inout) :: orog_out        !*FD The fed-back, output orography (m)
-    real(dp),dimension(:,:),optional,intent(inout) :: albedo          !*FD surface albedo
-    real(dp),dimension(:,:),optional,intent(inout) :: ice_frac        !*FD grid-box ice-fraction
-    real(dp),dimension(:,:),optional,intent(inout) :: veg_frac        !*FD grid-box veg-fraction
-    real(dp),dimension(:,:),optional,intent(inout) :: snowice_frac    !*FD grid-box snow-covered ice fraction
-    real(dp),dimension(:,:),optional,intent(inout) :: snowveg_frac    !*FD grid-box snow-covered veg fraction
-    real(dp),dimension(:,:),optional,intent(inout) :: snow_depth      !*FD grid-box mean snow depth (m water equivalent)
-    real(dp),dimension(:,:),optional,intent(inout) :: water_in        !*FD Input water flux          (mm)
-    real(dp),dimension(:,:),optional,intent(inout) :: water_out       !*FD Output water flux         (mm)
-    real(dp),               optional,intent(inout) :: total_water_in  !*FD Area-integrated water flux in (kg)
-    real(dp),               optional,intent(inout) :: total_water_out !*FD Area-integrated water flux out (kg)
-    real(dp),               optional,intent(inout) :: ice_volume      !*FD Total ice volume (m$^3$)
+    real(dp),dimension(:,:),optional,intent(inout) :: orog_out        !> The fed-back, output orography (m)
+    real(dp),dimension(:,:),optional,intent(inout) :: albedo          !> surface albedo
+    real(dp),dimension(:,:),optional,intent(inout) :: ice_frac        !> grid-box ice-fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: veg_frac        !> grid-box veg-fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snowice_frac    !> grid-box snow-covered ice fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snowveg_frac    !> grid-box snow-covered veg fraction
+    real(dp),dimension(:,:),optional,intent(inout) :: snow_depth      !> grid-box mean snow depth (m water equivalent)
+    real(dp),dimension(:,:),optional,intent(inout) :: water_in        !> Input water flux          (mm)
+    real(dp),dimension(:,:),optional,intent(inout) :: water_out       !> Output water flux         (mm)
+    real(dp),               optional,intent(inout) :: total_water_in  !> Area-integrated water flux in (kg)
+    real(dp),               optional,intent(inout) :: total_water_out !> Area-integrated water flux out (kg)
+    real(dp),               optional,intent(inout) :: ice_volume      !> Total ice volume (m$^3$)
 
 
     out_f%orog         = present(orog_out)
@@ -2200,29 +2140,6 @@ contains
     ice_sheet_grid_mask=sum(gfrac,3)
 
   end subroutine compute_ice_sheet_grid_mask
-
-  !========================================================
-
-  subroutine compute_icemask_coupled_fluxes(icemask_coupled_fluxes, ice_sheet_grid_mask, instance)
-
-    ! Given an already-computed ice_sheet_grid_mask array, compute
-    ! icemask_coupled_fluxes. The latter is similar to the former, but is 0 for icesheet
-    ! instances that have zero_gcm_fluxes = .true. Thus, icemask_coupled_fluxes can be
-    ! used to determine the regions of the world in which CISM is operating and
-    ! potentially sending non-zero fluxes to the climate model.
-
-    real(dp) ,dimension(:,:), intent(out)  :: icemask_coupled_fluxes ! mask of ice sheet grid coverage where we are potentially sending non-zero fluxes
-    real(dp), dimension(:,:), intent(in)   :: ice_sheet_grid_mask    ! mask of ice sheet grid coverage
-    type(glint_instance), intent(in)       :: instance               ! the model instance
-
-
-    if (instance%zero_gcm_fluxes == ZERO_GCM_FLUXES_TRUE) then
-       icemask_coupled_fluxes(:,:) = 0.d0
-    else
-       icemask_coupled_fluxes(:,:) = ice_sheet_grid_mask(:,:)
-    end if
-
-  end subroutine compute_icemask_coupled_fluxes
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

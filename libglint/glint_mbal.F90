@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_mbal.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_mbal.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -42,14 +42,14 @@ module glint_mbal
 
   implicit none
 
-  !*FD Unified wrapper for different mass-balance codes
+  ! Unified wrapper for different mass-balance codes
 
   type glint_mbal_params
-     type(glint_pdd_params),      pointer :: annual_pdd => null() !*FD Pointer to annual PDD params
-     type(glint_daily_pdd_params),pointer :: daily_pdd => null()  !*FD Pointer to daily PDD params
-     type(ebm_params),            pointer :: ebm => null()        !*FD Pointer to EBM params
-     integer :: which !*FD Flag for chosen mass-balance type
-     integer :: tstep !*FD Timestep of mass-balance scheme in hours
+     type(glint_pdd_params),      pointer :: annual_pdd => null() ! Pointer to annual PDD params
+     type(glint_daily_pdd_params),pointer :: daily_pdd => null()  ! Pointer to daily PDD params
+     type(ebm_params),            pointer :: ebm => null()        ! Pointer to EBM params
+     integer :: which ! Flag for chosen mass-balance type
+     integer :: tstep ! Timestep of mass-balance scheme in hours
   end type glint_mbal_params
 
   integer, parameter :: MASS_BALANCE_GCM = 0       ! receive mass balance from global climate model
@@ -67,12 +67,12 @@ contains
     use glimmer_log
     use glint_constants
 
-    !*FD Initialise mass-balance schemes
+    ! Initialise mass-balance schemes
 
-    type(glint_mbal_params)      :: params !*FD parameters to be initialised
-    type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file
-    integer,intent(in)           :: whichacab  !*FD selector for mass balance type
-    integer                      :: nx,ny  !*FD grid dimensions (for EBM)
+    type(glint_mbal_params)      :: params ! parameters to be initialised
+    type(ConfigSection), pointer :: config ! structure holding sections of configuration file
+    integer,intent(in)           :: whichacab  ! selector for mass balance type
+    integer                      :: nx,ny  ! grid dimensions (for EBM)
     real(dp)                     :: dxr    !* Grid length (for EBM)
 
     ! Copy selector
@@ -126,22 +126,22 @@ contains
 
     use glimmer_log
 
-    type(glint_mbal_params)                 :: params  !*FD parameters to be initialised
-    real(dp), dimension(:,:), intent(in)    :: artm    !*FD Mean air-temperature ($^{\circ}$C)
-    real(dp), dimension(:,:), intent(in)    :: arng    !*FD Temperature half-range ($^{\circ}$C)
-    real(dp), dimension(:,:), intent(in)    :: prcp    !*FD Accumulated precipitation (m)
-    logical,  dimension(:,:), intent(in)    :: landsea !*FD Land-sea mask (land is TRUE)
-    real(dp), dimension(:,:), intent(inout) :: snowd   !*FD Snow depth (m)
-    real(dp), dimension(:,:), intent(inout) :: siced   !*FD Superimposed ice depth (m)
-    real(dp), dimension(:,:), intent(out)   :: ablt    !*FD Ablation (m)
-    real(dp), dimension(:,:), intent(out)   :: acab    !*FD Mass-balance (m)
-    real(dp), dimension(:,:), intent(in)    :: thck    !*FD Ice thickness (m)
-    real(dp), dimension(:,:), intent(in)    :: U10m    !*FD Ten-metre x-wind (m/s)
-    real(dp), dimension(:,:), intent(in)    :: V10m    !*FD Ten-metre y-wind (m/s)
-    real(dp), dimension(:,:), intent(in)    :: humidity !*FD Relative humidity (%)
-    real(dp), dimension(:,:), intent(in)    :: SWdown  !*FD Downwelling shortwave (W/m^2)
-    real(dp), dimension(:,:), intent(in)    :: LWdown  !*FD Downwelling longwave (W/m^2)
-    real(dp), dimension(:,:), intent(in)    :: Psurf   !*FD Surface pressure (Pa)
+    type(glint_mbal_params)                 :: params  ! parameters to be initialised
+    real(dp), dimension(:,:), intent(in)    :: artm    ! Mean air-temperature ($^{\circ}$C)
+    real(dp), dimension(:,:), intent(in)    :: arng    ! Temperature half-range ($^{\circ}$C)
+    real(dp), dimension(:,:), intent(in)    :: prcp    ! Accumulated precipitation (m)
+    logical,  dimension(:,:), intent(in)    :: landsea ! Land-sea mask (land is TRUE)
+    real(dp), dimension(:,:), intent(inout) :: snowd   ! Snow depth (m)
+    real(dp), dimension(:,:), intent(inout) :: siced   ! Superimposed ice depth (m)
+    real(dp), dimension(:,:), intent(out)   :: ablt    ! Ablation (m)
+    real(dp), dimension(:,:), intent(out)   :: acab    ! Mass-balance (m)
+    real(dp), dimension(:,:), intent(in)    :: thck    ! Ice thickness (m)
+    real(dp), dimension(:,:), intent(in)    :: U10m    ! Ten-metre x-wind (m/s)
+    real(dp), dimension(:,:), intent(in)    :: V10m    ! Ten-metre y-wind (m/s)
+    real(dp), dimension(:,:), intent(in)    :: humidity ! Relative humidity (%)
+    real(dp), dimension(:,:), intent(in)    :: SWdown  ! Downwelling shortwave (W/m^2)
+    real(dp), dimension(:,:), intent(in)    :: LWdown  ! Downwelling longwave (W/m^2)
+    real(dp), dimension(:,:), intent(in)    :: Psurf   ! Surface pressure (Pa)
 
     real(dp),dimension(size(acab,1),size(acab,2)) :: acab_temp
 

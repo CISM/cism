@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_mbal_coupling.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_mbal_coupling.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -35,30 +35,30 @@ module glint_mbal_coupling
 
   implicit none
 
-  !*FD Module to handle the accumulation of inputs and calculation of mass-balance
+  ! Module to handle the accumulation of inputs and calculation of mass-balance
 
   type glint_mbc
-     real(dp),dimension(:,:),pointer :: prcp_save  => null() !*FD used to accumulate precip
-     real(dp),dimension(:,:),pointer :: ablt_save  => null() !*FD used to accumulate ablation
-     real(dp),dimension(:,:),pointer :: acab_save  => null() !*FD used to accumulate mass-balance
-     real(dp),dimension(:,:),pointer :: artm_save  => null() !*FD used to average air-temperature
-     real(dp),dimension(:,:),pointer :: snowd      => null() !*FD Keeps track of snow depth
-     real(dp),dimension(:,:),pointer :: siced      => null() !*FD Keeps track of superimposed ice depth 
-     real(dp),dimension(:,:),pointer :: prcp       => null() !*FD Instantaneous precip
-     real(dp),dimension(:,:),pointer :: ablt       => null() !*FD Instantaneous ablation
-     real(dp),dimension(:,:),pointer :: acab       => null() !*FD Instantaneous mass-balance
-     real(dp),dimension(:,:),pointer :: artm       => null() !*FD Instantaneous air temperature
-     real(dp),dimension(:,:),pointer :: xwind      => null() !*FD Instantaneous x-wind
-     real(dp),dimension(:,:),pointer :: ywind      => null() !*FD Instantaneous y-wind
-     real(dp),dimension(:,:),pointer :: humidity   => null() !*FD Instantaneous humidity
-     real(dp),dimension(:,:),pointer :: SWdown     => null() !*FD Instantaneous sw down
-     real(dp),dimension(:,:),pointer :: LWdown     => null() !*FD Instantaneous lw down
-     real(dp),dimension(:,:),pointer :: Psurf      => null() !*FD Instantaneous psurf
-     real(dp),dimension(:,:),pointer :: snowd_save => null() !*FD Saves snow depth
-     real(dp),dimension(:,:),pointer :: siced_save => null() !*FD Saves superimposed ice depth 
-     integer :: av_count  = 0 !*FD Counter for averaging temperature input
+     real(dp),dimension(:,:),pointer :: prcp_save  => null() ! used to accumulate precip
+     real(dp),dimension(:,:),pointer :: ablt_save  => null() ! used to accumulate ablation
+     real(dp),dimension(:,:),pointer :: acab_save  => null() ! used to accumulate mass-balance
+     real(dp),dimension(:,:),pointer :: artm_save  => null() ! used to average air-temperature
+     real(dp),dimension(:,:),pointer :: snowd      => null() ! Keeps track of snow depth
+     real(dp),dimension(:,:),pointer :: siced      => null() ! Keeps track of superimposed ice depth 
+     real(dp),dimension(:,:),pointer :: prcp       => null() ! Instantaneous precip
+     real(dp),dimension(:,:),pointer :: ablt       => null() ! Instantaneous ablation
+     real(dp),dimension(:,:),pointer :: acab       => null() ! Instantaneous mass-balance
+     real(dp),dimension(:,:),pointer :: artm       => null() ! Instantaneous air temperature
+     real(dp),dimension(:,:),pointer :: xwind      => null() ! Instantaneous x-wind
+     real(dp),dimension(:,:),pointer :: ywind      => null() ! Instantaneous y-wind
+     real(dp),dimension(:,:),pointer :: humidity   => null() ! Instantaneous humidity
+     real(dp),dimension(:,:),pointer :: SWdown     => null() ! Instantaneous sw down
+     real(dp),dimension(:,:),pointer :: LWdown     => null() ! Instantaneous lw down
+     real(dp),dimension(:,:),pointer :: Psurf      => null() ! Instantaneous psurf
+     real(dp),dimension(:,:),pointer :: snowd_save => null() ! Saves snow depth
+     real(dp),dimension(:,:),pointer :: siced_save => null() ! Saves superimposed ice depth 
+     integer :: av_count  = 0 ! Counter for averaging temperature input
      logical :: new_accum = .true.
-     integer :: start_time    !*FD the time we started averaging (hours)
+     integer :: start_time    ! the time we started averaging (hours)
      type(glint_mbal_params) :: mbal
   end type glint_mbc
 
@@ -70,11 +70,11 @@ contains
 
     type(glint_mbc)  :: params
     type(coordsystem_type) :: lgrid
-    type(ConfigSection), pointer :: config !*FD structure holding sections of configuration file
+    type(ConfigSection), pointer :: config ! structure holding sections of configuration file
     integer          :: whichacab
-    real(dp),dimension(:,:),intent(in) :: snowd !*FD Initial snow-depth field
-    real(dp),dimension(:,:),intent(in) :: siced !*FD Initial superimposed ice field
-    integer          :: nx,ny  !*FD grid dimensions (for SMB)
+    real(dp),dimension(:,:),intent(in) :: snowd ! Initial snow-depth field
+    real(dp),dimension(:,:),intent(in) :: siced ! Initial superimposed ice field
+    integer          :: nx,ny  ! grid dimensions (for SMB)
     real(dp)         :: dx     !* Grid length (for SMB)
 
     ! Deallocate if necessary
@@ -140,19 +140,19 @@ contains
 
     type(glint_mbc)  :: params
     integer :: time
-    real(dp),dimension(:,:),intent(inout) :: artm      !*FD Mean air temperature (degC)
-    real(dp),dimension(:,:),intent(in) :: arng         !*FD Air temperature half-range (degC)
-    real(dp),dimension(:,:),intent(inout) :: prcp      !*FD Precipitation (m)
-    real(dp),dimension(:,:),intent(in) :: snowd        !*FD Snow depth (m)
-    real(dp),dimension(:,:),intent(in) :: siced        !*FD Superimposed ice depth (m)
-    real(dp),dimension(:,:),intent(in) :: xwind        !*FD $x$-component of surface winds (m/s)
-    real(dp),dimension(:,:),intent(in) :: ywind        !*FD $y$-component of surface winds (m/s)
-    real(dp),dimension(:,:),intent(in) :: local_orog   !*FD Local orography (m)
-    real(dp),dimension(:,:),intent(in) :: thck         !*FD Ice thickness (m)
-    real(dp),dimension(:,:),intent(in) :: humidity     !*FD Relative humidity (%)
-    real(dp),dimension(:,:),intent(in) :: SWdown       !*FD Downwelling shortwave (W/m^2)
-    real(dp),dimension(:,:),intent(in) :: LWdown       !*FD Downwelling longwave (W/m^2)
-    real(dp),dimension(:,:),intent(in) :: Psurf        !*FD Surface pressure (Pa)
+    real(dp),dimension(:,:),intent(inout) :: artm      ! Mean air temperature (degC)
+    real(dp),dimension(:,:),intent(in) :: arng         ! Air temperature half-range (degC)
+    real(dp),dimension(:,:),intent(inout) :: prcp      ! Precipitation (m)
+    real(dp),dimension(:,:),intent(in) :: snowd        ! Snow depth (m)
+    real(dp),dimension(:,:),intent(in) :: siced        ! Superimposed ice depth (m)
+    real(dp),dimension(:,:),intent(in) :: xwind        ! $x$-component of surface winds (m/s)
+    real(dp),dimension(:,:),intent(in) :: ywind        ! $y$-component of surface winds (m/s)
+    real(dp),dimension(:,:),intent(in) :: local_orog   ! Local orography (m)
+    real(dp),dimension(:,:),intent(in) :: thck         ! Ice thickness (m)
+    real(dp),dimension(:,:),intent(in) :: humidity     ! Relative humidity (%)
+    real(dp),dimension(:,:),intent(in) :: SWdown       ! Downwelling shortwave (W/m^2)
+    real(dp),dimension(:,:),intent(in) :: LWdown       ! Downwelling longwave (W/m^2)
+    real(dp),dimension(:,:),intent(in) :: Psurf        ! Surface pressure (Pa)
 
     real(dp),dimension(size(artm,1),size(artm,2)) :: ablt,acab
 
@@ -216,13 +216,13 @@ contains
     use glint_constants, only: hours2years
 
     type(glint_mbc)  :: params
-    real(dp),dimension(:,:),intent(out)   :: artm   !*FD Mean air temperature (degC)
-    real(dp),dimension(:,:),intent(out)   :: prcp   !*FD Precipitation (m/yr)
-    real(dp),dimension(:,:),intent(out)   :: ablt   !*FD Ablation (m/yr)
-    real(dp),dimension(:,:),intent(out)   :: acab   !*FD Mass-balance (m/yr)
-    real(dp),dimension(:,:),intent(inout) :: snowd  !*FD Snow depth (m)
-    real(dp),dimension(:,:),intent(inout) :: siced  !*FD Superimposed ice depth (m)
-    integer,                intent(in)    :: dt     !*FD accumulation time in hours
+    real(dp),dimension(:,:),intent(out)   :: artm   ! Mean air temperature (degC)
+    real(dp),dimension(:,:),intent(out)   :: prcp   ! Precipitation (m/yr)
+    real(dp),dimension(:,:),intent(out)   :: ablt   ! Ablation (m/yr)
+    real(dp),dimension(:,:),intent(out)   :: acab   ! Mass-balance (m/yr)
+    real(dp),dimension(:,:),intent(inout) :: snowd  ! Snow depth (m)
+    real(dp),dimension(:,:),intent(inout) :: siced  ! Superimposed ice depth (m)
+    integer,                intent(in)    :: dt     ! accumulation time in hours
 
     if (.not. params%new_accum) then
        params%artm_save = params%artm_save / real(params%av_count,dp)

@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_interp.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_interp.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -30,7 +30,7 @@
 
 module glint_interp
 
-  !*FD Downscaling and upscaling routines for use in Glint
+  !> Downscaling and upscaling routines for use in Glint
 
   use glimmer_global, only: dp, sp
   use glimmer_map_types
@@ -41,46 +41,46 @@ module glint_interp
 
   type downscale
 
-     !*FD Derived type containing indexing 
-     !*FD information for downscaling. This type was 
-     !*FD included for speed. Four of the arrays contained in it
-     !*FD are arrays of the indices of the corners 
-     !*FD of the global grid-boxes within which the given
-     !*FD local grid point lies.
+     !> Derived type containing indexing 
+     !> information for downscaling. This type was 
+     !> included for speed. Four of the arrays contained in it
+     !> are arrays of the indices of the corners 
+     !> of the global grid-boxes within which the given
+     !> local grid point lies.
 
-     real(dp),dimension(:,:),pointer :: llats => null() !*FD The latitude of each point in x-y space.
-     real(dp),dimension(:,:),pointer :: llons => null() !*FD The longitude of each point in x-y space.
+     real(dp),dimension(:,:),pointer :: llats => null() !> The latitude of each point in x-y space.
+     real(dp),dimension(:,:),pointer :: llons => null() !> The longitude of each point in x-y space.
 
-     integer, dimension(:,:,:),pointer :: xloc => null() !*FD The x-locations of the corner points of the
-                                                         !*FD interpolation domain.
-     integer, dimension(:,:,:),pointer :: yloc => null() !*FD The y-locations of the corner points of the
-                                                         !*FD interpolation domain.
-     integer, dimension(:,:), pointer :: xin => null() !*FD x-locations of global cell the point is in
-     integer, dimension(:,:), pointer :: yin => null() !*FD y-locations of global cell the point is in
+     integer, dimension(:,:,:),pointer :: xloc => null() !> The x-locations of the corner points of the
+                                                         !> interpolation domain.
+     integer, dimension(:,:,:),pointer :: yloc => null() !> The y-locations of the corner points of the
+                                                         !> interpolation domain.
+     integer, dimension(:,:), pointer :: xin => null() !> x-locations of global cell the point is in
+     integer, dimension(:,:), pointer :: yin => null() !> y-locations of global cell the point is in
 
      real(dp),dimension(:,:),  pointer :: xfrac => null()
      real(dp),dimension(:,:),  pointer :: yfrac => null()
-     real(dp),dimension(:,:),pointer :: sintheta => NULL()  !*FD sines of grid angle relative to north.
-     real(dp),dimension(:,:),pointer :: costheta => NULL()  !*FD coses of grid angle relative to north.
-     type(mpinterp) :: mpint !*FD Parameters for mean-preserving interpolation
-     logical :: use_mpint = .false. !*FD set true if we're using mean-preserving interpolation
-     integer,dimension(:,:),pointer :: lmask => null()  !*FD mask = 1 where downscaling is valid 
-                                                        !*FD mask = 0 elsewhere
+     real(dp),dimension(:,:),pointer :: sintheta => NULL()  !> sines of grid angle relative to north.
+     real(dp),dimension(:,:),pointer :: costheta => NULL()  !> coses of grid angle relative to north.
+     type(mpinterp) :: mpint !> Parameters for mean-preserving interpolation
+     logical :: use_mpint = .false. !> set true if we're using mean-preserving interpolation
+     integer,dimension(:,:),pointer :: lmask => null()  !> mask = 1 where downscaling is valid 
+                                                        !> mask = 0 elsewhere
 
   end type downscale
 
   type upscale
 
-     !*FD Derived type containing indexing information
-     !*FD for upscaling by areal averaging.
+     !> Derived type containing indexing information
+     !> for upscaling by areal averaging.
 
-     integer, dimension(:,:),pointer :: gboxx => null() !*FD $x$-indices of global grid-box 
-                                                        !*FD containing given local grid-box.
-     integer, dimension(:,:),pointer :: gboxy => null() !*FD $y$-indices of global grid-box 
-                                                        !*FD containing given local grid-box.
-     integer, dimension(:,:),pointer :: gboxn => null() !*FD Number of local grid-boxes 
-                                                        !*FD contained in each global box.
-     logical                         :: set = .false.   !*FD Set if the type has been initialised.
+     integer, dimension(:,:),pointer :: gboxx => null() !> $x$-indices of global grid-box 
+                                                        !> containing given local grid-box.
+     integer, dimension(:,:),pointer :: gboxy => null() !> $y$-indices of global grid-box 
+                                                        !> containing given local grid-box.
+     integer, dimension(:,:),pointer :: gboxn => null() !> Number of local grid-boxes 
+                                                        !> contained in each global box.
+     logical                         :: set = .false.   !> Set if the type has been initialised.
 
   end type upscale
 
@@ -93,16 +93,16 @@ contains
     use glimmer_map_types
     use glimmer_coordinates
 
-    !*FD Initialises a downscale variable,
-    !*FD according to given projected and global grids
+    !> Initialises a downscale variable,
+    !> according to given projected and global grids
 
     ! Arguments
 
-    type(downscale),intent(out)      :: downs   !*FD Downscaling variable to be set
-    type(glimmap_proj),intent(in)    :: proj    !*FD Projection to use
-    type(global_grid),intent(in)     :: ggrid   !*FD Global grid to use
-    type(coordsystem_type),intent(in) :: lgrid  !*FD Local (ice) grid 
-    logical,optional :: mpint !*FD Set true if we're using mean-preserving interp
+    type(downscale),intent(out)      :: downs   !> Downscaling variable to be set
+    type(glimmap_proj),intent(in)    :: proj    !> Projection to use
+    type(global_grid),intent(in)     :: ggrid   !> Global grid to use
+    type(coordsystem_type),intent(in) :: lgrid  !> Local (ice) grid 
+    logical,optional :: mpint !> Set true if we're using mean-preserving interp
 
     ! Internal variables
 
@@ -178,11 +178,11 @@ contains
 
     ! Argument declarations
 
-    type(coordsystem_type), intent(in)     :: lgrid_fulldomain !*FD Target grid on the full domain (i.e., across all tasks)
-    real(dp),dimension(:,:),intent(in)     :: zonwind          !*FD Zonal component (input)
-    real(dp),dimension(:,:),intent(in)     :: merwind          !*FD Meridional components (input)
-    type(downscale),        intent(inout)  :: downs            !*FD Downscaling parameters
-    real(dp),dimension(:,:),intent(out)    :: xwind,ywind      !*FD x and y components on the projected grid (output)
+    type(coordsystem_type), intent(in)     :: lgrid_fulldomain !> Target grid on the full domain (i.e., across all tasks)
+    real(dp),dimension(:,:),intent(in)     :: zonwind          !> Zonal component (input)
+    real(dp),dimension(:,:),intent(in)     :: merwind          !> Meridional components (input)
+    type(downscale),        intent(inout)  :: downs            !> Downscaling parameters
+    real(dp),dimension(:,:),intent(out)    :: xwind,ywind      !> x and y components on the projected grid (output)
 
     ! Declare two temporary arrays to hold the interpolated zonal and meridional winds
 
@@ -219,17 +219,17 @@ contains
                               global_fn,        z_constrain,          &
                               gmask,            maskval)
 
-    !*FD Interpolate a global scalar field onto a projected grid. 
-    !*FD 
-    !*FD This uses a simple bilinear interpolation, which assumes
-    !*FD that the global grid boxes are rectangular - i.e. it works
-    !*FD in lat-lon space.
-    !*FD
-    !*FD Either localsp or localdp must be present (or both), depending
-    !*FD which precision output is required.
-    !*FD
-    !*FD Variables referring to the global domain (global, downs,
-    !*FD gmask) only need to be valid on the main task
+    !> Interpolate a global scalar field onto a projected grid. 
+    !> 
+    !> This uses a simple bilinear interpolation, which assumes
+    !> that the global grid boxes are rectangular - i.e. it works
+    !> in lat-lon space.
+    !>
+    !> Either localsp or localdp must be present (or both), depending
+    !> which precision output is required.
+    !>
+    !> Variables referring to the global domain (global, downs,
+    !> gmask) only need to be valid on the main task
 
 ! Cell indexing for (xloc,yloc) is as follows:
 !
@@ -247,21 +247,21 @@ contains
 
     ! Argument declarations
 
-    type(coordsystem_type),  intent(in)           :: lgrid_fulldomain !*FD Local grid, spanning the full domain (across all tasks)
-    real(dp), dimension(:,:),intent(in)           :: global           !*FD Global field (input)
-    type(downscale),         intent(inout)        :: downs            !*FD Downscaling parameters
+    type(coordsystem_type),  intent(in)           :: lgrid_fulldomain !> Local grid, spanning the full domain (across all tasks)
+    real(dp), dimension(:,:),intent(in)           :: global           !> Global field (input)
+    type(downscale),         intent(inout)        :: downs            !> Downscaling parameters
     !TODO - Remove localsp as optional argument?
-    real(sp),dimension(:,:), intent(out),optional :: localsp          !*FD Local field on projected grid (output) sp
-    real(dp),dimension(:,:), intent(out),optional :: localdp          !*FD Local field on projected grid (output) dp
-    real(dp),optional,external                    :: global_fn        !*FD Function returning values in global field. This  
-                                                                      !*FD may be used as an alternative to passing the
-                                                                      !*FD whole array in \texttt{global} if, for instance the
-                                                                      !*FD data-set is in a large file, being accessed point by point.
-                                                                      !*FD In these circumstances, \texttt{global}
-                                                                      !*FD may be of any size, and its contents are irrelevant.
+    real(sp),dimension(:,:), intent(out),optional :: localsp          !> Local field on projected grid (output) sp
+    real(dp),dimension(:,:), intent(out),optional :: localdp          !> Local field on projected grid (output) dp
+    real(dp),optional,external                    :: global_fn        !> Function returning values in global field. This  
+                                                                      !> may be used as an alternative to passing the
+                                                                      !> whole array in \texttt{global} if, for instance the
+                                                                      !> data-set is in a large file, being accessed point by point.
+                                                                      !> In these circumstances, \texttt{global}
+                                                                      !> may be of any size, and its contents are irrelevant.
     logical,optional :: z_constrain
-    integer, dimension(:,:), intent(in),optional  :: gmask            !*FD = 1 where global data are valid, else = 0
-    real(dp), intent(in), optional                :: maskval          !*FD Value to write for masked-out cells 
+    integer, dimension(:,:), intent(in),optional  :: gmask            !> = 1 where global data are valid, else = 0
+    real(dp), intent(in), optional                :: maskval          !> Value to write for masked-out cells 
 
     ! Local variable declarations
 
@@ -490,10 +490,10 @@ contains
 
     ! Argument declarations
 
-    type(coordsystem_type),  intent(in)  :: lgrid_fulldomain !*FD Local grid, spanning the full domain (across all tasks)
-    real(dp), dimension(:,:),intent(in)  :: global           !*FD Global field (input)
-    type(downscale),         intent(in)  :: downs            !*FD Downscaling parameters
-    real(dp),dimension(:,:), intent(out) :: local            !*FD Local field on projected grid (output)
+    type(coordsystem_type),  intent(in)  :: lgrid_fulldomain !> Local grid, spanning the full domain (across all tasks)
+    real(dp), dimension(:,:),intent(in)  :: global           !> Global field (input)
+    type(downscale),         intent(in)  :: downs            !> Downscaling parameters
+    real(dp),dimension(:,:), intent(out) :: local            !> Local field on projected grid (output)
     
     ! Local variable declarations
 
@@ -554,19 +554,19 @@ contains
 
     ! Argument declarations
 
-    type(glimmap_proj),              intent(in)  :: proj      !*FD Target map projection
-    type(coordsystem_type),          intent(in)  :: lgrid     !*FD Local grid information
-    type(global_grid),               intent(in)  :: ggrid     !*FD Global grid information
-    real(dp),dimension(:,:),         intent(in)  :: global    !*FD Global field (input)
+    type(glimmap_proj),              intent(in)  :: proj      !> Target map projection
+    type(coordsystem_type),          intent(in)  :: lgrid     !> Local grid information
+    type(global_grid),               intent(in)  :: ggrid     !> Global grid information
+    real(dp),dimension(:,:),         intent(in)  :: global    !> Global field (input)
     !TODO - Remove localsp?
-    real(sp),dimension(:,:),optional,intent(out) :: localsp   !*FD Local field on projected grid (output) sp
-    real(dp),dimension(:,:),optional,intent(out) :: localdp   !*FD Local field on projected grid (output) dp
-    real(dp),optional, external                  :: global_fn !*FD Function returning values in global field. This  
-                                                              !*FD may be used as an alternative to passing the
-                                                              !*FD whole array in \texttt{global} if, for instance the
-                                                              !*FD data-set is in a large file, being accessed point by point.
-                                                              !*FD In these circumstances, \texttt{global}
-                                                              !*FD may be of any size, and its contents are irrelevant.
+    real(sp),dimension(:,:),optional,intent(out) :: localsp   !> Local field on projected grid (output) sp
+    real(dp),dimension(:,:),optional,intent(out) :: localdp   !> Local field on projected grid (output) dp
+    real(dp),optional, external                  :: global_fn !> Function returning values in global field. This  
+                                                              !> may be used as an alternative to passing the
+                                                              !> whole array in \texttt{global} if, for instance the
+                                                              !> data-set is in a large file, being accessed point by point.
+                                                              !> In these circumstances, \texttt{global}
+                                                              !> may be of any size, and its contents are irrelevant.
 
     integer :: i,j,xbox,ybox
     real(dp) :: lat,lon,x,y
@@ -643,12 +643,12 @@ contains
 
     ! Arguments
 
-    type(glimmap_proj),     intent(in)  :: proj      !*FD Projection to use
-    type(coordsystem_type), intent(in)  :: lgrid     !*FD Local grid
-    real(dp),dimension(:,:),intent(in)  :: local     !*FD Local field (input)
-    real(dp),dimension(:,:),intent(out) :: global    !*FD Global field (output)
-    real(dp),dimension(:),  intent(in)  :: lats      !*FD Latitudes of grid-points (degrees)
-    real(dp),dimension(:),  intent(in)  :: lons      !*FD Longitudes of grid-points (degrees)
+    type(glimmap_proj),     intent(in)  :: proj      !> Projection to use
+    type(coordsystem_type), intent(in)  :: lgrid     !> Local grid
+    real(dp),dimension(:,:),intent(in)  :: local     !> Local field (input)
+    real(dp),dimension(:,:),intent(out) :: global    !> Global field (output)
+    real(dp),dimension(:),  intent(in)  :: lats      !> Latitudes of grid-points (degrees)
+    real(dp),dimension(:),  intent(in)  :: lons      !> Longitudes of grid-points (degrees)
 
     ! Internal variables
 
@@ -680,27 +680,27 @@ contains
 
   subroutine local_to_global_avg(ups,local,global,mask)
 
-    !*FD Upscale to global domain by areal averaging.
-    !*FD
-    !*FD Note that:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{global} output is only valid on the main task
-    !*FD \item \texttt{ups} input only needs to be valid on the main task
-    !*FD \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
-    !*FD \item \texttt{gboxn} is the same size as \texttt{global}
-    !*FD \item This method is \emph{not} the mathematical inverse of the
-    !*FD \texttt{interp\_to\_local} routine.
-    !*FD \end{itemize}
+    !> Upscale to global domain by areal averaging.
+    !>
+    !> Note that:
+    !> \begin{itemize}
+    !> \item \texttt{global} output is only valid on the main task
+    !> \item \texttt{ups} input only needs to be valid on the main task
+    !> \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
+    !> \item \texttt{gboxn} is the same size as \texttt{global}
+    !> \item This method is \emph{not} the mathematical inverse of the
+    !> \texttt{interp\_to\_local} routine.
+    !> \end{itemize}
 
     use parallel, only : main_task, distributed_gather_var
     use nan_mod , only : NaN
 
     ! Arguments
 
-    type(upscale),          intent(in)  :: ups    !*FD Upscaling indexing data.
-    real(dp),dimension(:,:),intent(in)  :: local  !*FD Data on projected grid (input).
-    real(dp),dimension(:,:),intent(out) :: global !*FD Data on global grid (output).
-    integer, dimension(:,:),intent(in),optional :: mask !*FD Mask for upscaling
+    type(upscale),          intent(in)  :: ups    !> Upscaling indexing data.
+    real(dp),dimension(:,:),intent(in)  :: local  !> Data on projected grid (input).
+    real(dp),dimension(:,:),intent(out) :: global !> Data on global grid (output).
+    integer, dimension(:,:),intent(in),optional :: mask !> Mask for upscaling
 
     ! Internal variables
 
@@ -772,26 +772,26 @@ contains
 
   subroutine local_to_global_sum(ups,local,global,mask)
 
-    !*FD Upscale to global domain by summing local field.
-    !*FD The result is an accumulated sum, not an average.
-    !*FD
-    !*FD Note that:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{global} output is only valid on the main task
-    !*FD \item \texttt{ups} input only needs to be valid on the main task
-    !*FD \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
-    !*FD \item \texttt{gboxn} is the same size as \texttt{global}
-    !*FD \end{itemize}
+    !> Upscale to global domain by summing local field.
+    !> The result is an accumulated sum, not an average.
+    !>
+    !> Note that:
+    !> \begin{itemize}
+    !> \item \texttt{global} output is only valid on the main task
+    !> \item \texttt{ups} input only needs to be valid on the main task
+    !> \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
+    !> \item \texttt{gboxn} is the same size as \texttt{global}
+    !> \end{itemize}
 
     use parallel, only : main_task, distributed_gather_var
     use nan_mod , only : NaN
 
     ! Arguments
 
-    type(upscale),          intent(in)  :: ups    !*FD Upscaling indexing data.
-    real(dp),dimension(:,:),intent(in)  :: local  !*FD Data on projected grid (input).
-    real(dp),dimension(:,:),intent(out) :: global !*FD Data on global grid (output).
-    integer,dimension(:,:),intent(in),optional :: mask !*FD Mask for upscaling
+    type(upscale),          intent(in)  :: ups    !> Upscaling indexing data.
+    real(dp),dimension(:,:),intent(in)  :: local  !> Data on projected grid (input).
+    real(dp),dimension(:,:),intent(out) :: global !> Data on global grid (output).
+    integer,dimension(:,:),intent(in),optional :: mask !> Mask for upscaling
 
     ! Internal variables
 
@@ -842,26 +842,26 @@ contains
 
   subroutine local_to_global_min(ups,local,global,mask)
 
-    !*FD Upscale to global domain by finding the minimum of the local field.
-    !*FD The result is an accumulated sum, not an average.
-    !*FD
-    !*FD Note that:
-    !*FD \begin{itemize}
-    !*FD \item \texttt{global} output is only valid on the main task
-    !*FD \item \texttt{ups} input only needs to be valid on the main task
-    !*FD \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
-    !*FD \item \texttt{gboxn} is the same size as \texttt{global}
-    !*FD \end{itemize}
+    !> Upscale to global domain by finding the minimum of the local field.
+    !> The result is an accumulated sum, not an average.
+    !>
+    !> Note that:
+    !> \begin{itemize}
+    !> \item \texttt{global} output is only valid on the main task
+    !> \item \texttt{ups} input only needs to be valid on the main task
+    !> \item \texttt{gboxx} and \texttt{gboxy} are the same size as \texttt{local_fulldomain}
+    !> \item \texttt{gboxn} is the same size as \texttt{global}
+    !> \end{itemize}
 
     use parallel, only : main_task, distributed_gather_var
     use nan_mod , only : NaN
 
     ! Arguments
 
-    type(upscale),          intent(in)  :: ups    !*FD Upscaling indexing data.
-    real(dp),dimension(:,:),intent(in)  :: local  !*FD Data on projected grid (input).
-    real(dp),dimension(:,:),intent(out) :: global !*FD Data on global grid (output).
-    integer,dimension(:,:),intent(in),optional :: mask !*FD Mask for upscaling
+    type(upscale),          intent(in)  :: ups    !> Upscaling indexing data.
+    real(dp),dimension(:,:),intent(in)  :: local  !> Data on projected grid (input).
+    real(dp),dimension(:,:),intent(out) :: global !> Data on global grid (output).
+    integer,dimension(:,:),intent(in),optional :: mask !> Mask for upscaling
 
     ! Internal variables
 
@@ -932,12 +932,12 @@ contains
 
     ! Argument declarations
 
-    real(dp),             intent(in) :: xp    !*FD The fractional $x$-displacement of the target.
-    real(dp),             intent(in) :: yp    !*FD The fractional $y$-displacement of the target.
-    real(dp),dimension(4),intent(in) :: f     !*FD The interpolation domain;
-                                              !*FD i.e. the four points surrounding the
-                                              !*FD target, presented anticlockwise from bottom-
-                                              !*FD left 
+    real(dp),             intent(in) :: xp    !> The fractional $x$-displacement of the target.
+    real(dp),             intent(in) :: yp    !> The fractional $y$-displacement of the target.
+    real(dp),dimension(4),intent(in) :: f     !> The interpolation domain;
+                                              !> i.e. the four points surrounding the
+                                              !> target, presented anticlockwise from bottom-
+                                              !> left 
     ! Apply bilinear interpolation formula
 
     bilinear_interp = (1.d0-xp)*(1.d0-yp)*f(1) + xp*(1.d0-yp)*f(2) + xp*yp*f(3) + (1.d0-xp)*yp*f(4)
@@ -948,19 +948,19 @@ contains
 
   subroutine find_ll_index(il,jl,lon,lat,lons,lats)
 
-    !*FD Find the global gridpoint at the first corner of the box surrounding
-    !*FD a given location in lat-lon space.
+    !> Find the global gridpoint at the first corner of the box surrounding
+    !> a given location in lat-lon space.
 
     use glimmer_utils
 
     ! Arguments
 
-    real(dp),             intent(in)  :: lon    !*FD Longitude of location to be indexed (input)
-    real(dp),             intent(in)  :: lat    !*FD Latitude of location to be indexed (input)
-    real(dp),dimension(:),intent(in)  :: lats   !*FD Latitudes of global grid points 
-    real(dp),dimension(:),intent(in)  :: lons   !*FD Longitudes of global grid points 
-    integer,              intent(out) :: il     !*FD $x$-gridpoint index (output)
-    integer,              intent(out) :: jl     !*FD $y$-gridpoint index (output)
+    real(dp),             intent(in)  :: lon    !> Longitude of location to be indexed (input)
+    real(dp),             intent(in)  :: lat    !> Latitude of location to be indexed (input)
+    real(dp),dimension(:),intent(in)  :: lats   !> Latitudes of global grid points 
+    real(dp),dimension(:),intent(in)  :: lons   !> Longitudes of global grid points 
+    integer,              intent(out) :: il     !> $x$-gridpoint index (output)
+    integer,              intent(out) :: jl     !> $y$-gridpoint index (output)
 
     ! Internal variables
 
@@ -999,8 +999,8 @@ contains
 
   subroutine index_local_boxes (xloc, yloc, xfrac, yfrac, ggrid, proj, lgrid, lmask)
 
-    !*FD Indexes the corners of the
-    !*FD global grid box in which each local grid box sits.
+    !> Indexes the corners of the
+    !> global grid box in which each local grid box sits.
 
     use glimmer_utils
     use glint_global_grid
@@ -1010,12 +1010,12 @@ contains
 
     ! Arguments
 
-    integer, dimension(:,:,:),intent(out) :: xloc,yloc   !*FD Array of indicies (see \texttt{downscale} type)
-    real(dp),dimension(:,:),  intent(out) :: xfrac,yfrac !*FD Fractional off-sets of grid points
-    type(global_grid),        intent(in)  :: ggrid       !*FD Global grid to be used
-    type(glimmap_proj),       intent(in)  :: proj        !*FD Projection to be used
-    type(coordsystem_type),   intent(in)  :: lgrid       !*FD Local grid
-    integer, dimension(:,:),  intent(out) :: lmask  !*FD Mask of local cells for which interpolation is valid
+    integer, dimension(:,:,:),intent(out) :: xloc,yloc   !> Array of indicies (see \texttt{downscale} type)
+    real(dp),dimension(:,:),  intent(out) :: xfrac,yfrac !> Fractional off-sets of grid points
+    type(global_grid),        intent(in)  :: ggrid       !> Global grid to be used
+    type(glimmap_proj),       intent(in)  :: proj        !> Projection to be used
+    type(coordsystem_type),   intent(in)  :: lgrid       !> Local grid
+    integer, dimension(:,:),  intent(out) :: lmask  !> Mask of local cells for which interpolation is valid
 
     ! Internal variables
 
@@ -1159,14 +1159,14 @@ contains
 
   subroutine calc_grid_angle(downs,proj,lgrid)
 
-    !*FD Calculates the angle the projected 
-    !*FD grid makes with north at each point and stores the cos 
-    !*FD and sin of that angle in the relevant arrays in \texttt{proj}.
+    !> Calculates the angle the projected 
+    !> grid makes with north at each point and stores the cos 
+    !> and sin of that angle in the relevant arrays in \texttt{proj}.
 
     use glimmer_coordinates
     use glimmer_map_trans
 
-    type(downscale),intent(inout) :: downs !*FD The projection to be used
+    type(downscale),intent(inout) :: downs !> The projection to be used
     type(glimmap_proj),intent(in) :: proj
     type(coordsystem_type),intent(in) :: lgrid
 
@@ -1224,17 +1224,17 @@ contains
     use glimmer_map_trans
     use glimmer_coordinates
 
-    !*FD Compiles an index of which global grid box contains a given
-    !*FD grid box on the projected grid, and sets derived type \texttt{ups}
-    !*FD accordingly.
+    !> Compiles an index of which global grid box contains a given
+    !> grid box on the projected grid, and sets derived type \texttt{ups}
+    !> accordingly.
 
     ! Arguments
 
-    type(upscale),         intent(out) :: ups        !*FD Upscaling type to be set
-    type(global_grid),     intent(in)  :: ggrid      !*FD Global grid to be used
-    type(glimmap_proj),    intent(in)  :: proj       !*FD Projection being used
-    integer,dimension(:,:),intent(in)  :: mask       !*FD Upscaling mask to be used
-    type(coordsystem_type),intent(in)  :: lgrid      !*FD local grid
+    type(upscale),         intent(out) :: ups        !> Upscaling type to be set
+    type(global_grid),     intent(in)  :: ggrid      !> Global grid to be used
+    type(glimmap_proj),    intent(in)  :: proj       !> Projection being used
+    integer,dimension(:,:),intent(in)  :: mask       !> Upscaling mask to be used
+    type(coordsystem_type),intent(in)  :: lgrid      !> local grid
 
     ! Internal variables
 
@@ -1329,16 +1329,16 @@ contains
 
   logical function lon_between(a,b,x)
 
-    !*FD Checks to see whether a 
-    !*FD longitudinal coordinate is between two bounds,
-    !*FD taking into account the periodic boundary conditions.
+    !> Checks to see whether a 
+    !> longitudinal coordinate is between two bounds,
+    !> taking into account the periodic boundary conditions.
     !*RV Returns \texttt{.true.} if $\mathtt{x}\geq \mathtt{a}$ and $\mathtt{x}<\mathtt{b}$.
 
     ! Arguments
 
-    real(dp),intent(in) :: a  !*FD Lower bound on interval for checking
-    real(dp),intent(in) :: b  !*FD Upper bound on interval for checking
-    real(dp),intent(in) :: x  !*FD Test value (degrees)
+    real(dp),intent(in) :: a  !> Lower bound on interval for checking
+    real(dp),intent(in) :: b  !> Upper bound on interval for checking
+    real(dp),intent(in) :: x  !> Test value (degrees)
 
     ! Internal variables
 
@@ -1365,14 +1365,14 @@ contains
 
   subroutine calc_fractional(x,y,xp,yp,xa,ya,xb,yb,xc,yc,xd,yd)
 
-    !*FD Performs a coordinate transformation to locate the point
-    !*FD $(X',Y')$ fractionally within an arbitrary quadrilateral, 
-    !*FD defined by the points $(x_A,y_A)$, $(x_B,y_B)$, 
-    !*FD $(x_C,y_C)$ and $(x_D,y_D)$, which are ordered 
-    !*FD anticlockwise.
+    !> Performs a coordinate transformation to locate the point
+    !> $(X',Y')$ fractionally within an arbitrary quadrilateral, 
+    !> defined by the points $(x_A,y_A)$, $(x_B,y_B)$, 
+    !> $(x_C,y_C)$ and $(x_D,y_D)$, which are ordered 
+    !> anticlockwise.
 
-    real(dp),intent(out) :: x !*FD The fractional $x$ location.
-    real(dp),intent(out) :: y !*FD The fractional $y$ location.
+    real(dp),intent(out) :: x !> The fractional $x$ location.
+    real(dp),intent(out) :: y !> The fractional $y$ location.
     real(dp),intent(in)  :: xp,yp,xa,ya,xb,yb,xc,yc,xd,yd
 
     real(dp) :: a,b,c

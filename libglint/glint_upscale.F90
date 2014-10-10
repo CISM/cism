@@ -1,26 +1,26 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !                                                             
-!   glint_upscale.F90 - part of the Glimmer Community Ice Sheet Model (Glimmer-CISM)  
+!   glint_upscale.F90 - part of the Community Ice Sheet Model (CISM)  
 !                                                              
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!   Copyright (C) 2005-2013
-!   Glimmer-CISM contributors - see AUTHORS file for list of contributors
+!   Copyright (C) 2005-2014
+!   CISM contributors - see AUTHORS file for list of contributors
 !
-!   This file is part of Glimmer-CISM.
+!   This file is part of CISM.
 !
-!   Glimmer-CISM is free software: you can redistribute it and/or modify it
+!   CISM is free software: you can redistribute it and/or modify it
 !   under the terms of the Lesser GNU General Public License as published
 !   by the Free Software Foundation, either version 3 of the License, or
 !   (at your option) any later version.
 !
-!   Glimmer-CISM is distributed in the hope that it will be useful,
+!   CISM is distributed in the hope that it will be useful,
 !   but WITHOUT ANY WARRANTY; without even the implied warranty of
 !   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 !   Lesser GNU General Public License for more details.
 !
 !   You should have received a copy of the Lesser GNU General Public License
-!   along with Glimmer-CISM. If not, see <http://www.gnu.org/licenses/>.
+!   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -50,35 +50,35 @@ contains
                              snowice_frac, snowveg_frac,  &
                              snow_depth)
 
-    !*FD Upscales and returns certain fields
-    !*FD Output fields are only valid on the main task
-    !*FD 
-    !*FD \begin{itemize}
-    !*FD \item \texttt{orog} --- the orographic elevation (m)
-    !*FD \item \texttt{albedo} --- the albedo of ice/snow (this is only a notional value --- need to do
-    !*FD some work here)
-    !*FD \item \texttt{ice\_frac} --- The fraction covered by ice
-    !*FD \item \texttt{veg\_frac} --- The fraction of exposed vegetation
-    !*FD \item \texttt{snowice\_frac} --- The fraction of snow-covered ice
-    !*FD \item \texttt{snowveg\_frac} --- The fraction of snow-covered vegetation
-    !*FD \item \texttt{snow_depth} --- The mean snow-depth over those parts covered in snow (m w.e.)
-    !*FD \end{itemize}
+    !> Upscales and returns certain fields
+    !> Output fields are only valid on the main task
+    !> 
+    !> \begin{itemize}
+    !> \item \texttt{orog} --- the orographic elevation (m)
+    !> \item \texttt{albedo} --- the albedo of ice/snow (this is only a notional value --- need to do
+    !> some work here)
+    !> \item \texttt{ice\_frac} --- The fraction covered by ice
+    !> \item \texttt{veg\_frac} --- The fraction of exposed vegetation
+    !> \item \texttt{snowice\_frac} --- The fraction of snow-covered ice
+    !> \item \texttt{snowveg\_frac} --- The fraction of snow-covered vegetation
+    !> \item \texttt{snow_depth} --- The mean snow-depth over those parts covered in snow (m w.e.)
+    !> \end{itemize}
 
     use glimmer_paramets
     use glimmer_coordinates, only: coordsystem_allocate
 
     ! Arguments ----------------------------------------------------------------------------------------
 
-    type(glint_instance),   intent(in)  :: instance      !*FD the model instance
+    type(glint_instance),   intent(in)  :: instance      !> the model instance
 
-    real(dp),dimension(:,:),intent(out) :: orog          !*FD the orographic elevation (m)
-    real(dp),dimension(:,:),intent(out) :: albedo        !*FD the albedo of ice/snow
-    real(dp),dimension(:,:),intent(out) :: ice_frac      !*FD The fraction covered by ice
-    real(dp),dimension(:,:),intent(out) :: veg_frac      !*FD The fraction of exposed vegetation
-    real(dp),dimension(:,:),intent(out) :: snowice_frac  !*FD The fraction of snow-covered ice
-    real(dp),dimension(:,:),intent(out) :: snowveg_frac  !*FD The fraction of snow-covered vegetation
-    real(dp),dimension(:,:),intent(out) :: snow_depth    !*FD The mean snow-depth over those 
-    !*FD parts covered in snow (m w.e.)
+    real(dp),dimension(:,:),intent(out) :: orog          !> the orographic elevation (m)
+    real(dp),dimension(:,:),intent(out) :: albedo        !> the albedo of ice/snow
+    real(dp),dimension(:,:),intent(out) :: ice_frac      !> The fraction covered by ice
+    real(dp),dimension(:,:),intent(out) :: veg_frac      !> The fraction of exposed vegetation
+    real(dp),dimension(:,:),intent(out) :: snowice_frac  !> The fraction of snow-covered ice
+    real(dp),dimension(:,:),intent(out) :: snowveg_frac  !> The fraction of snow-covered vegetation
+    real(dp),dimension(:,:),intent(out) :: snow_depth    !> The mean snow-depth over those 
+    !> parts covered in snow (m w.e.)
 
     ! Internal variables -------------------------------------------------------------------------------
 
@@ -167,8 +167,6 @@ contains
     ! Output fields are only valid on the main task.
     ! The upscaled fields are passed to the GCM land surface model, which has the option
     !  of updating the fractional area and surface elevation of glaciated gridcells.
-    ! If instance%zero_gcm_fluxes is true, then the upscaled versions of grofi, grofl and
-    ! ghflx are zeroed out
 
     use glimmer_paramets, only: thk0, GLC_DEBUG
     use glimmer_log
@@ -214,8 +212,8 @@ contains
     integer, dimension(nxl,nyl,0:nec) ::   &   
        area_mask_l                          ! binary mask, defined at all elevation classes,
                                             !  that defines whether some ice elevation is present.
-                                            ! For the 0-indexed bed information, area_mask_l = 1
-                                            !  for all land points (ice or ice-free).
+                                            ! For the 0-indexed bed information, this is 1 
+                                            ! for all land points (ice or ice-free).
     
     !TODO - Pass in topomax as an argument instead of hardwiring it here?
     real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
@@ -444,12 +442,6 @@ contains
           endif
        enddo
     enddo
-
-    if (instance%zero_gcm_fluxes == ZERO_GCM_FLUXES_TRUE) then
-       ghflx(:,:,0:nec) = 0.d0
-       grofi(:,:)   = 0.d0
-       grofl(:,:)   = 0.d0
-    end if
     
   end subroutine glint_upscaling_gcm
 
