@@ -32,7 +32,7 @@
 
 program test_ts
 
-  !*! testing the time series module
+  !> testing the time series module
   use glimmer_ts
   use glimmer_global, only: dp
   implicit none

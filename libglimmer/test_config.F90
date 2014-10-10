@@ -31,9 +31,9 @@
 !TODO - Move this program to another directory so that this directory contains no programs?
 
 program testconfig
-  ! testing config module
-  ! written by Magnus Hagdorn, May 2004
-  ! extended by Ian Rutt, August 2004
+  !> testing config module
+  !> written by Magnus Hagdorn, May 2004
+  !> extended by Ian Rutt, August 2004
   use glimmer_config
   use glimmer_global, only: dp
   implicit none

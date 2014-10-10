@@ -40,10 +40,10 @@
 
 program nc2config
 
-  ! Program to extract the config file data from a
-  ! glimmer netcdf output file, and write it out, either
-  ! to file or the screen. Command-line argument and 
-  ! option support is provided, where available
+  !> Program to extract the config file data from a
+  !> glimmer netcdf output file, and write it out, either
+  !> to file or the screen. Command-line argument and 
+  !> option support is provided, where available
 
   use netcdf
   use glimmer_global, only: endline

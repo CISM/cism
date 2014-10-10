@@ -239,7 +239,7 @@ contains
   ! needs to be set to a desired value (e.g. for CESM coupled runs).
 	use parallel
     implicit none
-    integer, optional          :: unit   ! file unit to use
+    integer, optional          :: unit   !> file unit to use
 
     ! local variables
     character(len=8) :: date

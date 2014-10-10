@@ -31,9 +31,9 @@
 
 module glimmer_anomcouple
 
-  ! This module provides code to handle anomaly coupling. Although
-  ! written for use with GLINT, it has general applicability. Temperature coupling
-  ! is done linearly, precipitation proportionally.
+  !> This module provides code to handle anomaly coupling. Although
+  !> written for use with GLINT, it has general applicability. Temperature coupling
+  !> is done linearly, precipitation proportionally.
 
   use glimmer_global, only: dp, fname_length, msg_length
   use glimmer_ncdf, only: nc_errorhandle  !EIB! from lanl
@@ -57,20 +57,20 @@ module glimmer_anomcouple
 
   type anomaly_coupling
      logical :: enabled = .false.
-     character(fname_length) :: fname_reference ! File containing reference climate
-     character(fname_length) :: fname_modelclim ! File containing mean model climate
-     integer :: nslices                         ! Number of time-slices in climatologies
-     real(dp),dimension(:,:,:),pointer :: temp_ref => null() ! Reference climate (temperature)
-     real(dp),dimension(:,:,:),pointer :: temp_mod => null() ! Model climate (temperature)
-     real(dp),dimension(:,:,:),pointer :: prcp_ref => null() ! Reference climate (precip)
-     real(dp),dimension(:,:,:),pointer :: prcp_mod => null() ! Model climate (precip)
-     real(dp),dimension(:)    ,pointer :: time     => null() ! Time axis (fraction of year)
-     integer :: nx,ny ! Grid dimensions (for convenience)
+     character(fname_length) :: fname_reference !> File containing reference climate
+     character(fname_length) :: fname_modelclim !> File containing mean model climate
+     integer :: nslices                         !> Number of time-slices in climatologies
+     real(dp),dimension(:,:,:),pointer :: temp_ref => null() !> Reference climate (temperature)
+     real(dp),dimension(:,:,:),pointer :: temp_mod => null() !> Model climate (temperature)
+     real(dp),dimension(:,:,:),pointer :: prcp_ref => null() !> Reference climate (precip)
+     real(dp),dimension(:,:,:),pointer :: prcp_mod => null() !> Model climate (precip)
+     real(dp),dimension(:)    ,pointer :: time     => null() !> Time axis (fraction of year)
+     integer :: nx,ny !> Grid dimensions (for convenience)
      character(20) :: pvarname_ref='prcp                '
      character(20) :: tvarname_ref='artm                '
      character(20) :: pvarname_mod='prcp                '
      character(20) :: tvarname_mod='artm                '
-     logical :: mult_precip = .false. ! set true if we're multiplying precip
+     logical :: mult_precip = .false. !> set true if we're multiplying precip
   end type anomaly_coupling
 
   private
@@ -82,8 +82,8 @@ contains
 
     use glimmer_config
 
-    type(anomaly_coupling),intent(out) :: params ! Parameters to be initialised
-    type(ConfigSection),pointer        :: config ! Configuation file
+    type(anomaly_coupling),intent(out) :: params !> Parameters to be initialised
+    type(ConfigSection),pointer        :: config !> Configuation file
 
     call anomaly_readconfig(params,config)
     if (params%enabled) then
@@ -97,7 +97,7 @@ contains
 
   subroutine anomaly_calc(params,time,rawtemp,rawprcp,anomtemp,anomprcp)
 
-    type(anomaly_coupling),intent(in) :: params ! Parameters to be initialised
+    type(anomaly_coupling),intent(in) :: params !> Parameters to be initialised
     real(dp) :: time
     real(dp),dimension(:,:),intent(in)  :: rawtemp, rawprcp
     real(dp),dimension(:,:),intent(out) :: anomtemp,anomprcp
@@ -146,8 +146,8 @@ contains
 
     use glimmer_config
 
-    type(anomaly_coupling),intent(out) :: params ! Parameters to be initialised
-    type(ConfigSection),pointer        :: config ! Configuation file
+    type(anomaly_coupling),intent(out) :: params !> Parameters to be initialised
+    type(ConfigSection),pointer        :: config !> Configuation file
 
     ! local variables
     type(ConfigSection), pointer :: section
@@ -178,7 +178,7 @@ contains
 
     use glimmer_log
 
-    type(anomaly_coupling),intent(inout) :: params ! Parameters to be initialised
+    type(anomaly_coupling),intent(inout) :: params !> Parameters to be initialised
     character(len=msg_length) :: message
 
     call write_log_div
@@ -205,7 +205,7 @@ contains
 
     use glimmer_log
 
-    type(anomaly_coupling),intent(inout) :: params ! Parameters to be initialised
+    type(anomaly_coupling),intent(inout) :: params !> Parameters to be initialised
 
     integer,dimension(4) :: nx,ny,nt
     real(dp),dimension(:),pointer :: timemod => null()

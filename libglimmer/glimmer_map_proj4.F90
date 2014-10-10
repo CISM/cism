@@ -51,7 +51,7 @@ contains
 
     implicit none
     character(len=proj4len), dimension(:), pointer :: glimmap_proj4
-    type(glimmap_proj) :: proj ! Projection of interest
+    type(glimmap_proj) :: proj !> Projection of interest
 
     if (.not.glimmap_allocated(proj)) then
        call write_log('No known projection found!',GM_WARNING)

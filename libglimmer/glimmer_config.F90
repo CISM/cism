@@ -102,7 +102,7 @@ contains
 
   !> read a configuration file
   subroutine ConfigRead(fname,config,fileunit)
-    ! read configuration file
+    !> read configuration file
     use parallel
     use glimmer_log
     implicit none
@@ -593,7 +593,7 @@ contains
 
   !> get integer value array
   subroutine GetValueIntArray(section,name,val,numval)
-    ! get integer array value
+    !> get integer array value
     use glimmer_log
     implicit none
     type(ConfigSection), pointer :: section !< the section from which the value is loaded
@@ -895,7 +895,7 @@ contains
 
   !> add a new section
   subroutine InsertSection(name,section)
-    ! add a new section
+    !> add a new section
     implicit none
     character(len=*), intent(in) :: name    !< name of new section
     type(ConfigSection), pointer :: section !< on entry the element of linked list after which the new element is inserted, on exit: the new element
