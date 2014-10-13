@@ -1814,7 +1814,7 @@ contains
     integer,dimension(:) :: start
     integer,dimension(:,:) :: values
 
-    type(bounds_type) :: bounds_info
+    type(bounds_info_type) :: bounds_info
     integer :: i,ierror
     integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
