@@ -1965,7 +1965,8 @@ contains
     integer,dimension(:) :: start
     real(4),dimension(:,:) :: values
 
-    integer :: ew,i,ierror,ns
+    type(bounds_info_type) :: bounds_info
+    integer :: i,ierror
     integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
     integer,dimension(:,:),allocatable :: bounds
@@ -1974,19 +1975,12 @@ contains
 
     ! begin
 
-    if (size(values,1)==local_ewn) then
-       ew = global_ewn
-       ns = global_nsn
-    else if (size(values,1)==local_ewn-1) then
-       ew = global_ewn-1
-       ns = global_nsn-1
-    else
-       call parallel_stop(__FILE__,__LINE__)
-    end if
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
+    bounds_info = get_bounds_info(size(values,1))
+
+    mybounds(1) = bounds_info%mybounds_ew_lb
+    mybounds(2) = bounds_info%mybounds_ew_ub
+    mybounds(3) = bounds_info%mybounds_ns_lb
+    mybounds(4) = bounds_info%mybounds_ns_ub
     if (main_task) then
        allocate(bounds(4,tasks))
     else
@@ -2012,7 +2006,8 @@ contains
        allocate(recvbuf(1))
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
-    sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    sendbuf(:,:) = values(bounds_info%ilo:bounds_info%ihi, &
+                          bounds_info%jlo:bounds_info%jhi)
     call fc_gatherv_real4(sendbuf,size(sendbuf),mpi_real4,&
        recvbuf,recvcounts,displs,mpi_real4,main_rank,comm)
     if (main_task) then
@@ -2022,7 +2017,7 @@ contains
                (/bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1/))
        end do
        distributed_put_var_real4_2d = nf90_put_var(ncid,varid,&
-            global_values(1:ew,1:ns),start)
+            global_values(1:bounds_info%global_ewn, 1:bounds_info%global_nsn),start)
     end if
     call broadcast(distributed_put_var_real4_2d)
     !automatic deallocation
