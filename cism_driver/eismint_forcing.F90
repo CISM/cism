@@ -508,7 +508,7 @@ contains
     integer  :: ns,ew,lev,center
 
     !verification
-    real(dp) ::  t, r, z, x, y                    !in variables
+    real(dp) ::  r, z, x, y                    !in variables
     real(dp) ::  H, TT, U, w, Sig, M, Sigc        !out variables
     real(dp) :: H_0
 

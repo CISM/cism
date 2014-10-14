@@ -133,7 +133,7 @@ contains
   !> write to log
   subroutine write_log(message,type,file,line)
     use glimmer_global, only : msg_length
-	use parallel
+    use parallel
     implicit none
     integer,intent(in),optional          :: type    !< Type of error to be generated (see list above).
     character(len=*),intent(in)          :: message !< message to be written
@@ -237,7 +237,7 @@ contains
 
   ! This subroutine should be called when the log file is already open, but glimmer_unit
   ! needs to be set to a desired value (e.g. for CESM coupled runs).
-	use parallel
+    use parallel
     implicit none
     integer, optional          :: unit   !> file unit to use
 

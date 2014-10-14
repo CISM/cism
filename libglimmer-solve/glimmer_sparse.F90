@@ -361,9 +361,6 @@ contains
         integer :: method
         integer :: nonlinear
 
-        !WHL - debug
-        integer :: n, k, rk
-
         if (present(method_arg)) then
             method = method_arg
         else
@@ -376,7 +373,6 @@ contains
             nonlinear = SPARSE_HO_NONLIN_PICARD  
         endif
 
-        !WHL - debug
         if (verbose_slap) then
            print*, ' '
            print*, 'In sparse_easy_solve'
@@ -397,18 +393,8 @@ contains
 
         call sparse_solver_preprocess(matrix, opt, wk)
 
-       !WHL - debug
-       if (verbose_slap) then
-          print*, ' '
-          print*, 'Call sparse_solve: n, row, col, val:'
-          do n = 1, min(ndiagmax, matrix%nonzeros)
-             print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
-          enddo
-       endif
-
         ierr = sparse_solve(matrix, rhs, answer, opt, wk, err, iter, .false.)
 
-       !WHL - debug
        if (verbose_slap) then
           print*, ' '
           print*, 'Called sparse_solve: iter, err =', iter, err

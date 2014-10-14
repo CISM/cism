@@ -407,7 +407,6 @@
       integer :: integral_order  ! defined above
 
       integer ::     &
-         i, j           ,&! horizontal indices
          ilo,ihi,jlo,jhi  ! beginning and end of physical domain
 
       real(dp), dimension (nx_block-1,ny_block-1) ::     &
@@ -902,20 +901,13 @@
 !EOP
 !
       integer ::   &
-         i, j           ,&! horizontal indices
-         nt, nt1        ,&! tracer indices
+         i, j,           &! horizontal indices
+         nt,             &! tracer index
          ij               ! combined i/j horizontal index
 
       real(dp), dimension (nx_block,ny_block) ::    &
          mxav           ,&! x coordinate of center of mass
          myav             ! y coordinate of center of mass
-
-      real(dp), dimension (nx_block,ny_block,ntracer) ::  &
-         mtxav          ,&! x coordinate of center of mass*tracer
-         mtyav            ! y coordinate of center of mass*tracer
-
-      real(dp) ::   &
-         w1, w2, w3, w4, w5, w6, w7   ! work variables
 
     !-------------------------------------------------------------------
     ! Compute field values at the geometric center of each grid cell,
@@ -1510,8 +1502,7 @@
            intent(out) ::   &
          triarea          ! area of departure triangle
 
-      integer, dimension (nx_block,ny_block,ngroups),    &
-         intent(out) ::   &
+      integer, dimension (nx_block,ny_block,ngroups), intent(out) ::   &
          iflux          ,&! i index of cell contributing transport
          jflux            ! j index of cell contributing transport
 
@@ -1567,21 +1558,21 @@
          xicr, yicr     ,&! right-hand x-axis intersection point
          xdm, ydm       ,&! midpoint of segment connecting DL and DR;
                           ! shifted if prescribed_area = T
-         dxc            ,&! xcr - xcl
-         dxd            ,&! xdr - xdl
          md             ,&! slope of line connecting DL and DR
          mdl            ,&! slope of line connecting DL and DM
          mdr            ,&! slope of line connecting DR and DM
+         area1, area2   ,&! temporary triangle areas
+         area3, area4   ,&! 
+         area_c         ,&! center polygon area
+         w1, w2           ! work variables
+
+      integer ::   &
          ishift_tl, jshift_tl ,&! i,j indices of TL cell relative to edge
          ishift_bl, jshift_bl ,&! i,j indices of BL cell relative to edge
          ishift_tr, jshift_tr ,&! i,j indices of TR cell relative to edge
          ishift_br, jshift_br ,&! i,j indices of BR cell relative to edge
          ishift_tc, jshift_tc ,&! i,j indices of TC cell relative to edge
-         ishift_bc, jshift_bc ,&! i,j indices of BC cell relative to edge
-         area1, area2         ,&! temporary triangle areas
-         area3, area4         ,&! 
-         area_c               ,&! center polygon area
-         w1, w2                 ! work variables
+         ishift_bc, jshift_bc   ! i,j indices of BC cell relative to edge
 
       real(dp), dimension (nx_block,ny_block,ngroups) ::   &
          areafact         ! = 1 for positive flux, -1 for negative
@@ -3055,12 +3046,11 @@
            i, j, ij      ,&! horizontal indices of edge
            i2, j2        ,&! horizontal indices of cell contributing transport
            ng            ,&! triangle index
-           nt, nt1       ,&! tracer indices
-           ilo,ihi,jlo,jhi ! beginning and end of physical domain
+           nt              ! tracer index
 
       real(dp) ::   &
            m0, m1, m2, m3         ,&! mass field at internal points
-           w0, w1, w2, w3           ! work variables
+           w1, w2, w3               ! work variables
 
       real(dp), dimension (nx_block, ny_block) ::   &
            msum, mxsum, mysum     ,&! sum of mass, mass*x, and mass*y
@@ -3244,13 +3234,13 @@
 !
       integer ::   &
          i, j           ,&! horizontal indices
-         nt, nt1, nt2     ! tracer indices
+         nt               ! tracer index
 
       real(dp), dimension(nx_block,ny_block,ntracer) ::   &
          mtold            ! old mass*tracer
 
       real(dp) ::   &
-         w1, w2           ! work variables
+         w1               ! work variable
 
       integer, dimension(nx_block*ny_block) ::   &
          indxi          ,&! compressed indices in i and j directions
@@ -3301,9 +3291,9 @@
       enddo
       enddo
 
-!WHL - Test the diagnostics
-!TODO - Write error message cleanly to log file.
-!       For now, just print out an error message.
+      !WHL - Test the diagnostics
+      !TODO - Write error message cleanly to log file.
+      !       For now, just print out an error message.
 
       if (l_stop) then
          i = istop

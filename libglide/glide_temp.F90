@@ -87,7 +87,7 @@ contains
     type(glide_global_type), intent(inout) :: model       ! model instance
 
     integer, parameter :: p1 = gn + 1  
-    integer up, ns, ew
+    integer :: up, ns, ew
 
     !TODO - Change VERT_DIFF, etc. to integers?
     if (VERT_DIFF==0.)   call write_log('Vertical diffusion is switched off')
@@ -395,12 +395,6 @@ contains
 
     real(dp), dimension(size(model%numerics%sigma)) :: weff
 
-! debug
-    integer :: j, k
-    integer :: idiag, jdiag
-    idiag = model%numerics%idiag
-    jdiag = model%numerics%jdiag
-
     !------------------------------------------------------------------------------------
     ! ewbc/nsbc set the type of boundary condition aplied at the end of
     ! the domain. a value of 0 implies zero gradient.
@@ -554,13 +548,6 @@ contains
                    dTtop = model%temper%temp(2,ew,ns) - model%temper%temp(1,ew,ns)
                    dthck = model%geometry%thck(ew,ns)*thk0 * (model%numerics%sigma(2) - model%numerics%sigma(1))
                    model%temper%ucondflx(ew,ns) = -coni * dTtop / dthck
-
-!WHL - debug
-!                   if (ew==model%numerics%idiag .and. ns==model%numerics%jdiag) then
-!                      print*, ' '
-!                      print*, 'glide_temp, ew, ns:', ew, ns
-!                      print*, 'dTtop, coni, dthck, ucondflx =', dTtop, coni, dthck, model%temper%ucondflx(ew,ns)
-!                   endif
 
                    ! Check whether the temperature has converged everywhere
                    tempresid = max(tempresid, maxval(abs(model%temper%temp(:,ew,ns)-prevtemp(:))))

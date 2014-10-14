@@ -100,7 +100,7 @@ contains
 
        do j = 1, ny-1     ! all vertices
        do i = 1, nx-1
-          stagvar(i,j) = (var(i,j+1) + var(i+1,j+1) + var(i,j) + var(i+1,j)) / 4.d0	  
+          stagvar(i,j) = (var(i,j+1) + var(i+1,j+1) + var(i,j) + var(i+1,j)) / 4.d0
        enddo
        enddo  
 
@@ -111,7 +111,7 @@ contains
        do j = 1, ny-1     ! all vertices
        do i = 1, nx-1
           sumvar = ice_mask(i,j+1)*var(i,j+1) + ice_mask(i+1,j+1)*var(i+1,j+1)  &
-                 + ice_mask(i,j)  *var(i,j)   + ice_mask(i+1,j)  *var(i+1,j)	  
+                 + ice_mask(i,j)  *var(i,j)   + ice_mask(i+1,j)  *var(i+1,j)
           summask = real(ice_mask(i,j+1) + ice_mask(i+1,j+1) + ice_mask(i,j) + ice_mask(i+1,j), dp)
           if (summask > 0.d0) stagvar(i,j) = sumvar / summask
        enddo
@@ -174,7 +174,7 @@ contains
 
        do j = 2, ny-1   ! loop does not include outer row of cells
        do i = 2, nx-1
-          unstagvar(i,j) = (stagvar(i,j) + stagvar(i-1,j) + stagvar(i,j-1) + stagvar(i-1,j-1)) / 4.d0	  
+          unstagvar(i,j) = (stagvar(i,j) + stagvar(i-1,j) + stagvar(i,j-1) + stagvar(i-1,j-1)) / 4.d0
        enddo
        enddo  
 

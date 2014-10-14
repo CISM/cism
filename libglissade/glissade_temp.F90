@@ -783,7 +783,7 @@ contains
                               model%temper%temp(0:model%general%upn,ew,ns),        &
                               model%temper%waterfrac(1:model%general%upn-1,ew,ns), &
                               model%geometry%thck(ew,ns),                          &
-                              model%numerics%stagsigma(1:model%general%upn-1))	
+                              model%numerics%stagsigma(1:model%general%upn-1))
 
             endif  ! thck > thklim_temp
          end do    ! ew
@@ -1053,6 +1053,7 @@ contains
   end subroutine glissade_findvtri
 
   !-----------------------------------------------------------------------
+  !TODO: Remove unused arguments ubas, vbas.
 
   subroutine glissade_calcbfric (model,                 &
                                  thck,     btraction,   &
@@ -1174,8 +1175,6 @@ contains
     integer :: up, ew, ns
 
     bmlt(:,:) = 0.0d0
-
-    !LOOP TODO - This loop should be over locally owned cells? (ilo:ihi,jlo:jhi)
 
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1

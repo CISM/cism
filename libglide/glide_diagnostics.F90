@@ -124,11 +124,6 @@ contains
 
     ! local variables
 
-    integer ::   &
-         global_row, global_col      ! global row and column indices for diagnostic point
-
-    integer :: i, j
-
     character(len=100) :: message
 
     !-----------------------------------------------------------------
@@ -202,7 +197,6 @@ contains
          min_temp, min_temp_global,     &    ! min ice temperature (deg C)
          max_spd_sfc, max_spd_sfc_global,   &    ! max surface ice speed (m/yr)
          max_spd_bas, max_spd_bas_global,   &    ! max basal ice speed (m/yr)
-         thck,                          &    ! thickness
          spd,                           &    ! speed
          thck_diag, usrf_diag,          &    ! local column diagnostics
          topg_diag, relx_diag,          &    
@@ -236,9 +230,6 @@ contains
        eps = 1.0d-11,           &! small number
        unphys_val = -999999.d0   ! unphysical negative number
  
-    integer ::   &
-         global_row, global_col  ! global row and column indices for diagnostic point
-
     ewn = model%general%ewn
     nsn = model%general%nsn
     upn = model%general%upn

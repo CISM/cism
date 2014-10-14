@@ -98,8 +98,6 @@ contains
     real(dp), dimension(2), parameter :: &
          blim = (/ 0.00001 / thk0, 0.001 / thk0 /)
 
-    real(dp) :: dwphidew, dwphidns, dwphi, pmpt, bave
-
     integer :: t_wat,ns,ew
 
     real(dp),  dimension(model%general%ewn,model%general%nsn) :: N, flux, lakes

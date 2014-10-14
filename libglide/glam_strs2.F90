@@ -1513,16 +1513,6 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
   end select
 
-! JEFF Halo does NOT verify, because used a staggered array to hold unstaggered data.  
-! The unstaggered data fits because remove two rows and columns of data.
-! The current parallel_halo(efvs) routine won't update a staggered array.
-! I think it is OK, so I'm passing for now.
-!  if (.NOT. parallel_halo_verify(efvs)) then
-!      ! efvs is an unstaggered grid in an staggered declaration.  Steve Price said he reused the variable from the other core.
-!      write(*,*) "Halo Verify failed for findefvstr()"
-!      call parallel_stop(__FILE__, __LINE__)
-!  endif
-
   return
 end subroutine findefvsstr
 

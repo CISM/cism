@@ -99,7 +99,7 @@
        do i = 1, nx
 
           if (thck(i,j) > thklim) then
-	     ice_mask(i,j) = 1
+             ice_mask(i,j) = 1
           else
              ice_mask(i,j) = 0
           endif
@@ -234,7 +234,7 @@
        do i = 1, nx-1
           if (ice_mask(i,j+1)==1 .or. ice_mask(i+1,j+1)==1 .or.   &
               ice_mask(i,j)  ==1 .or. ice_mask(i+1,j)  ==1 ) then
-	     vmask(i,j) = 1
+             vmask(i,j) = 1
           else
              vmask(i,j) = 0
           endif

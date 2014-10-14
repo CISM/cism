@@ -649,7 +649,7 @@
 
 !=======================================================================
 
-    subroutine glissade_check_cfl(ewn, nsn, nlyr, dew, dsn, sigma,         &
+    subroutine glissade_check_cfl(ewn, nsn, nlyr, dew, dns, sigma,         &
                      stagthk, dusrfdew, dusrfdns, uvel, vvel, deltat,      &
                      allowable_dt_adv, allowable_dt_diff)
 !
@@ -670,7 +670,7 @@
       integer, intent(in) ::     &
          nlyr        ! number of vertical layers (layer centers)
       real(dp), intent(in) :: &
-         dew, dsn    ! grid spacing in x, y (not assumed to be equal here), dimensional m
+         dew, dns    ! grid spacing in x, y (not assumed to be equal here), dimensional m
       real(dp), dimension(:), intent(in) :: &
          sigma       ! vertical coordinate spacing
       real(dp), dimension(:,:), intent(in) :: &
@@ -1066,7 +1066,6 @@
 
       real(dp) :: sfc_accum, sfc_ablat  ! surface accumulation/ablation, from acab
       real(dp) :: bed_accum, bed_ablat  ! bed accumulation/ablation, from bmlt
-      real(dp) :: new_bmlt              ! bmlt adjusted for residual surface ablation
 
       integer :: i, j, k
 

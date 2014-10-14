@@ -327,15 +327,15 @@ contains
         
         real(dp), dimension(-1:1, -1:1) :: angle_lookup
 
-	    !JEFF Handle exec_serial optional parameter
-	    if ( present(exec_serial) ) then
-	       exec_serial_flag = exec_serial
-	    else
-	       ! Default to off
-	       exec_serial_flag = .FALSE.
-	    endif
+        !JEFF Handle exec_serial optional parameter
+        if ( present(exec_serial) ) then
+           exec_serial_flag = exec_serial
+        else
+           ! Default to off
+           exec_serial_flag = .FALSE.
+        endif
 
-                !direction_y =    -1       0       1        !direction_x = 
+        !direction_y =    -1       0       1        !direction_x = 
         angle_lookup(-1, :) = (/ 3*pi/4,   pi/2,   pi/4 /)  !-1
         angle_lookup( 0, :) = (/   pi,     0D0,  2*pi   /)  ! 0
         angle_lookup( 1, :) = (/ 5*pi/4, 3*pi/2, 7*pi/4 /)  ! 1
@@ -503,13 +503,13 @@ contains
         integer :: i,j
         logical :: exec_serial_flag
 
-	    !JEFF Handle exec_serial optional parameter
-	    if ( present(exec_serial) ) then
-	       exec_serial_flag = exec_serial
-	    else
-	       ! Default to off
-	       exec_serial_flag = .FALSE.
-	    endif
+        !JEFF Handle exec_serial optional parameter
+        if ( present(exec_serial) ) then
+           exec_serial_flag = exec_serial
+        else
+           ! Default to off
+           exec_serial_flag = .FALSE.
+        endif
 
         direction_x = 0
         direction_y = 0

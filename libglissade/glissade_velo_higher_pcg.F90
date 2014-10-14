@@ -43,37 +43,12 @@
     
     logical :: verbose_pcg
 
-!WHL - debug
-    integer, parameter :: &
-        ndiagmax = 10      ! number of values to print out for debugging
-
-!    interface pcg_solver_standard
-!       module procedure pcg_solver_standard_3d
-!       module procedure pcg_solver_standard_2d
-!    end interface
-
-!    interface pcg_solver_chrongear
-!       module procedure pcg_solver_chrongear_3d
-!       module procedure pcg_solver_chrongear_2d
-!    end interface
-
-!    interface setup_preconditioner
-!       module procedure setup_preconditioner_3d
-!       module procedure setup_preconditioner_2d
-!    end interface
-
     interface global_sum_staggered
        module procedure global_sum_staggered_3d_real8
        module procedure global_sum_staggered_3d_real8_nvar       
        module procedure global_sum_staggered_2d_real8
        module procedure global_sum_staggered_2d_real8_nvar       
     end interface
-
-!    interface matvec_multiply_structured
-!       module procedure matvec_multiply_structured_3d
-!       module procedure matvec_multiply_structured_2d
-!    end interface
-
 
   contains
 
@@ -663,8 +638,6 @@
     !---------------------------------------------------------------
 
     integer ::  i, j         ! grid indices
-    integer ::  iA, jA       ! grid offsets ranging from -1 to 1
-    integer ::  m            ! matrix element index
     integer ::  n            ! iteration counter
 
     real(dp) ::           &
@@ -1174,8 +1147,6 @@
     !---------------------------------------------------------------
 
     integer ::  i, j, k      ! grid indices
-    integer ::  iA, jA, kA   ! grid offsets ranging from -1 to 1
-    integer ::  m            ! matrix element index
     integer ::  n            ! iteration counter
 
     real(dp) ::           &
@@ -1227,9 +1198,7 @@
     integer, parameter :: &
        solv_ncheck = 5       ! check for convergence every solv_ncheck iterations
 
-!WHL - debug
     integer :: itest, jtest, rtest
-    real(dp) :: dd, xx, zz
 
     if (present(itest_in)) then
        itest = itest_in
@@ -1778,7 +1747,6 @@
     !---------------------------------------------------------------
 
     integer ::  i, j         ! grid indices
-    integer ::  iA, jA       ! grid offsets ranging from -1 to 1
     integer ::  m            ! matrix element index
     integer ::  n            ! iteration counter
 
@@ -2405,11 +2373,7 @@
     real(dp), dimension(nx-1,ny-1), intent(out) ::   &
        Adiagu, Adiagv         ! matrices for diagonal preconditioning 
 
-    !---------------------------------------------------------------
-    ! local variables
-    !---------------------------------------------------------------
-
-    integer :: i, j, m
+    integer :: m
 
     ! Initialize
 
@@ -2812,8 +2776,8 @@
     ! local variables
     !---------------------------------------------------------------
 
-    integer :: i, j, k, m
-    integer :: iA, jA, kA
+    integer :: i, j, m
+    integer :: iA, jA
     
     ! Initialize the result vector.
 

@@ -154,9 +154,6 @@ contains
 
     integer, parameter :: my_nhalo = 0   ! no halo layers for Glide dycore
 
-!WHL - debug
-  integer :: i, j, k
-
 !!!Old Glide has this:
 !!!    call write_log(glimmer_version)  
 
@@ -391,12 +388,8 @@ contains
     use glide_temp, only: glide_calcbmlt, glide_calcbpmp
     use glide_grid_operators
 
-!WHL - Can we remove this one?
-    use glam_grid_operators, only : df_field_2d_staggered
-
     type(glide_global_type), intent(inout) :: model     ! model instance
 
-!WHL - debug
     integer :: i, j
 
     if (model%options%is_restart == RESTART_TRUE) then
@@ -739,9 +732,6 @@ contains
     type(glide_global_type), intent(inout) :: model     ! model instance
     real(dp),  intent(in)   :: time                     ! current time in years
 
-!WHL - debug
-  integer :: i, j, k
-
     ! Update internal clock
     model%numerics%time = time  
     model%temper%newtemps = .false.
@@ -863,9 +853,6 @@ contains
     use glide_ground, only: glide_marinlim
 
     type(glide_global_type), intent(inout) :: model    ! model instance
-
-!WHL - debug
-    integer :: i, j, k
 
     ! ------------------------------------------------------------------------ 
     ! Calculate flow evolution by various different methods
@@ -1004,7 +991,7 @@ contains
 
 !=======================================================================
 
-  subroutine glide_tstep_p3(model, no_write)
+  subroutine glide_tstep_p3(model)
 
     ! Perform third part of time-step of an ice model instance:
     ! calculate isostatic adjustment and upper and lower ice surface
@@ -1017,10 +1004,6 @@ contains
 
     type(glide_global_type), intent(inout) :: model     ! model instance
     
-    !TODO - Remove no_write argument? It is no longer used.
-
-    logical, optional, intent(in) :: no_write
-
     ! ------------------------------------------------------------------------ 
     ! Calculate isostasy
     ! ------------------------------------------------------------------------ 

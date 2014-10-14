@@ -767,7 +767,6 @@
        niters             ! linear iteration count from sparse_easy_solve
 
     integer :: nNonzeros          ! number of nonzero matrix entries
-    logical :: solve_flag         ! if false, skip solution and return
 
     ! The following large matrix arrays are allocated for a 3D solve (SIA or BP)
 
@@ -868,16 +867,12 @@
 
 !WHL - debug
     real(dp) :: maxbeta, minbeta
-    real(dp) :: max_mintauf, min_mintauf
-    integer :: i, j, k, m, n, r
-    integer :: iA, jA, kA, colA
-    real(dp) :: ds_dx, ds_dy
+    integer :: i, j, k, m, r
+    integer :: iA, jA, kA
     real(dp) :: maxthck, maxusrf
-    real(dp) :: sumuvel, sumvvel
     logical, parameter :: test_matrix = .false.
 !    logical, parameter :: test_matrix = .true.
     integer, parameter :: test_order = 4
-    integer :: rowi
 
     ! debug - for trilinos test problem
     logical, parameter :: test_trilinos = .false.
@@ -1359,8 +1354,8 @@
     !------------------------------------------------------------------------------
 
 !pw call t_startf('glissade_get_vertex_geom')
-    call get_vertex_geometry(nx,           ny,         nz,  &   
-                             nhalo,        sigma,           &
+    call get_vertex_geometry(nx,           ny,              &   
+                             nz,           nhalo,           &
                              dx,           dy,              &
                              thck,         thklim,          &
                              xVertex,      yVertex,         &
@@ -1524,11 +1519,15 @@
  
     !------------------------------------------------------------------------------
     ! Initialize the basal traction parameter beta.
-    ! Note: beta is computed or read from an external file by calling calcbeta below.
-    !       For a no-slip boundary condition (HO_BABC_NO_SLIP), beta is not computed.
+    ! Note: beta is either read from an external file, or computed by calling calcbeta below.
+    !       For external beta (HO_BABC_EXTERNAL_BETA), we should not reinitialize here.
+    !       For a no-slip boundary condition (HO_BABC_NO_SLIP), beta is not computed,
+    !        so beta = 0 will be written to output.
     !------------------------------------------------------------------------------
-    !TODO - When I initialize beta = 0, circular shelf results are not BFB.  Investigate this.
-!!    beta(:,:) = 0.d0
+
+    if (whichbabc /= HO_BABC_EXTERNAL_BETA) then
+       beta(:,:) = 0.d0
+    endif
        
     !------------------------------------------------------------------------------
     ! Compute the factor A^(-1/n) appearing in the expression for effective viscosity.
@@ -1556,21 +1555,6 @@
        i = itest; j = jtest; k = ktest
        print*, 'itest, jtest, ktest:', i, j, k
        print*, 'nodeID =', nodeID(k,i,j)
-!       print*, ' '
-!       print*, 'thck(j+1):', thck(i:i+1,j+1)
-!       print*, 'thck(j)  :', thck(i:i+1,j)
-!       print*, 'stagthck :', stagthck(i,j)
-!       print*, ' '
-!       print*, 'usrf(j+1):', usrf(i:i+1,j+1)
-!       print*, 'usrf(j)  :', usrf(i:i+1,j)
-!       print*, 'stagusrf :', stagusrf(i,j)
-!       print*, ' '
-!       ds_dx = 0.5d0 * (stagusrf(i,j) + stagusrf(i,j-1) - stagusrf(i-1,j) - stagusrf(i-1,j-1)) / &
-!               (xVertex(i+1,j) - xVertex(i,j))
-!       ds_dy = 0.5d0 * (stagusrf(i,j) - stagusrf(i,j-1) + stagusrf(i-1,j) - stagusrf(i-1,j-1)) / &
-!               (yVertex(i,j+1) - yVertex(i,j))
-!       print*, 'Finite-difference ds/dx, ds_dy:', ds_dx, ds_dy
-!       print*, ' '                
     endif
 
     !------------------------------------------------------------------------------
@@ -1772,7 +1756,8 @@
           print*, ' '
           print*, 'beta field, rank =', rtest
           do j = ny-1, 1, -1
-             do i = 1, nx-1
+!!             do i = 1, nx-1
+             do i = nx/2, nx/2 + 9
                 write(6,'(e10.3)',advance='no') beta(i,j)
              enddo
              write(6,*) ' '
@@ -2604,7 +2589,7 @@
                                      Avu_2d,         Avv_2d,       &
                                      bu_2d,          bv_2d,        &
                                      uvel_2d,        vvel_2d,      &
-                                     matrix_order,   max_nonzeros, &
+                                     matrix_order,                 &
                                      matrix,         rhs,          &
                                      answer)
 
@@ -2618,7 +2603,7 @@
                                      Avu,          Avv,         &
                                      bu,           bv,          &
                                      uvel,         vvel,        &
-                                     matrix_order, max_nonzeros,&
+                                     matrix_order,              &
                                      matrix,       rhs,         &
                                      answer)
 
@@ -3140,8 +3125,8 @@
 
 !****************************************************************************
 
-  subroutine get_vertex_geometry(nx,           ny,          nz,      &   
-                                 nhalo,        sigma,                &
+  subroutine get_vertex_geometry(nx,           ny,                   &   
+                                 nz,           nhalo,                &
                                  dx,           dy,                   &
                                  thck,         thklim,               &
                                  xVertex,      yVertex,              &
@@ -3169,9 +3154,6 @@
        nx,  ny,              &    ! number of grid cells in each direction
        nz,                   &    ! number of vertical levels where velocity is computed
        nhalo                      ! number of halo layers
-
-    real(dp), dimension(nz), intent(in) :: &
-       sigma                  ! sigma vertical coordinate
 
     real(dp), intent(in) ::  &
        dx,  dy                ! grid cell length and width (m)
@@ -3709,6 +3691,9 @@
     ! The diagrams below show the node indexing convention, along with the true
     !  directions for each face.  The true directions are mapped to local (x,y).
 
+    iNode(:) = 0
+    jNode(:) = 0
+
     if (face=='west') then
 
        !     4-----3       z
@@ -4030,9 +4015,6 @@
        efvs_element_avg = .false.   ! if true, then average efvs over quad pts
 
     integer :: i, j, k, n, p
-    integer :: iA, jA, kA, m
-    integer :: nr, nc, ii, jj, kk
-
     integer :: iNode, jNode, kNode
 
     if (verbose_matrix .and. main_task) then
@@ -4323,8 +4305,6 @@
        flwafact_2d        ! vertically averaged flow factor
 
     integer :: i, j, k, n, p
-    integer :: iA, jA
-
     integer :: iVertex, jVertex
 
     if (verbose_matrix .and. main_task) then
@@ -5514,7 +5494,7 @@
     integer :: iVertex, jVertex
 
     real(dp), dimension(nNodesPerElement_2d) ::   &
-       x, y, z,         & ! spatial coordinates of nodes
+       x, y,            & ! spatial coordinates of nodes
        u, v,            & ! velocity components at nodes
        b                  ! beta at nodes
 
@@ -6109,7 +6089,7 @@
 
     real(dp) :: a, b, c, rootA, rootB   ! terms in cubic equation
 
-    integer :: n, k, r
+    integer :: n, k
 
     select case(whichefvs)
 
@@ -7422,7 +7402,7 @@
        nhalo,           & ! number of layers of halo cells
        whichresid         ! option for method to use when calculating residual
 
-!TODO - Specify dimensions?
+    !TODO - Specify dimensions?
     real(dp), dimension(:,:), intent(in) ::  &
        uvel, vvel,      & ! current guess for velocity
        usav, vsav         ! previous guess for velocity
@@ -7432,10 +7412,10 @@
 
 
     integer ::   &
-       imaxdiff, jmaxdiff, kmaxdiff   ! location of maximum speed difference
-                                      ! currently computed but not used
+       imaxdiff, jmaxdiff   ! location of maximum speed difference
+                            ! currently computed but not used
  
-    integer :: i, j, k, count
+    integer :: i, j, count
 
     real(dp) ::   &
        speed,      &   ! current guess for ice speed
@@ -7755,8 +7735,6 @@
                                     !         |
 
     integer :: i, j
-
-    real(dp) :: avg_val
 
     ! make sure Kuu = (Kuu)^T
 

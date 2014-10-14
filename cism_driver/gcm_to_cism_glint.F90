@@ -152,10 +152,7 @@ subroutine g2c_glint_init(g2c)
 
   type(gcm_to_cism_type) :: g2c
 
-  integer :: ig, jg, k
-
   integer :: i,j    ! Array index counters
-  real(dp):: t1,t2
 
   ! -------------------------------------------------------------------------------------
   ! Executable code starts here - Basic initialisation
@@ -363,23 +360,6 @@ subroutine g2c_glint_run(g2c)
                              g2c%topo,                  &
                              g2c%glc_nec,     g2c%glc_topomax)
 
-        !WHL - debug
-        !     ig = iglint_global  ! in glint_type
-        !     jg = jglint_global 
-        !     print*, ' '
-        !     print*, 'Global i, j, time (days):', ig, jg, real(time)/24.d0 
-        !     print*, ' '
-        !     print*, 'orog (m), temp (C), prcp (m/yr):'
-        !     print*, orog(ig,jg), temp(ig,jg), precip(ig,jg)*scyr
-        !     print*, ' '
-        !     print*, 'topo (m), tsfc (C), qsmb (m/yr):'
-        !     do k = 0, glc_nec
-        !        print*, k, topo(ig,jg,k), tsfc(ig,jg,k), qsmb(ig,jg,k)*scyr
-        !     enddo
-        !
-
-        ! call glint
-
         call glint_gcm (g2c%ice_sheet,        g2c%time,            &
                         g2c%qsmb,             g2c%tsfc,            &
                         g2c%topo,                              &
@@ -443,8 +423,7 @@ subroutine g2c_glint_end(g2c)
   t2 = real(g2c%clock,kind=dp)/real(g2c%clock_rate,kind=dp)
   call glimmer_write_stats(g2c%commandline_results_fname,g2c%commandline_configname,g2c%t2-g2c%t1)
 
-100 format(f9.5)
-101 format(e12.5)
+  ! 101 format(e12.5)
 
 end subroutine g2c_glint_end
 

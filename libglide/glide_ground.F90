@@ -212,7 +212,7 @@ contains
      integer, intent(in) ::  ewn, nsn
      !JEFF remove pointer attribute integer, dimension(:,:),pointer :: mask    !> grid type mask
      integer, dimension(:,:) :: mask    !> grid type mask
-     integer ew,ns,jns,jew,j1ns,j1ew
+     integer :: ew,ns,jns,jew,j1ns,j1ew
      real(dp) :: xg                        !grounding line
      !this is assuming the grounding line is the last grounded pt on the mask
      !reset grounding line data to zero
@@ -264,7 +264,7 @@ contains
      integer, intent(in) :: ns2 !grounding line in ns direction
      integer, intent(in) :: ew2 !grounding line in ew direction
      real(dp), intent(in) :: value !grounding line in ew direction
-     integer slot_ew, slot_ns !integers to compute the min
+     integer :: slot_ew, slot_ns !integers to compute the min
      
      if (ns1 == ns2) then
          slot_ew = min(ew1,ew2)
@@ -335,7 +335,7 @@ contains
      real(dp),dimension(:,:),intent(in)    :: topg    !> Present bedrock topography (scaled)
      real(dp),dimension(:,:),intent(in)    :: usrf    !> surface height
      real(dp), intent(in) ::  dew, dns
-     integer ns1,ew1,ns2,ew2,min_ns,min_ew,max_ns,max_ew !grounding line in ns/ew direction
+     integer :: ns1,ew1,ns2,ew2,min_ns,min_ew,max_ns,max_ew !grounding line in ns/ew direction
      real(dp) ::  xg                        !grounding line
      real(dp) ::  tg                        !topographic height at grounding line
      real(dp) ::  ig                        !ice height at grounding line
@@ -390,7 +390,7 @@ contains
      implicit none
      real(dp) :: get_ground_line
      type(glide_grnd) :: ground       !> glide ground instance
-     integer ns1,ew1,ns2,ew2,slot_ns,slot_ew !grounding line in ns/ew direction
+     integer :: ns1,ew1,ns2,ew2,slot_ns,slot_ew !grounding line in ns/ew direction
      real(dp) :: appr_ground !grounding line
      
      if (ns1 == ns2) then

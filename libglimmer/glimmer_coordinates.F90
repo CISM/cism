@@ -305,7 +305,7 @@ contains
     real(kind=sp), dimension(:,:,:), pointer :: field !< unallocated field
 
     allocate(field(nup,coord%size%pt(1),coord%size%pt(2)))
-    field = 0.d0
+    field = 0.0
   end subroutine coordsystem_allocate_s2
 
   !> allocate memory to pointer field
@@ -316,7 +316,7 @@ contains
     integer, dimension(:,:,:), pointer :: field !< unallocated field
 
     allocate(field(nup,coord%size%pt(1),coord%size%pt(2)))
-    field = 0.d0
+    field = 0
   end subroutine coordsystem_allocate_i2
 
 end module glimmer_coordinates

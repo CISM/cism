@@ -64,10 +64,7 @@ contains
 
       type(glide_global_type),intent(inout) :: model
 
-!WHL - debug
       integer :: i, j        
-
-      real(dp) :: maxbeta, minbeta
 
       !-------------------------------------------------------------------
       ! Call the velocity solver.

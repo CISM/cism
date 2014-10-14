@@ -84,7 +84,6 @@ contains
     real(dp),dimension(model%general%ewn) :: x1
     real(dp),dimension(model%general%nsn-1) :: y0
     real(dp),dimension(model%general%nsn) :: y1
-    logical :: vertical_levels
 
     ! check if we are still in define mode and if so leave it
     if (NCO%define_mode) then

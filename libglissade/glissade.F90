@@ -122,7 +122,7 @@ contains
 !WHL - debug
     logical, parameter :: test_halo = .false.   ! if true, call test_halo subroutine
 
-    integer :: i, j, nx, ny
+    integer :: i, j
 
 !WHL - for artificial adjustment to ismip-hom surface elevation
     logical, parameter :: ismip_hom_adjust_usrf = .false.
@@ -384,10 +384,9 @@ contains
   
 !=======================================================================
 
-  subroutine glissade_tstep(model, time, no_write)
+  subroutine glissade_tstep(model, time)
 
     ! Perform time-step of an ice model instance with glissade dycore
-    !TODO - Reorganize to put isostasy and calving at start of step?
 
     use parallel
 
@@ -408,11 +407,6 @@ contains
 
     type(glide_global_type), intent(inout) :: model   ! model instance
     real(dp),  intent(in)   :: time         ! Current time in years
-
-    !TODO - Remove this argument; it is not used 
-    logical, optional, intent(in) :: no_write
-
-    logical nw
 
     ! --- Local Variables ---
 
@@ -435,9 +429,6 @@ contains
                         ! else = 0
 
     logical :: do_upwind_transport  ! Logical for whether transport code should do upwind transport or incremental remapping
-
-    !WHL - debug
-    integer :: i, j
 
     ! ========================
 
@@ -889,7 +880,6 @@ contains
 
     ! Local variables
 
-!WHL - debug
     integer :: i, j
     logical, parameter :: verbose_glissade = .false.
 
@@ -1214,13 +1204,13 @@ contains
     real(dp), dimension (:,:), allocatable   ::  pgIDstagr  ! unique global ID for parallel runs  
     real(dp), dimension (:,:,:), allocatable ::  pgIDstagr3 ! unique global ID for parallel runs  
 
-    logical, dimension(:,:), allocatable    :: logvar
-    integer, dimension(:,:), allocatable    :: intvar
-    real, dimension(:,:), allocatable       :: r4var
+    logical,  dimension(:,:), allocatable   :: logvar
+    integer,  dimension(:,:), allocatable   :: intvar
+    real,     dimension(:,:), allocatable   :: r4var
     real(dp), dimension(:,:), allocatable   :: r8var
     real(dp), dimension(:,:,:), allocatable :: r8var_3d
 
-    integer :: i, j, k, n
+    integer :: i, j, k
     integer :: nx, ny, nz
 
     integer, parameter :: rdiag = 0         ! rank for diagnostic prints 
@@ -1742,7 +1732,7 @@ contains
     ! Choose the number of time steps such that the ice will travel
     ! less than one grid cell per time step
 
-    ntstep = len_path/dx + 10   ! 10 is arbitrary
+    ntstep = nint(len_path/dx) + 10   ! 10 is arbitrary
 
     ! Choose the time step such that the ice will go around the domain
     ! exactly once in the chosen number of time steps.

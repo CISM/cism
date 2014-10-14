@@ -61,7 +61,7 @@ subroutine gci_init_interface(which_gcm,g2c)
   integer, intent(in) :: which_gcm
   type(gcm_to_cism_type) :: g2c   ! holds everything
 
-  integer :: whichdycore, precip_mode=-10, assoc_flag
+  integer :: whichdycore
   type(ConfigSection), pointer :: config  ! configuration stuff
   type(ConfigSection), pointer :: section  !< pointer to the section to be checked
 
@@ -84,9 +84,6 @@ subroutine gci_init_interface(which_gcm,g2c)
     g2c%which_gcm = GCM_MINIMAL_MODEL
   end if
   if (main_task) print *,'g2c%which_gcm (1 = data, 2 = minimal) = ',g2c%which_gcm
-
-!  call GetValue(section,'precip_mode',precip_mode)
-!  if (main_task) print *,'precip_mode = ',precip_mode
 
   select case (g2c%which_gcm)
     case (GCM_MINIMAL_MODEL)

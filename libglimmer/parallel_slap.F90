@@ -549,7 +549,7 @@ contains
        if (main_task) then
           write(*,*) 'Setting halo values: nhalo =', nhalo_in
           if (nhalo_in < 0) then
-      	     write(*,*) 'ERROR: nhalo must be >= 0'
+             write(*,*) 'ERROR: nhalo must be >= 0'
              call parallel_stop(__FILE__, __LINE__)
           endif
        endif
@@ -831,7 +831,7 @@ contains
 
     integer,parameter :: u = 33
     character(3) :: ts
-    integer :: i,ierror,j,k
+    integer :: i,j,k
 
     write(ts,'(i3.3)') tasks
     open(unit=u,file=name//ts//".txt",form="formatted",status="replace")
@@ -860,7 +860,7 @@ contains
 
     integer,parameter :: u = 33
     character(3) :: ts
-    integer :: i,ierror,j,k
+    integer :: i,j,k
 
     write(ts,'(i3.3)') tasks
     open(unit=u,file=name//ts//".txt",form="formatted",status="replace")
@@ -889,7 +889,7 @@ contains
 
     integer,parameter :: u = 33
     character(3) :: ts
-    integer :: i,ierror,j,k
+    integer :: i,j,k
 
     write(ts,'(i3.3)') tasks
     open(unit=u,file=name//ts//".txt",form="formatted",status="replace")
@@ -1426,12 +1426,11 @@ contains
     ! Returns a unique ID for a given row and column reference that is identical across all processors.
     ! For instance if Proc 2: (17,16) is the same global cell as Proc 3: (17,1), then the globalID will be the same for both.
     ! These IDs are spaced upstride apart.  upstride = number of vertical layers.  Typically (upn) + number of ghost layers (2 = top and bottom)
-    integer,intent(IN) :: locns, locew, upstride
+    integer,intent(in) :: locns, locew, upstride
     integer :: parallel_globalID
     ! locns is local NS (row) grid index
     ! locew is local EW (col) grid index
     integer :: global_row, global_col, global_ID
-    character(len=40) :: local_coord
 
     global_row = (locns - uhalo) + this_rank/ProcsEW * own_nsn
     	! Integer division required for this_rank/ProcsEW
@@ -1440,12 +1439,7 @@ contains
 
     global_ID = ((global_row - 1) * global_ewn + (global_col - 1)) * upstride + 1
 
-    ! Testing Code
-    ! write(local_coord, "A13,I10.1,A2,I10.1,A1") " (NS, EW) = (", locns, ", ", locew, ")"
-	! write(*,*) "Processor reference ", this_rank, local_coord, " globalID = ", global_ID
-
-	!return value
-	parallel_globalID = global_ID
+    parallel_globalID = global_ID
   end function parallel_globalID
 
   function parallel_globalID_scalar(locew, locns, upstride)
@@ -1461,7 +1455,6 @@ contains
     ! locns is local NS (row) grid index
     ! locew is local EW (col) grid index
     integer :: global_row, global_col, global_ID
-    character(len=40) :: local_coord
 
     ! including global domain halo adds lhalo to offsets
     global_row = locns - lhalo
@@ -1469,10 +1462,6 @@ contains
 
     ! including global domain halo adds (lhalo + uhalo) to global_ewn
     global_ID = ((global_row - 1)*(global_ewn) + (global_col - 1)) * upstride + 1
-
-    ! JEFF Testing Code
-    ! write(local_coord, "A13,I10.1,A2,I10.1,A1") " (NS, EW) = (", locns, ", ", locew, ")"
-    ! write(*,*) "Processor reference ", this_rank, local_coord, " globalID = ", global_ID
 
     !return value
     parallel_globalID_scalar = global_ID
@@ -1482,8 +1471,8 @@ contains
 
   subroutine parallel_globalindex(ilocal, jlocal, iglobal, jglobal)
     ! Calculates the global i,j indices from the local i,j indices
-    integer,intent(IN)  :: ilocal,  jlocal  ! These include the halos
-    integer,intent(OUT) :: iglobal, jglobal ! These do NOT include halos
+    integer,intent(in)  :: ilocal,  jlocal  ! These include the halos
+    integer,intent(out) :: iglobal, jglobal ! These do NOT include halos
 
    ! No check is currently made for being located in the global (periodic) halo
     iglobal = (ilocal - lhalo)
@@ -1492,8 +1481,8 @@ contains
 
   subroutine parallel_localindex(iglobal, jglobal, ilocal, jlocal, rlocal)
     ! Calculates the local i,j indices and rank from the global i,j indices                                                                                               
-    integer,intent(IN) :: iglobal, jglobal 
-    integer,intent(OUT)  :: ilocal, jlocal, rlocal
+    integer,intent(in) :: iglobal, jglobal 
+    integer,intent(out)  :: ilocal, jlocal, rlocal
 
     ilocal = iglobal + lhalo 
     jlocal = jglobal + lhalo 
@@ -1759,7 +1748,6 @@ contains
     endif
 
   end subroutine parallel_halo_real8_3d
-
 
   function parallel_halo_verify_integer_2d(a)
     implicit none
@@ -2297,16 +2285,6 @@ contains
     if (main_task) parallel_sync = nf90_sync(ncid)
     call broadcast(parallel_sync)
   end function parallel_sync
-
-  subroutine parallel_temp_halo(a)
-    implicit none
-    real(8),dimension(:,:,:) :: a
-  end subroutine parallel_temp_halo
-
-  subroutine parallel_velo_halo(a)
-    implicit none
-    real(8),dimension(:,:) :: a
-  end subroutine parallel_velo_halo
 
   subroutine staggered_parallel_halo_extrapolate_integer_2d(a)
 

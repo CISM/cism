@@ -57,7 +57,6 @@ contains
     use glimmer_paramets, only : thk0, tim0
 
     type(glide_global_type),intent(inout) :: model    ! ice model parameters
-    integer :: up
 
     !BDM - dups(1) and dups(2) are done in glissade_init_temp
 
@@ -110,7 +109,7 @@ contains
                    model%temper%temp(0:model%general%upn,ew,ns),        &
                    model%temper%waterfrac(1:model%general%upn-1,ew,ns), &
                    model%geometry%thck(ew,ns),                          &
-                   model%numerics%stagsigma(1:model%general%upn-1))	
+                   model%numerics%stagsigma(1:model%general%upn-1))
 
     ! find pmptemp for this column (interior nodes and boundary)
     pmptemp(0) = 0.0d0
@@ -134,7 +133,7 @@ contains
     ! The vector will be size (1:upn) - the first value is the half-node
     ! between nodes 0 and 1, the last value is the half-node between
     ! nodes upn-1 and upn. 
-    do up = 1,model%general%upn	
+    do up = 1,model%general%upn
        alpha_half(up) = 2 / ((1/alpha(up-1)) + (1/alpha(up)))
     end do
 	
@@ -300,9 +299,9 @@ contains
     !solve for temp and waterfrac
     if(enthalpy(0) >= pmpenthalpy(0)) then !temperate ice
        temp(0) = pmptemp(0) !temperate ice
-    else	
+    else
        temp(0) = enthalpy(0) / rhoi / shci !temp is cold
-    endif		
+    endif
 	
     do up = 1, upn-1
        if(enthalpy(up) >= pmpenthalpy(up)) then !temperate ice
@@ -317,9 +316,9 @@ contains
 	
     if(enthalpy(upn) >= pmpenthalpy(upn)) then !temperate ice
        temp(upn) = pmptemp(upn) !temp = pmptemp
-    else	
+    else
        temp(upn) = enthalpy(upn) / rhoi / shci !temp is cold
-    endif		
+    endif
 
   end subroutine enth2temp
 
@@ -350,7 +349,7 @@ contains
 	
     ! Find pmpenthalpy(0:dup,1,1)
     pmptemp(0) = 0.0d0
-    call glissade_calcpmpt(pmptemp(1:upn-1), thck, stagsigma(1:upn-1))						
+    call glissade_calcpmpt(pmptemp(1:upn-1), thck, stagsigma(1:upn-1))
     call glissade_calcpmpt_bed(pmptemp(upn), thck)
 	
     pmpenthalpy = rhoi * shci * pmptemp
@@ -388,7 +387,7 @@ contains
     real(dp), dimension(0:,:,:), intent(inout) :: temp
     real(dp), dimension(1:,:,:), intent(inout) :: waterfrac
     real(dp), dimension(0:),     intent(in) :: stagsigma
-    real(dp), dimension(:,:),    intent(in) :: thck,  stagthck  
+    real(dp), dimension(:,:),    intent(in) :: thck,  stagthck    !TODO: Remove stagthck from argument list
     real(dp), dimension(:,:),    intent(out):: bmlt    ! scaled melt rate (m/s * tim0/thk0)
                                                        ! > 0 for melting, < 0 for freeze-on
     logical,  dimension(:,:),    intent(in) :: floater

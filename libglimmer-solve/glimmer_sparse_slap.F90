@@ -65,9 +65,7 @@ module glimmer_sparse_slap
 
     end type slap_solver_options
 
-    !WHL - debug
-    logical, parameter :: verbose_slap = .true.
-    integer, parameter :: ndiagmax = 10
+    logical, parameter :: verbose_slap = .false.
 
 contains
 
@@ -273,7 +271,6 @@ contains
             !Set up SLAP if it hasn't been already
             call slap_solver_preprocess(matrix, options, workspace)
 
-            !WHL - debug
             if (verbose_slap) then
                print*, ' '
                print*, 'In slap_solve'
@@ -291,17 +288,6 @@ contains
                print*, 'size(iwork) =', size(workspace%iwork)
             endif
   
-        !WHL - debug
-        if (verbose_slap) then
-           print*, ' '
-           print*, 'Matrix: n, row, col, val:'
-           print*, ' '
-           do n = 1, min(ndiagmax, matrix%nonzeros)
-              print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
-           enddo
-           print*, ' '
-        endif
-
         ! Make a local copy of the nonzero matrix entries.
         ! These local arrays can be passed to the various SLAP solvers with intent(inout)
         ! and modified by SLAP without changing matrix%row, matrix%col, and matrix%val.
@@ -408,16 +394,6 @@ contains
                   if (verbose_slap) print*, 'BiCG: iters, err =', niters, err
 
             end select   ! slap solver
-  
-       !WHL - debug
-       if (verbose_slap) then
-          print*, ' '
-          print*, 'After slap solve: n, row, col, val:'
-          print*, ' '
-          do n = 1, min(ndiagmax, matrix%nonzeros)
-             print*, n, matrix%row(n), matrix%col(n), matrix%val(n)
-          enddo
-       endif
 
         endif   ! allzeros
 

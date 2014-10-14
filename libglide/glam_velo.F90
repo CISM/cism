@@ -63,8 +63,6 @@ contains
 
         type(glide_global_type),intent(inout) :: model
 
-        real(dp), dimension(model%general%ewn-1, model%general%nsn-1) :: latbc_norms_stag
-
         logical, parameter :: verbose_glam_velo = .false.
         integer :: i, j, k
 

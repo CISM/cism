@@ -51,16 +51,6 @@
               slap_postprocess_3d, slap_postprocess_2d,  &
               slap_compute_residual_vector, slap_solve_test_matrix
 
-!    interface slap_preprocess
-!       module procedure slap_preprocess_3d
-!       module procedure slap_preprocess_2d
-!    end interface
-
-!    interface slap_postprocess
-!       module procedure slap_postprocess_3d
-!       module procedure slap_postprocess_2d
-!    end interface
-
   contains
 
 !****************************************************************************
@@ -73,7 +63,7 @@
                                 Avu,          Avv,         &  
                                 bu,           bv,          &
                                 uvel,         vvel,        &
-                                matrix_order, max_nonzeros,&
+                                matrix_order,              &
                                 matrix,       rhs,         &
                                 answer)
 
@@ -119,8 +109,7 @@
        uvel, vvel         ! u and v components of velocity
 
     integer, intent(in) ::    &
-       matrix_order,  &   ! order of matrix = number of rows
-       max_nonzeros       ! upper bound for number of nonzero entries in sparse matrix
+       matrix_order       ! order of matrix = number of rows
 
     type(sparse_matrix_type), intent(inout) ::  &    ! TODO: inout or out?
        matrix             ! sparse matrix, defined in glimmer_sparse_type
@@ -279,7 +268,7 @@
                                 Avu,             Avv,           &  
                                 bu,              bv,            &
                                 uvel,            vvel,          &
-                                matrix_order,    max_nonzeros,  &
+                                matrix_order,                   &
                                 matrix,          rhs,           &
                                 answer)
 
@@ -326,8 +315,7 @@
        uvel, vvel            ! u and v components of velocity for 2D solve
 
     integer, intent(in) ::    &
-       matrix_order,  &   ! order of matrix = number of rows
-       max_nonzeros       ! upper bound for number of nonzero entries in sparse matrix
+       matrix_order       ! order of matrix = number of rows
 
     type(sparse_matrix_type), intent(inout) ::  &    ! TODO: inout or out?
        matrix             ! sparse matrix, defined in glimmer_sparse_types
@@ -344,7 +332,6 @@
     integer :: i, j, iA, jA, m, mm, n, ct
 
     integer :: rowA, colA   ! row and column of A submatrices (order = nVerticesSolve)
-    integer :: row, col     ! row and column of sparse matrix (order = 2*nVerticesSolve) 
 
     real(dp) :: val         ! value of matrix coefficient
     

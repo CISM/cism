@@ -64,7 +64,7 @@ subroutine cism_init_dycore(model)
   type(glide_global_type) :: model        ! model instance
   type(ConfigSection), pointer :: config  ! configuration stuff
   real(kind=dp) :: time                   ! model time in years
-  integer :: clock,clock_rate,ret
+  integer :: clock,clock_rate
 
   integer*4 external_dycore_model_index
 
@@ -250,7 +250,7 @@ subroutine cism_run_dycore(model)
   real(kind=dp) :: time                   ! model time in years
   real(kind=dp) :: dt                     ! current time step to use
   real(kind=dp) :: time_eps               ! tolerance within which times are equal 
-  integer :: clock,clock_rate,ret
+  integer :: clock,clock_rate
   integer :: tstep_count
 
   integer*4 :: external_dycore_model_index
@@ -388,7 +388,7 @@ subroutine cism_finalize_dycore(model)
   implicit none
 
   type(glide_global_type) :: model        ! model instance
-  integer :: clock,clock_rate,ret
+  integer :: clock,clock_rate
 
   call t_stopf('cism')
 

@@ -85,7 +85,7 @@ module glide_stress
         real(dp), intent(out), dimension(:,:,:) :: tauxx, tauyy, tauxy, &
                                                            tauxz, tauyz, tau
         !*sfp* local vars
-        integer :: ew, ns, up
+        integer :: ew, ns
         real(dp), parameter :: f1 = len0 / thk0
         real(dp) :: dew2, dew4, dns2, dns4
         real(dp), dimension(upn-1) :: dup, dupm        
