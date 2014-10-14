@@ -665,6 +665,9 @@
        resid_u, resid_v,   &    ! u and v components of residual Ax - b (Pa/m)
        bu, bv                   ! right-hand-side vector b, divided into 2 parts
 
+    real(dp), dimension(:,:), pointer ::  &
+       btractx, btracty         ! components of basal traction (Pa)
+
     real(dp), dimension(:,:,:), pointer ::  &
        tau_xz, tau_yz,         &! vertical components of stress tensor (Pa)
        tau_xx, tau_yy, tau_xy, &! horizontal components of stress tensor (Pa)
@@ -935,6 +938,8 @@
      bu       => model%velocity%rhs_u(:,:,:)
      bv       => model%velocity%rhs_v(:,:,:)
 
+     btractx  => model%stress%btractx(:,:)
+     btracty  => model%stress%btracty(:,:)
      tau_xz   => model%stress%tau%xz(:,:,:)
      tau_yz   => model%stress%tau%yz(:,:,:)
      tau_xx   => model%stress%tau%xx(:,:,:)
@@ -1516,7 +1521,16 @@
     endif      ! whichsparse
 #endif
 
-   !------------------------------------------------------------------------------
+ 
+    !------------------------------------------------------------------------------
+    ! Initialize the basal traction parameter beta.
+    ! Note: beta is computed or read from an external file by calling calcbeta below.
+    !       For a no-slip boundary condition (HO_BABC_NO_SLIP), beta is not computed.
+    !------------------------------------------------------------------------------
+    !TODO - When I initialize beta = 0, circular shelf results are not BFB.  Investigate this.
+!!    beta(:,:) = 0.d0
+       
+    !------------------------------------------------------------------------------
     ! Compute the factor A^(-1/n) appearing in the expression for effective viscosity.
     ! This factor is often denoted as B in the literature.
     ! Note: The rate factor (flwa = A) is assumed to have units of Pa^(-n) yr^(-1).
@@ -1728,18 +1742,6 @@
        !       same as the glissade units.
        !-------------------------------------------------------------------
 
-       !WHL - debug
-       if (verbose_beta .and. counter==1 .and. main_task) then
-          print*, ' '
-          print*, 'After halo call: mintauf field, rank =', rtest
-          do j = ny-1, 1, -1
-             do i = 1, nx-1
-                write(6,'(f6.0)',advance='no') mintauf(i,j)
-             enddo
-             write(6,*) ' '
-          enddo
-       endif
-       
        ! For 3D solve, copy basal velocity into uvel_2d and vvel_2d
        if (.not. solve_2d) then
           uvel_2d(:,:) = uvel(nz,:,:)
@@ -2219,6 +2221,7 @@
                                                  resid_u, resid_v,       &
                                                  bu,      bv,            &
                                                  uvel,    vvel,          &
+                                                 btractx, btracty,       &
                                                  tau_xz,  tau_yz,        &
                                                  tau_xx,  tau_yy,        &
                                                  tau_xy,  tau_eff)
@@ -2872,6 +2875,13 @@
                                         uvel(nz,:,:),  vvel(nz,:,:),  &
                                         beta,          bfricflx)
                                         
+    !------------------------------------------------------------------------------
+    ! Compute the components of basal traction.
+    !------------------------------------------------------------------------------
+
+    btractx(:,:) = beta(:,:) * uvel(nz,:,:)
+    btracty(:,:) = beta(:,:) * vvel(nz,:,:)
+
     !WHL - debug
     if (verbose_state .and. this_rank==rtest) then
        print*, ' '
@@ -2956,6 +2966,7 @@
                                            resid_u, resid_v,       &
                                            bu,      bv,            &
                                            uvel,    vvel,          &
+                                           btractx, btracty,       &
                                            tau_xz,  tau_yz,        &
                                            tau_xx,  tau_yy,        &
                                            tau_xy,  tau_eff)
@@ -3048,6 +3059,7 @@
                                                resid_u, resid_v,        &
                                                bu,      bv,             &
                                                uvel,    vvel,           &
+                                               btractx, btracty,        &
                                                tau_xz,  tau_yz,         &
                                                tau_xx,  tau_yy,         &
                                                tau_xy,  tau_eff)
@@ -3075,6 +3087,9 @@
        uvel, vvel,    &         ! velocity components (m/yr)
        resid_u, resid_v,  &     ! components of residual Ax - b (Pa/m)
        bu, bv                   ! components of b in Ax = b (Pa/m)
+
+    real(dp), dimension(:,:), intent(inout) ::  &
+       btractx, btracty         ! components of basal traction (Pa)
 
     real(dp), dimension(:,:,:), intent(inout) ::  &
        tau_xz, tau_yz,         &! vertical components of stress tensor (Pa)
@@ -3112,6 +3127,8 @@
     bv = bv / (tau0/len0)
 
     ! Convert stresses to dimensionless units
+    btractx = btractx/tau0
+    btracty = btracty/tau0
     tau_xz  = tau_xz/tau0
     tau_yz  = tau_yz/tau0
     tau_xx  = tau_xx/tau0

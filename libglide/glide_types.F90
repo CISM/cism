@@ -64,7 +64,6 @@ module glide_types
 
   ! basic Glimmer/Glide options
 
-  !WHL - added global boundary conditions
   integer, parameter :: GLOBAL_BC_PERIODIC = 0  ! doubly periodic
   integer, parameter :: GLOBAL_BC_OUTFLOW = 1   ! free outflow; scalars in global halo set to zero
   
@@ -74,7 +73,6 @@ module glide_types
   integer, parameter :: DYCORE_ALBANYFELIX = 3  ! External Albany-Felix finite-element solver
   integer, parameter :: DYCORE_BISICLES = 4     ! BISICLES-Chombo external FVM solver
 
-  !WHL - Removed -1 option (replaced by new glint option: evolve_ice)
   integer, parameter :: EVOL_PSEUDO_DIFF = 0    ! glide only
   integer, parameter :: EVOL_ADI = 1            ! glide only
   integer, parameter :: EVOL_DIFFUSION = 2      ! glide only
@@ -94,21 +92,10 @@ module glide_types
   integer, parameter :: TEMP_INIT_ARTM = 1
   integer, parameter :: TEMP_INIT_LINEAR = 2
 
-  !WHL - Swapped 0 and 2
-!  integer, parameter :: FLWA_PATERSON_BUDD = 0
-!  integer, parameter :: FLWA_PATERSON_BUDD_CONST_TEMP = 1
-!  integer, parameter :: FLWA_CONST_FLWA = 2
   integer, parameter :: FLWA_CONST_FLWA = 0
   integer, parameter :: FLWA_PATERSON_BUDD_CONST_TEMP = 1
   integer, parameter :: FLWA_PATERSON_BUDD = 2
 
-  !WHL: Swapped 3 and 5
-!!  integer, parameter :: BTRC_ZERO = 0
-!!  integer, parameter :: BTRC_CONSTANT = 1
-!!  integer, parameter :: BTRC_CONSTANT_BWAT = 2
-!!  integer, parameter :: BTRC_TANH_BWAT = 3
-!!  integer, parameter :: BTRC_LINEAR_BMLT = 4
-!!  integer, parameter :: BTRC_CONSTANT_TPMP = 5
   integer, parameter :: BTRC_ZERO = 0
   integer, parameter :: BTRC_CONSTANT = 1
   integer, parameter :: BTRC_CONSTANT_BWAT = 2
@@ -116,12 +103,6 @@ module glide_types
   integer, parameter :: BTRC_LINEAR_BMLT = 4
   integer, parameter :: BTRC_TANH_BWAT = 5
 
-  !WHL - Set NONE = 0, LOCAL = 1, FLUX = 2
-!!  integer, parameter :: BWATER_LOCAL = 0
-!!  integer, parameter :: BWATER_FLUX  = 1
-!!  integer, parameter :: BWATER_NONE  = 2
-!!  integer, parameter :: BWATER_CONST = 3
-!!  !integer, parameter :: BWATER_BASAL_PROC = 4  ! not currently supported
   integer, parameter :: BWATER_NONE  = 0
   integer, parameter :: BWATER_LOCAL = 1
   integer, parameter :: BWATER_FLUX  = 2
@@ -150,13 +131,6 @@ module glide_types
   integer, parameter :: ASTHENOSPHERE_FLUID = 0
   integer, parameter :: ASTHENOSPHERE_RELAXING = 1
 
-  !WHL - Swapped 2 and 3
-!!  integer, parameter :: MARINE_NONE = 0
-!!  integer, parameter :: MARINE_FLOAT_ZERO = 1
-!!  integer, parameter :: MARINE_RELX_THRESHOLD = 2
-!!  integer, parameter :: MARINE_FLOAT_FRACTION = 3
-!!  integer, parameter :: MARINE_TOPG_THRESHOLD = 4
-!!  integer, parameter :: MARINE_HUYBRECHTS = 5
   integer, parameter :: MARINE_NONE = 0
   integer, parameter :: MARINE_FLOAT_ZERO = 1
   integer, parameter :: MARINE_FLOAT_FRACTION = 2
@@ -181,13 +155,8 @@ module glide_types
 !!  integer, parameter :: BAS_PROC_FULLCALC = 1
 !!  integer, parameter :: BAS_PROC_FASTCALC = 2
 
-
   ! higher-order options
 
-  !WHL: Swapped 0 and 2
-!  integer, parameter :: HO_EFVS_NONLINEAR = 0
-!  integer, parameter :: HO_EFVS_FLOWFACT = 1
-!  integer, parameter :: HO_EFVS_CONSTANT = 2
   integer, parameter :: HO_EFVS_CONSTANT = 0
   integer, parameter :: HO_EFVS_FLOWFACT = 1
   integer, parameter :: HO_EFVS_NONLINEAR = 2
@@ -216,12 +185,9 @@ module glide_types
   integer, parameter :: HO_RESID_MEANU = 2
   integer, parameter :: HO_RESID_L2NORM = 3
 
+  integer, parameter :: HO_SPARSE_PCG_INCH = -1
   integer, parameter :: HO_SPARSE_BICG = 0
   integer, parameter :: HO_SPARSE_GMRES = 1
-!WHL - Redefined options 2 and 3
-!!  integer, parameter :: HO_SPARSE_PCG_INCH = 2
-!!  integer, parameter :: HO_SPARSE_PCG_NATIVE = 3
-  integer, parameter :: HO_SPARSE_PCG_INCH = -1
   integer, parameter :: HO_SPARSE_PCG_STANDARD = 2
   integer, parameter :: HO_SPARSE_PCG_CHRONGEAR = 3
   integer, parameter :: HO_SPARSE_TRILINOS = 4
@@ -268,7 +234,6 @@ module glide_types
     real(dp), dimension(:),pointer :: x1 => null() !original x1 grid
     real(dp), dimension(:),pointer :: y1 => null() !original y1 grid
 
-    !WHL - added global boundary conditions.  Periodic is default.
     integer :: global_bc = 0     ! 0 for periodic, 1 for outflow
 
   end type glide_general
@@ -513,9 +478,6 @@ module glide_types
     !> \item[-1] SLAP (serial): Preconditioned conjugate gradient, incomplete Cholesky preconditioner
     !> \item[0]  SLAP (serial): Biconjugate gradient, incomplete LU preconditioner
     !> \item[1]  SLAP (serial): GMRES, incomplete LU preconditioner
-!WHL - Redefined options 2 and 3
-!!    !> \item[2] SLAP (serial): Preconditioned conjugate gradient, incomplete Cholesky preconditioner
-!!    !> \item[3] Native PCG, structured grid, parallel-enabled
     !> \item[2] Native PCG, parallel-enabled, standard solver
     !> \item[3] Native PCG, parallel-enabled, Chronopoulos-Gear solver
     !> \item[4] standalone interface to Trilinos
@@ -661,13 +623,6 @@ module glide_types
     real(dp),dimension(:,:),pointer :: lower_cell_temp => null()
     !*(DFM) The temperature in the cell located at lower_cell_loc
 
-
-    !WHL - no longer used
-!!    real(dp),dimension(:,:),pointer :: marine_bc_normal => null()
-    !> NaN for all points except those that occur on the marine
-    !> margin of an ice shelf, in which case contains the angle
-    !> of the normal to the ice front. 
-
     integer, dimension(:,:),pointer :: thck_index => null()
     ! Set to nonzero integer for ice-covered cells (thck > 0), cells adjacent to ice-covered cells,
     !  and cells with acab > 0.  The non-zero points are numbered in sequence from the bottom left 
@@ -787,11 +742,11 @@ module glide_types
     !*sfp* mask on vel grid showing which dyn bc is applied at each grid cell (mainly for debugging)
     integer, dimension(:,:), pointer    :: dynbcmask => null()    
 
-    !WHL - for viewing the spatial pattern of residuals
+    ! for viewing the spatial pattern of residuals
     real(dp),dimension(:,:,:),pointer :: resid_u => null()     ! u component of residual Ax - b where x is the velocity
     real(dp),dimension(:,:,:),pointer :: resid_v => null()     ! v component of residual Ax - b where x is the velocity
 
-    !WHL - for viewing the driving stress on the RHS
+    ! for viewing the driving stress on the RHS
     real(dp),dimension(:,:,:),pointer :: rhs_u => null()     ! u component of b in Ax = b
     real(dp),dimension(:,:,:),pointer :: rhs_v => null()     ! v component of b in Ax = b
 
@@ -802,10 +757,9 @@ module glide_types
   type glide_stress_t      
 
     type(glide_tensor) :: tau    ! HO only
-    real(dp),dimension(:,:,:),pointer :: efvs => null()
-!*sfp* neither of the next two are currently used anywhere in the code (moved here from velocity_hom)
-!    real(dp),dimension(:,:,:)  ,pointer :: gdsx => null() !> basal shear stress, x-dir
-!    real(dp),dimension(:,:,:)  ,pointer :: gdsy => null() !> basal shear stress, y-dir
+    real(dp),dimension(:,:,:),pointer :: efvs => null()    !> effective viscosity
+    real(dp),dimension(:,:),  pointer :: btractx => null() !> basal traction (Pa), x comp
+    real(dp),dimension(:,:),  pointer :: btracty => null() !> basal traction (Pa), y comp
 
   end type glide_stress_t      
 
@@ -1306,9 +1260,6 @@ contains
     !> Allocates the model arrays, and initialises some of them to zero.
     !> These are the arrays allocated, and their dimensions:
 
-    !WHL - Modified this subroutine to allocate memory for arrays only
-    !      as needed for particular options (e.g., model%options%dycore)
-
     !TODO - Make sure the itemized lists in subroutine glide_allocarr are complete.
 
     !> In \texttt{model\%temper}:
@@ -1527,6 +1478,8 @@ contains
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xx)
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%yy)
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%stress%tau%xy)
+       call coordsystem_allocate(model%general%velo_grid, model%stress%btractx)
+       call coordsystem_allocate(model%general%velo_grid, model%stress%btracty)
     endif
 
     ! geometry arrays
@@ -1796,6 +1749,10 @@ contains
         deallocate(model%stress%tau%yy)
     if (associated(model%stress%tau%xy)) &
         deallocate(model%stress%tau%xy)
+    if (associated(model%stress%btractx)) &
+        deallocate(model%stress%btractx)
+    if (associated(model%stress%btracty)) &
+        deallocate(model%stress%btracty)
 
     ! geometry arrays
 

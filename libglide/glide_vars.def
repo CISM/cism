@@ -178,15 +178,15 @@ load:          1
 [btractx]
 dimensions:    time, y0, x0
 units:         Pa
-long_name:     consistent basal traction (x-direction comp)
-data:          data%velocity%btraction(1,:,:)
+long_name:     basal traction (x-direction comp)
+data:          data%stress%btractx(:,:)
 factor:        scale_tau
 
 [btracty]
 dimensions:    time, y0, x0
 units:         Pa
-long_name:     consistent basal traction (y-direction comp)
-data:          data%velocity%btraction(2,:,:)
+long_name:     basal traction (y-direction comp)
+data:          data%stress%btracty(:,:)
 factor:        scale_tau
 
 [ubas]
@@ -209,7 +209,6 @@ standard_name: land_ice_basal_y_velocity
 load:          1
 average:       1
 
-#TODO: Scale factor looks wrong
 [taux]
 dimensions:    time, y0, x0
 units:         kilopascal
