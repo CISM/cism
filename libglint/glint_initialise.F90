@@ -137,13 +137,8 @@ contains
        ! initialise the model
        call glide_initialise(instance%model)
 
-       !TODO - Remove the oldglide option?
-
        ! compute the initial diagnostic state
-       !WHL - Do not call this if comparing to oldglide (cism1) results
-      if (.not. oldglide) then
        call glide_init_state_diagnostic(instance%model)
-      endif
 
     else       ! glam/glissade HO dycore     
 
@@ -351,7 +346,6 @@ contains
     integer,               intent(out)   :: mbts             ! mass-balance time-step (hours)
     integer,               intent(out)   :: idts             ! ice dynamics time-step (hours)
 
-    !TODO - Change names of force_start and force_dt?
     integer,               intent(in)    :: force_start      ! glint forcing start time (hours)
     integer,               intent(in)    :: force_dt         ! glint forcing time step (hours)
 
@@ -400,13 +394,8 @@ contains
        ! initialise the model
        call glide_initialise(instance%model)
 
-       !TODO - Remove the oldglide option?
-
        ! compute the initial diagnostic state
-!WHL - Do not call this if comparing to oldglide (cism1) results
-      if (.not. oldglide) then
        call glide_init_state_diagnostic(instance%model)
-      endif
 
     else       ! glam/glissade HO dycore     
 
@@ -493,7 +482,6 @@ contains
        instance%ice_tstep =             24
     endif
 
-    !TODO - Do we need two copies of this tstep variable?
     instance%mbal_tstep = instance%mbal_accum%mbal%tstep
 
     mbts = instance%mbal_tstep

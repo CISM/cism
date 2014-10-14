@@ -77,8 +77,6 @@ module glint_global_grid
 
   end type global_grid
 
-  private pi  !TODO - Remove this line?
-
   interface min
      module procedure grid_min
   end interface

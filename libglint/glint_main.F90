@@ -44,12 +44,9 @@ module glint_main
   implicit none
 
   ! ------------------------------------------------------------
-  ! GLIMMER_PARAMS derived type definition
+  ! glint_params derived type definition
   ! This is where default values are set.
   ! ------------------------------------------------------------
-
-  !TODO - Move this definition to glint_type?
-  !       Create a simpler type (glint_params_gcm) for GCM coupling?
 
   type glint_params 
 
@@ -173,7 +170,7 @@ module glint_main
 
 contains
 
-  !TODO - Try calling this subroutine from CESM to estimate SMB in PDD mode?
+  !TODO - Try calling subroutine initialise_glint from CESM to estimate SMB in PDD mode?
   !       We would have only one elevation class per grid cell and would not return upscaled fields.
 
   subroutine initialise_glint(params,                         &
@@ -728,8 +725,6 @@ contains
 
     ! Initialise main global grid --------------------------------------------------------------
 
-    !TODO - Will gmask always be present for GCM runs?
-
     if (present(gmask)) then
        call new_global_grid(params%g_grid, longs, lats, nec=nec, mask=gmask, radius=rearth)
     else
@@ -939,7 +934,7 @@ contains
     deallocate(gfrac_temp, gtopo_temp, grofi_temp, grofl_temp, ghflx_temp)
     deallocate(ice_sheet_grid_mask_temp, icemask_coupled_fluxes_temp)
 
-    ! Set output flag       !TODO - Is this ever used?
+    ! Set output flag
     if (present(output_flag)) output_flag = .true.
 
     if (GLC_DEBUG .and. main_task) then
@@ -1392,7 +1387,6 @@ contains
     real(dp),dimension(:,:,0:),intent(in)    :: tsfc          ! input surface ground temperature (deg C)
     real(dp),dimension(:,:,0:),intent(in)    :: topo          ! input surface elevation (m)
 
-    !TODO - Do we need both of these?
     logical,                optional,intent(out)   :: output_flag     ! Set true if outputs are set
     logical,                optional,intent(out)   :: ice_tstep       ! Set when an ice dynamic timestep has been done
                                                                       !  and new output is available
@@ -1518,6 +1512,7 @@ contains
        ! Initial units are kg m-2 s-1 = mm s-1
        ! Divide by 1000 to convert from mm to m
        ! Multiply by hours2seconds = 3600 to convert from 1/s to 1/hr.  (tstep_mbal has units of hours)
+
        !TODO - Modify code so that qsmb and acab are always in kg m-2 s-1 water equivalent?
        params%g_av_qsmb(:,:,:) = params%g_av_qsmb(:,:,:) * params%tstep_mbal * hours2seconds / 1000.d0
 
@@ -1525,8 +1520,6 @@ contains
 
        do i = 1, params%ninstances
           
-          !WHL - Moved up 'if time == next_time' and call to glint_downscaling from glint_i_tstep
-
           if (time == params%instances(i)%next_time) then
 
              params%instances(i)%next_time = params%instances(i)%next_time + params%instances(i)%mbal_tstep
@@ -1766,9 +1759,8 @@ contains
                                        frac_coverage,           &
                                        area_weighting=.false.)
 
-           ! TODO: no thought has been given to whether area_weighting should be true or
-           ! false for ghflx... this needs to be considered once ghflx is hooked up to
-           ! CLM.
+           ! TODO: No thought has been given to whether area_weighting should be true or false for ghflx... 
+           !       This needs to be considered once ghflx is hooked up to CLM.
 
            ghflx(:,:,n) = splice_field(ghflx(:,:,n),            &
                                        ghflx_temp(:,:,n),       &
@@ -1841,7 +1833,7 @@ contains
 
   !========================================================
 
-  !TODO - Move this subroutine to a glint_setup module?
+  !TODO - Move subroutine glint_readconfig to a glint_setup module, in analogy to glide_setup?
 
   subroutine glint_readconfig(config, ninstances, fnames, infnames)
 

@@ -525,13 +525,13 @@ contains
     ! Internal variables
     ! ------------------------------------------------------------------------  
 
-    !TODO - Are these needed?
-    real(dp),dimension(:,:),pointer :: thck_temp    => null() ! temporary array for volume calcs
+    real(dp),dimension(:,:),pointer :: thck_temp => null() ! temporary array for volume calcs
 
-    integer :: i, j, k, nx, ny, il, jl, ig, jg
+    integer :: i, j, k, nx, ny, il, jl
 
-!WHL - debug
-    print*, 'In glint_i_tstep_gcm, this_rank =', this_rank
+    if (GLC_DEBUG .and. main_task) then
+       print*, 'In glint_i_tstep_gcm'
+    endif
 
     ice_tstep = .false.
 
@@ -543,9 +543,7 @@ contains
     ! setting all points < 0.0 to zero
     ! ------------------------------------------------------------------------  
 
-!TODO: Determine if glint_remove_bath is needed in a CESM run. If so, fix it to work with
-!      multiple tasks. 
-
+    !Note: Call to glint_remove_bath is commented out for now.  Not sure if it is needed in GCM runs.
 !!    call glide_get_usurf(instance%model, instance%local_orog)
 !!    call glint_remove_bath(instance%local_orog,1,1)
 
@@ -575,10 +573,6 @@ contains
        write(stdout,*) 'n_icetstep =', instance%n_icetstep
     end if
 
-
-!WHL - debug
-    print*, 'Begin ice timestep'
-
     ! ------------------------------------------------------------------------  
     ! ICE TIMESTEP begins HERE ***********************************************
     ! ------------------------------------------------------------------------  
@@ -597,9 +591,6 @@ contains
 
        do i = 1, instance%n_icetstep
 
-!WHL - debug
-    print*, 'Take a step, i =', i
-
           if (GLC_DEBUG .and. main_task) then
              write (stdout,*) 'Ice sheet timestep, iteration =', i
           end if
@@ -614,8 +605,7 @@ contains
           call glide_get_thk(instance%model,thck_temp)
           thck_temp = thck_temp * rhoi/rhow
 
-          !TODO: Determine if glint_remove_bath is needed in a CESM run. If so, fix it to work with
-          !      multiple tasks.  (And decide whether the call is needed both here and above) 
+          !Note: Call to glint_remove_bath is commented out for now.  Not sure if it is needed in GCM runs.
           ! Get latest upper-surface elevation (needed for masking)
 !!          call glide_get_usurf(instance%model, instance%local_orog)
 !!          call glint_remove_bath(instance%local_orog,1,1)
@@ -639,9 +629,8 @@ contains
           !  by tim0/(scyr*thk0) and copied to data%climate%acab.
           ! Input artm is in deg C; this value is copied to data%climate%artm (no unit conversion).
 
-          !TODO - It is confusing to have units of m/yr w.e. for instance%acab, compared to units
-          !       of m/yr ice for Glide. It would be better to have the same units consistently.
-          !       E.g., switch to w.e. in Glide
+          !TODO - It is confusing to have units of m/yr w.e. for instance%acab, compared to units m/yr ice for Glide. 
+          !       Change to use the same units consistently?  E.g., switch to w.e. in Glide
 
           call glide_set_acab(instance%model, instance%acab * rhow/rhoi)
           call glide_set_artm(instance%model, instance%artm)
@@ -737,7 +726,8 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Rewrite to support multiple tasks?
+  !TODO - Rewrite glint_remove_bath to support multiple tasks?
+  !       Calls to this subroutine are currently commented out.
 
   subroutine glint_remove_bath(orog,x,y)
 

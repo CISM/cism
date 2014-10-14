@@ -245,12 +245,13 @@ contains
     use glimmer_log
     use parallel, only : main_task, distributed_scatter_var, parallel_halo
 
+    !TODO - Not sure we need localsp now that the code is fully double precision 
+
     ! Argument declarations
 
     type(coordsystem_type),  intent(in)           :: lgrid_fulldomain !> Local grid, spanning the full domain (across all tasks)
     real(dp), dimension(:,:),intent(in)           :: global           !> Global field (input)
     type(downscale),         intent(inout)        :: downs            !> Downscaling parameters
-    !TODO - Remove localsp as optional argument?
     real(sp),dimension(:,:), intent(out),optional :: localsp          !> Local field on projected grid (output) sp
     real(dp),dimension(:,:), intent(out),optional :: localdp          !> Local field on projected grid (output) dp
     real(dp),optional,external                    :: global_fn        !> Function returning values in global field. This  
@@ -265,7 +266,6 @@ contains
 
     ! Local variable declarations
 
-    !TODO - Remove localsp_fulldomain?
     real(sp), dimension(:,:), allocatable :: localsp_fulldomain  ! localsp spanning full domain (all tasks)
     real(dp), dimension(:,:), allocatable :: localdp_fulldomain  ! localdp spanning full domain (all tasks)
     integer  :: i,j                          ! Counter variables for main loop
@@ -441,9 +441,6 @@ contains
           enddo
        enddo
     end if  ! main_task
-
-!WHL - debug
-!!    print*, 'Before scatter: max/min(localdp) =', maxval(localdp_fulldomain), minval(localdp_fulldomain)
  
     ! Main task scatters interpolated data from the full domain to the task owning each point
     ! Note that distributed_scatter_var doesn't set halo values, so we need to do a halo
@@ -462,9 +459,6 @@ contains
        call distributed_scatter_var(localdp, localdp_fulldomain)
        call parallel_halo(localdp)
     endif
-
-!WHL - debug
-!!    print*, 'After scatter: max/min(localdp) =', maxval(localdp), minval(localdp)
 
     ! We do NOT deallocate the local*_fulldomain variables here, because the
     ! distributed_scatter_var routines do this deallocation
@@ -558,7 +552,6 @@ contains
     type(coordsystem_type),          intent(in)  :: lgrid     !> Local grid information
     type(global_grid),               intent(in)  :: ggrid     !> Global grid information
     real(dp),dimension(:,:),         intent(in)  :: global    !> Global field (input)
-    !TODO - Remove localsp?
     real(sp),dimension(:,:),optional,intent(out) :: localsp   !> Local field on projected grid (output) sp
     real(dp),dimension(:,:),optional,intent(out) :: localdp   !> Local field on projected grid (output) dp
     real(dp),optional, external                  :: global_fn !> Function returning values in global field. This  
@@ -1120,38 +1113,6 @@ contains
 
        enddo
     enddo
-
-    ! This output should work for any number of tasks, since the variables here span the
-    ! full local domain. Because of where it falls in the call chain, only the main task
-    ! should reach this point, but we check that anyway to avoid problems.
-
-    !WHL - Commenting out these diagnostics for now
-    !TODO - Modify this code for multiple tasks
-
-!!    if (GLC_DEBUG .and. main_task) then
-
-!!       write(stdout,*) ' '
-!!       write(stdout,*) 'Mask in neighborhood of i, j = ', itest_local, jtest_local
-!!       do j = jtest_local-1, jtest_local+1
-!!          write(stdout,*) lmask(itest_local-1:itest_local+1,j)
-!!       enddo
-     
-!!       write(stdout,*) ' '
-!!       write(stdout,*) 'Global mask near Greenland'
-!!       do j = 1, 20
-!!          ! This is hardwired for a particular global grid 
-!!          write(stdout,150) ggrid%mask(nxg-29:nxg,j)   
-!!       enddo
-
-!!       write(stdout,*) ' '
-!!       write(stdout,*) 'Local mask'
-!!       do j = ny, 1, -1
-!!          write(stdout,200) lmask(1:nx,j)
-!!       enddo
-
-!!  150  format(30i2)
-!!  200  format(76i2)
-!!    end if
 
   end subroutine index_local_boxes
 

@@ -659,8 +659,8 @@ contains
     case('hours')
        time = time/real(params%hours_in_year,dp)
 
-    !WHL - Added 'months' and 'days'
-    !TODO - Test these options
+    !TODO - Test the following alternative options for time units (months, days)
+
     case('months')
        time = time/12.d0      
 

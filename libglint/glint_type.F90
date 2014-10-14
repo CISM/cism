@@ -69,8 +69,8 @@ module glint_type
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!TODO - glint_instance includes information that is not needed if the SMB is received from a GCM.
-!       Maybe we should create a new derived type (glint_instance_gcm?) without the extra information.
+  !TODO - glint_instance includes information that is not needed if the SMB is received from a GCM.
+  !       Maybe we should create a new derived type (glint_instance_gcm?) without the extra information.
 
   type glint_instance
 
@@ -155,8 +155,6 @@ module glint_type
 
      integer :: whichacab = 1
      
-     logical :: test_coupling = .false.
-
      !> Which mass-balance scheme: 
      !> \begin{description}
      !> \item[0] Receive surface mass balance from climate model
@@ -173,6 +171,8 @@ module glint_type
      !> \item[1] Use large-scale precip as is
      !> \item[2] Use parameterization of Roe and Lindzen
      !> \end{description}
+
+     logical :: test_coupling = .false.
 
      integer :: use_mpint = 0
    
@@ -234,9 +234,7 @@ module glint_type
      logical :: ice_vol      !> Set if we need to calculate the total ice volume
   end type output_flags
 
-
-  !TODO - These diagnostic points are grid-specific.  
-  !       For GCM coupling, they should be set based on the global GCM grid.
+  !TODO - These diagnostic points are grid-specific. For GCM coupling, they should be set based on the global GCM grid.
 
   ! diagnostic points on global grid, useful for debugging
 
@@ -347,7 +345,7 @@ contains
     ! First deallocate if necessary
 
     if (associated(instance%frac_coverage)) deallocate(instance%frac_coverage)
-    if (associated(instance%out_mask))      deallocate(instance%out_mask)  !TODO - Is this needed?
+    if (associated(instance%out_mask))      deallocate(instance%out_mask)
 
     if (associated(instance%artm))          deallocate(instance%artm)
     if (associated(instance%acab))          deallocate(instance%acab)
@@ -360,7 +358,7 @@ contains
     ! Then reallocate and zero...
 
     allocate(instance%frac_coverage(nxg,nyg)); instance%frac_coverage = 0.d0
-    allocate(instance%out_mask(ewn,nsn));      instance%out_mask = 1   !TODO - Is this needed?
+    allocate(instance%out_mask(ewn,nsn));      instance%out_mask = 1
 
     allocate(instance%artm(ewn,nsn));          instance%artm = 0.d0
     allocate(instance%acab(ewn,nsn));          instance%acab = 0.d0
@@ -373,7 +371,7 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Should the next two subroutines go in a new module called glint_setup?
+  !TODO - Move the next two subroutines to a new module called glint_setup?
   !       This would be analogous to the organization of Glide.
 
   subroutine glint_i_readconfig(instance,config)
@@ -490,20 +488,16 @@ contains
 
     character(len=100) :: message
 
-    !TODO - Make these messages more informative 
-    !       (Print a description instead of just the option number.)
-    !TODO - Remove hardwired option numbers
-
     call write_log(' ')
     call write_log('GLINT climate')
     call write_log('-------------')
-    write(message,*) 'evolve_ice  ',instance%evolve_ice
+    write(message,*) 'evolve_ice (0=fixed, 1=evolve):  ',instance%evolve_ice
     call write_log(message)
-    write(message,*) 'precip_mode ',instance%whichprecip
+    write(message,*) 'precip mode (1=standard):        ',instance%whichprecip
     call write_log(message)
-    write(message,*) 'acab_mode   ',instance%whichacab
+    write(message,*) 'acab_mode (0 = GCM SMB, 1 = PDD):',instance%whichacab
     call write_log(message)
-    write(message,*) 'test_coupling ',instance%test_coupling
+    write(message,*) 'test_coupling:                   ',instance%test_coupling
     call write_log(message)    
 
     if (instance%evolve_ice == EVOLVE_ICE_FALSE) then
@@ -512,7 +506,7 @@ contains
 
     if (instance%whichacab /= MASS_BALANCE_GCM) then  ! not getting SMB from GCM
 
-       !TODO - Get the PDD scheme to work on multiple processors?
+       !TODO - Get the PDD scheme to work with multiple task?
        if (tasks > 1) then
           call write_log('GLINT: Must use GCM mass balance option to run on more than one processor', GM_FATAL)
        endif
@@ -554,7 +548,7 @@ contains
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  !TODO - Can we remove this function and only use mbal_has_snow_model?
+  !TODO - Can we remove function glint_has_snow_model and only use mbal_has_snow_model?
 
   logical function glint_has_snow_model(instance)
 

@@ -28,7 +28,7 @@
 #include "config.inc"
 #endif
 
-!TODO - Is this module still needed?  It is not currently used by other Glint modules.
+!Note - This module is not currently used, but keeping it for now in case it ever proves useful.
 
 module glint_global_interp
 

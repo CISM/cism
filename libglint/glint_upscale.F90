@@ -217,7 +217,6 @@ contains
                                             ! For the 0-indexed bed information, area_mask_l = 1
                                             !  for all land points (ice or ice-free).
     
-    !TODO - Pass in topomax as an argument instead of hardwiring it here?
     real(dp), dimension(0:nec) :: topomax   ! upper elevation limit of each class
 
     logical :: first_call   ! if calling the first time, then do not average the accumulated fluxes
@@ -231,8 +230,10 @@ contains
     dew = get_dew(instance%model)
     dns = get_dns(instance%model)
 
+    !TODO - Pass in topomax as an argument instead of hardwiring it here?
+    !       Note: Values must be consistent with the values in the GCM.
+
     ! Given the value of nec, specify the upper and lower elevation boundaries of each class.
-    ! TODO: These must be consistent with the values in the GCM.  Better to pass as an argument?
 
     if (nec == 1) then
        topomax = (/ 0._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp, 10000._dp,  &

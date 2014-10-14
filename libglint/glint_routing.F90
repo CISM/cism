@@ -105,15 +105,17 @@ contains
       do cx=-1,1,1
         do cy=-1,1,1
           ! If this is the centre point, ignore
-          !TODO - The following statement will not prevent a slope calculation with a potential divzero
-          if (cx == 0 .and. cy == 0) continue
+          if (cx == 0 .and. cy == 0) then
+             continue
+          else
           ! Otherwise do slope calculation 
-          px=x+cx ; py=y+cy
-          if (px > 0 .and. px <= nx .and. py > 0 .and. py <= ny) then
-              if (surfcopy(px,py)<surfcopy(x,y)) then
-                slopes(cx,cy)=(surfcopy(x,y)-surfcopy(px,py))/dists(cx,cy)
-              endif
-          endif
+             px=x+cx ; py=y+cy
+             if (px > 0 .and. px <= nx .and. py > 0 .and. py <= ny) then
+                if (surfcopy(px,py)<surfcopy(x,y)) then
+                   slopes(cx,cy)=(surfcopy(x,y)-surfcopy(px,py))/dists(cx,cy)
+                endif
+             endif
+          endif   ! cx = cy = 0
         enddo
       enddo
 
@@ -260,7 +262,6 @@ contains
 
     call indexx(vect,ind)
 
-    !TODO - Make these dp?
     do k=1,nn
       sorted(k,1)=floor(real(ind(k)-1)/real(ny))+1
       sorted(k,2)=mod(ind(k)-1,ny)+1
