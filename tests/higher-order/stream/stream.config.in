@@ -28,7 +28,6 @@ which_ho_assemble_beta = 1  # 0=smoothed by FEM assembly, 1 = local approx.
 glissade_maxiter = 300      # max. no. of nonlinear (Picard) iterations for Glissade
 
 [parameters]
-flow_factor = 1.
 periodic_offset_ew = ?
 
 [CF default]

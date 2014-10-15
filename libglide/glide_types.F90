@@ -1131,7 +1131,8 @@ module glide_types
     real(dp) :: btrac_slope = 0.0d0    ! Pa^{-1} (gets scaled during init)
     real(dp) :: btrac_max = 0.d0       ! m yr^{-1} Pa^{-1} (gets scaled during init)
     real(dp) :: geot   = -5.0d-2       ! W m^{-2}, positive down
-    real(dp) :: flow_factor = 3.0d0    ! "fiddle" parameter for the Arrhenius relationship
+    real(dp) :: flow_factor = 1.0d0    ! "fiddle" parameter for the Arrhenius relationship 
+                                       ! (NOTE change relative to prev. versions of code - used to be 3)
     real(dp) :: slip_ratio = 1.0d0     ! Slip ratio, used only in higher order code when the slip ratio beta computation is requested
     real(dp) :: hydtim = 1000.0d0      ! years, converted to s^{-1} and scaled
                                        ! 0 if no drainage
