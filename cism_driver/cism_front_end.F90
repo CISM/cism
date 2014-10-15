@@ -73,7 +73,7 @@ subroutine cism_init_dycore(model)
 
   integer :: tstep_count
 
-    print *,'Entering cism_init_dycore'
+  !  print *,'Entering cism_init_dycore'
 
 
   !TODO - call this only for parallel runs?
@@ -304,7 +304,7 @@ subroutine cism_run_dycore(model)
           call glissade_tstep(model,time)
 
         case (DYCORE_BISICLES)
-          print *,'Using External Dycore'
+          ! print *,'Using External Dycore'
           ! The time variable gets incremented within this call:
           dt = model%numerics%tinc
         

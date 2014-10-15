@@ -45,8 +45,8 @@ module glimmer_to_dycore
     call gtd_set_mpi_vars(model,dycore_model_index)
     call gtd_set_constants(model,dycore_model_index)
 
-    print *,"In gtd_init_dycore, dycore_type, dycore_index  =  " , &
-             dycore_names(dycore_type+1),dycore_model_index
+    !print *,"In gtd_init_dycore, dycore_type, dycore_index  =  " , &
+    !         dycore_names(dycore_type+1),dycore_model_index
     call dycore_init_model(dycore_type,dycore_model_index, &
             trim(model%options%dycore_input_file)//char(0),error_code)
 
@@ -130,7 +130,7 @@ module glimmer_to_dycore
     call dycore_set_ptr_double_var(model%geometry%lower_cell_temp,var_name,dtype_name,dycore_model_index)
 
 
-    print *,"this_rank, ewlb, ewub, nslb, nsub", this_rank,  ewlb, ewub, nslb, nsub
+    ! print *,"this_rank, ewlb, ewub, nslb, nsub", this_rank,  ewlb, ewub, nslb, nsub
  
 ! (DFM -2/12/13) since ewlb, et al contain local grid info, use dim_info to 
 ! pass in global index space info
@@ -146,7 +146,7 @@ module glimmer_to_dycore
     ! use age to get dim_info for now (only 3d var in geometry derived type)
 !    call gtd_set_dim_info(shape(model%geometry%age),dim_info)
 
-    print *, "dim_info = ", dim_info(1), dim_info(2), dim_info(3), dim_info(4)
+    ! print *, "dim_info = ", dim_info(1), dim_info(2), dim_info(3), dim_info(4)
 
     var_name = 'dimInfo'//char(0)
     dim_info2(1) = 1
@@ -192,11 +192,11 @@ module glimmer_to_dycore
 
     dtype_name = 'velocity'//char(0)
 
-    print *,'uvel ndims,shape = ',size(shape(model%velocity%uvel)),shape(model%velocity%uvel)
+    ! print *,'uvel ndims,shape = ',size(shape(model%velocity%uvel)),shape(model%velocity%uvel)
 
-    print *,'vvel ndims,shape = ',size(shape(model%velocity%vvel)),shape(model%velocity%vvel)
+    ! print *,'vvel ndims,shape = ',size(shape(model%velocity%vvel)),shape(model%velocity%vvel)
 
-    print *,'wvel ndims,shape = ',size(shape(model%velocity%wvel)),shape(model%velocity%wvel)
+    ! print *,'wvel ndims,shape = ',size(shape(model%velocity%wvel)),shape(model%velocity%wvel)
 
 
     var_name = 'uvel'//char(0)       
@@ -305,11 +305,11 @@ module glimmer_to_dycore
     var_name = 'bmlt'//char(0)       
     call dycore_set_ptr_double_var(model%temper%bmlt,var_name,dtype_name,dycore_model_index)
       
-    print *,'temp ndims,shape = ',size(shape(model%temper%temp)),shape(model%temper%temp)
+    ! print *,'temp ndims,shape = ',size(shape(model%temper%temp)),shape(model%temper%temp)
 
-    print *,'bheatflx ndims,shape = ',size(shape(model%temper%bheatflx)),shape(model%temper%bheatflx)
+    ! print *,'bheatflx ndims,shape = ',size(shape(model%temper%bheatflx)),shape(model%temper%bheatflx)
 
-    print *,'bmlt ndims,shape = ',size(shape(model%temper%bmlt)),shape(model%temper%bmlt)
+    ! print *,'bmlt ndims,shape = ',size(shape(model%temper%bmlt)),shape(model%temper%bmlt)
 
     call gtd_set_dim_info(shape(model%temper%temp),dim_info)
 

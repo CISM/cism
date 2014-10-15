@@ -66,11 +66,11 @@ subroutine cism_init_external_dycore(external_dycore_type,model)
 
 
 #ifdef CISM_HAS_EXTERNAL_DYCORE
-  print *,"Initializing external dycore interface."
+  ! print *,"Initializing external dycore interface."
   call gtd_init_dycore_interface()
 
   call parallel_barrier()
-  print *,"Initializing external dycore."
+  ! print *,"Initializing external dycore."
   call gtd_init_dycore(model,external_dycore_model_index)
   model%options%external_dycore_model_index = external_dycore_model_index
   call parallel_barrier()
@@ -111,9 +111,9 @@ subroutine cism_run_external_dycore(external_dycore_model_index,cur_time,time_in
   dycore_model_index = 1
 
   call parallel_barrier()
-  print *,"Running external dycore."
+  ! print *,"Running external dycore."
   call gtd_run_dycore(external_dycore_model_index,cur_time,time_inc)
-  print *,"Completed Dycore Run."
+  ! print *,"Completed Dycore Run."
   call parallel_barrier()
 #else
   print *,"ERROR: The program was not built with an external dynamic core."

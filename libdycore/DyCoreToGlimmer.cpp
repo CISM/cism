@@ -540,7 +540,7 @@ DyCoreToGlimmer::copyInLongVar(const long *var, const char *var_name,
 int 
 DyCoreToGlimmer::initDyCore(const char * dycore_fname)
 {
-  cout << "In DycoreToGlimmer::initDyCore" << endl;
+  // cout << "In DycoreToGlimmer::initDyCore" << endl;
   return(0);
 }
 
