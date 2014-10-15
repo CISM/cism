@@ -32,6 +32,6 @@ popd
 mkdir -p fortran_autocopy_includes
 pushd fortran_autocopy_includes
 
-echo "  --makeing copy of config.inc"
-cp -p $CISM_SOURCE_DIR/config.inc.cmake.in config.inc
+echo "  --making copy of config.inc"
+cp -p $CISM_SOURCE_DIR/utils/build/config.inc_generator/config.inc.cmake.in config.inc
 popd
