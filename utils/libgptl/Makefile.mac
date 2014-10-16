@@ -3,8 +3,8 @@
 
 CPPDEF    := -DFORTRANUNDERSCORE -DSPMD  -DBIT64 -DHAVE_COMM_F2C -I/opt/local/include/openmpi
 #-DHAVE_NANOTIME 
-FC := openmpif90
-CC := openmpicc
+FC := mpif90
+CC := mpicc
 # FFLAGS    := -i4 -Mdalign -Mextend -byteswapio $(CPPDEF)
 FFLAGS    := $(CPPDEF)
 CFLAGS    := $(CPPDEF)

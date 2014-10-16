@@ -6,6 +6,9 @@ Building GPTL is completely separate from the CISM build system.  To do so, use 
 
 To build CISM with GPTL, add the following flags to your cmake build script:
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=ON \
-  -D GLIMMER_GPTL_DIR=/your/path/to/libgptl \
+  -D CISM_GPTL_DIR=/your/path/to/libgptl \
 Then re-source your build script and re-run make.
 
+When running with a GPTL-enabled CISM executable, you will see the following additional output files in your run directory that include timing information per processor and overall timing statistics:
+  cism_timing.N     where N is the processor number
+  cism_timing_stats 

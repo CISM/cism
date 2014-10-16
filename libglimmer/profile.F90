@@ -184,10 +184,10 @@ contains
     nsrank = this_rank/ProcsEW
     nstasks = tasks/ProcsEW
     if ((ewrank .eq. (ProcsEW+1)/2) .and. (nsrank .eq. (nstasks+1)/2)) then
-       call t_prf('seacism_timing', num_outpe=1, global_stats=.true., &
+       call t_prf('cism_timing', num_outpe=1, global_stats=.true., &
                   output_thispe=.true.)
     else
-       call t_prf('seacism_timing', num_outpe=1, global_stats=.true.)
+       call t_prf('cism_timing', num_outpe=1, global_stats=.true.)
     endif
 
     call t_finalizef ()
