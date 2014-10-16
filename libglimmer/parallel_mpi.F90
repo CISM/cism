@@ -480,6 +480,13 @@ contains
     integer,dimension(:),allocatable :: recvbuf
     integer,dimension(:,:),allocatable :: sendbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -555,6 +562,13 @@ contains
     integer,dimension(:),allocatable :: displs,recvcounts
     logical,dimension(:),allocatable :: recvbuf
     logical,dimension(:,:),allocatable :: sendbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     ! first time
     if (.not. allocated(d_gs_bounds)) then
@@ -632,6 +646,13 @@ contains
     real(4),dimension(:),allocatable :: recvbuf
     real(4),dimension(:,:),allocatable :: sendbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -708,6 +729,13 @@ contains
     integer,dimension(:),allocatable :: displs,recvcounts
     real(4),dimension(:),allocatable :: recvbuf
     real(4),dimension(:,:,:),allocatable :: sendbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     ! first time
     if (.not. allocated(d_gs_bounds)) then
@@ -803,6 +831,13 @@ contains
     real(8),dimension(:),allocatable :: recvbuf
     real(8),dimension(:,:),allocatable :: sendbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -879,6 +914,13 @@ contains
     integer,dimension(:),allocatable :: displs,recvcounts
     real(8),dimension(:),allocatable :: recvbuf
     real(8),dimension(:,:,:),allocatable :: sendbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     ! first time
     if (.not. allocated(d_gs_bounds)) then
@@ -1594,6 +1636,14 @@ contains
     integer,dimension(:,:),allocatable :: global_values,sendbuf
 
     ! begin
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_print does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     mybounds(1) = ewlb+lhalo
     mybounds(2) = ewub-uhalo
     mybounds(3) = nslb+lhalo
@@ -1670,6 +1720,14 @@ contains
     real(8),dimension(:,:),allocatable :: global_values,sendbuf
 
     ! begin
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_print does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     mybounds(1) = ewlb+lhalo
     mybounds(2) = ewub-uhalo
     mybounds(3) = nslb+lhalo
@@ -1746,6 +1804,14 @@ contains
     real(8),dimension(:,:,:),allocatable :: global_values,sendbuf
 
     ! begin
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_print does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     mybounds(1) = ewlb+lhalo
     mybounds(2) = ewub-uhalo
     mybounds(3) = nslb+lhalo
@@ -2258,6 +2324,13 @@ contains
     integer,dimension(:),allocatable :: sendbuf
     integer,dimension(:,:),allocatable :: recvbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -2320,6 +2393,13 @@ contains
     integer,dimension(:),allocatable :: displs,sendcounts
     logical,dimension(:),allocatable :: sendbuf
     logical,dimension(:,:),allocatable :: recvbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     ! first time
     if (.not. allocated(d_gs_bounds)) then
@@ -2384,6 +2464,13 @@ contains
     real(4),dimension(:),allocatable :: sendbuf
     real(4),dimension(:,:),allocatable :: recvbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -2446,6 +2533,13 @@ contains
     integer,dimension(:),allocatable :: displs,sendcounts
     real(4),dimension(:),allocatable :: sendbuf
     real(4),dimension(:,:,:),allocatable :: recvbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     ! first time
     if (.not. allocated(d_gs_bounds)) then
@@ -2512,6 +2606,13 @@ contains
     real(8),dimension(:),allocatable :: sendbuf
     real(8),dimension(:,:),allocatable :: recvbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -2576,6 +2677,13 @@ contains
     integer,dimension(:),allocatable :: displs,sendcounts
     real(8),dimension(:),allocatable :: sendbuf
     real(8),dimension(:,:,:),allocatable :: recvbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     if (present(deallocflag)) then
        deallocmem = deallocflag
@@ -4285,6 +4393,13 @@ contains
     ! begin
     if (size(a,1)/=local_ewn-1.or.size(a,2)/=local_nsn-1) &
          call parallel_stop(__FILE__,__LINE__)
+    
+    if (uhalo==0) then
+       ! NOTE(wjs, 2014-10-16) I think that fixing this would involve replacing instances
+       ! of (-uhalo+1) with (-staggered_uhalo)
+       write(*,*) 'parallel_velo_halo currently does not work for uhalo=0'
+       call parallel_stop(__FILE__,__LINE__)
+    end if
 
     call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,&
          comm,erequest,ierror)
