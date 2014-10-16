@@ -1212,7 +1212,7 @@ contains
     call GetValue(section,'ho_beta_const',     model%paramets%ho_beta_const)
 
     ! Friction law parameters
-    call GetValue(section, 'friction_powerlaw_roughness_slope', model%basal_physics%friction_powerlaw_roughness_slope)
+    call GetValue(section, 'friction_powerlaw_k', model%basal_physics%friction_powerlaw_k)
     call GetValue(section, 'coulomb_c', model%basal_physics%Coulomb_C)
     call GetValue(section, 'coulomb_bump_max_slope', model%basal_physics%Coulomb_Bump_max_slope)
     call GetValue(section, 'coulomb_bump_wavelength', model%basal_physics%Coulomb_bump_wavelength)
@@ -1323,7 +1323,7 @@ contains
     endif
 
     if (model%options%which_ho_babc == HO_BABC_POWERLAW) then
-       write(message,*) 'roughness slope for power-law friction law : ',model%basal_physics%friction_powerlaw_roughness_slope
+       write(message,*) 'roughness parameter, k, for power-law friction law : ',model%basal_physics%friction_powerlaw_k
        call write_log(message)
     end if
 

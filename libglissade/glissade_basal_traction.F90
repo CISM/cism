@@ -299,7 +299,7 @@ contains
        ! Cuffey & Paterson recommend p=3 and q=1, and k dependent on thermal & mechanical properties of ice and inversely on bed roughness.   
        p = 3.0d0; q = 1.0d0
 
-       beta = basal_physics%friction_powerlaw_roughness_slope**(-1.0d0/p) * basal_physics%effecpress_stag**(q/p)    &
+       beta = basal_physics%friction_powerlaw_k**(-1.0d0/p) * basal_physics%effecpress_stag**(q/p)    &
               * dsqrt( thisvel(:,:)**2 + othervel(:,:)**2 )**(1.0d0/p-1.0d0)
 
     case(HO_BABC_COULOMB_FRICTION)
