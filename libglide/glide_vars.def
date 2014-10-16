@@ -116,14 +116,14 @@ standard_name: global_average_sea_level_change
 [uflx]
 dimensions:    time, y0, x0
 units:         meter2/year
-long_name:     flux in x direction
+long_name:     flux in x direction (NOTE: Glide and Glam only)
 data:          data%velocity%uflx
 factor:        scale_uflx
 
 [vflx]
 dimensions:    time, y0, x0
 units:         meter2/year
-long_name:     flux in x direction
+long_name:     flux in x direction (NOTE: Glide and Glam only)
 data:          data%velocity%vflx
 factor:        scale_uflx
 
@@ -197,7 +197,7 @@ data:          data%velocity%ubas
 factor:        scale_uvel
 standard_name: land_ice_basal_x_velocity
 load:          1
-average:       1
+#average:       1
 
 [vbas]
 dimensions:    time, y0, x0
@@ -207,12 +207,12 @@ data:          data%velocity%vbas
 factor:        scale_uvel
 standard_name: land_ice_basal_y_velocity
 load:          1
-average:       1
+#average:       1
 
 [taux]
 dimensions:    time, y0, x0
 units:         kilopascal
-long_name:     basal shear stress in x direction
+long_name:     basal shear stress in x direction (NOTE: Glide only)
 data:          data%velocity%tau_x
 factor:        1e-3*thk0*thk0/len0
 
@@ -316,14 +316,14 @@ load:          1
 standard_name: bedrock_altitude
 coordinates:   lon lat
 
-# D. Martin added - fields that need to be passed to POP for ice-ocean coupling
-[floating_mask]
-dimensions:    time, y1, x1
-units:         1
-long_name:     real-valued mask denoting grounded/floating 
-data:          data%geometry%floating_mask
-factor:        1.0
-coordinates:   lon lat
+## D. Martin added - fields that need to be passed to POP for ice-ocean coupling
+#[floating_mask]
+#dimensions:    time, y1, x1
+#units:         1
+#long_name:     real-valued mask denoting grounded/floating 
+#data:          data%geometry%floating_mask
+#factor:        1.0
+#coordinates:   lon lat
 
 # D. Martin added - fields that need to be passed to POP for ice-ocean coupling
 [ice_mask]
@@ -334,23 +334,23 @@ data:          data%geometry%ice_mask
 factor:        1.0
 coordinates:   lon lat
 
-# D. Martin added - fields that need to be passed to POP for ice-ocean coupling
-[lower_cell_loc]
-dimensions:    time, y1, x1
-units:         meter
-long_name:     location in z of lower cell location
-data:          data%geometry%lower_cell_loc
-factor:        1.0
-coordinates:   lon lat
+## D. Martin added - fields that need to be passed to POP for ice-ocean coupling
+#[lower_cell_loc]
+#dimensions:    time, y1, x1
+#units:         meter
+#long_name:     location in z of lower cell location
+#data:          data%geometry%lower_cell_loc
+#factor:        1.0
+#coordinates:   lon lat
 
-# D. Martin added - fields that need to be passed to POP for ice-ocean coupling
-[lower_cell_temp]
-dimensions:    time, y1, x1
-units:         degrees K
-long_name:     temperature at lower_cell_loc
-data:          data%geometry%lower_cell_temp
-factor:        1.0
-coordinates:   lon lat
+## D. Martin added - fields that need to be passed to POP for ice-ocean coupling
+#[lower_cell_temp]
+#dimensions:    time, y1, x1
+#units:         degrees K
+#long_name:     temperature at lower_cell_loc
+#data:          data%geometry%lower_cell_temp
+#factor:        1.0
+#coordinates:   lon lat
 
 [acab]
 dimensions:    time, y1, x1
@@ -360,7 +360,7 @@ data:          data%climate%acab
 factor:        scale_acab
 standard_name: land_ice_surface_specific_mass_balance
 coordinates:   lon lat
-average:       1
+#average:       1
 load:          1
 
 #WHL: scale_bflux = -1, to reverse sign convention from + up to + down
@@ -382,7 +382,7 @@ factor:        scale_acab
 standard_name: land_ice_basal_melt_rate
 load:          1
 coordinates:   lon lat
-average:       1
+#average:       1
 
 [bwat]
 dimensions:    time, y1, x1
@@ -440,7 +440,7 @@ coordinates:   lon lat
 [dusrfdtm]
 dimensions:    time, y1, x1
 units:         meter/year
-long_name:     rate of upper ice surface elevation change
+long_name:     rate of upper ice surface elevation change (NOTE: Glide only)
 data:          data%geomderv%dusrfdtm
 factor:        scale_acab
 coordinates:   lon lat
@@ -448,7 +448,7 @@ coordinates:   lon lat
 [dthckdtm]
 dimensions:    time, y1,x1
 units:         meter/year
-long_name:     tendency of ice thickness
+long_name:     tendency of ice thickness (NOTE: Glide only)
 data:          data%geomderv%dthckdtm
 factor:        scale_acab
 coordinates:   lon lat
@@ -494,14 +494,14 @@ hot:           0
 [resid_u]
 dimensions:     time, level, y0, x0
 units:          Pa/m          
-long_name:      u component of residual Ax - b
+long_name:      u component of residual Ax - b (NOTE: Glam only)
 data:           data%velocity%resid_u(up,:,:)
 factor:         scale_resid
 
 [resid_v]
 dimensions:     time, level, y0, x0
 units:          Pa/m          
-long_name:      v component of residual Ax - b
+long_name:      v component of residual Ax - b (NOTE: Glam only)
 data:           data%velocity%resid_v(up,:,:)
 factor:         scale_resid
 
@@ -557,7 +557,7 @@ load:         1
 [dynbcmask]
 dimensions:   time, y0, x0
 units:        1
-long_name:    2d array of higher-order model boundary condition mask values (NOTE: For Glam dycore ONLY)
+long_name:    2d array of higher-order model boundary condition mask values (NOTE: Glam ONLY)
 data:         data%velocity%dynbcmask
 type:         int
 load:         0
@@ -624,7 +624,7 @@ load:          1
 [wvel_ho]
 dimensions:    time, level, y1, x1
 units:         meter/year
-long_name:     vertical ice velocity relative to ice sheet base from higher-order model
+long_name:     vertical ice velocity relative to ice sheet base from higher-order model (NOTE: Glam only)
 data:          data%velocity%wvel_ho(up,:,:)
 factor:        scale_wvel
 coordinates:   lon lat
@@ -639,13 +639,13 @@ factor:        scale_wvel
 coordinates:   lon lat
 load:          1
 
-[waterfrac]
-dimensions:    time, level, y1, x1
-units:         unitless [0,1]
-long_name:     internal water fraction
-data:          data%temper%waterfrac(up,:,:)
-coordinates:   lon lat
-load:          1
+#[waterfrac]
+#dimensions:    time, level, y1, x1
+#units:         unitless [0,1]
+#long_name:     internal water fraction
+#data:          data%temper%waterfrac(up,:,:)
+#coordinates:   lon lat
+#load:          1
 
 [flwa]
 dimensions:    time, level, y1, x1
@@ -704,46 +704,46 @@ data:          data%lithot%temp
 load:          1
 coordinates:   lon lat
 
-[age]
-dimensions:    time, level, y1, x1
-units:         year
-long_name:     ice age
-data:          data%geometry%age(up,:,:)
-standard_name: land_ice_age
-factor:        tim0/scyr
-load:          0
-coordinates:   lon lat
+#[age]
+#dimensions:    time, level, y1, x1
+#units:         year
+#long_name:     ice age
+#data:          data%geometry%age(up,:,:)
+#standard_name: land_ice_age
+#factor:        tim0/scyr
+#load:          0
+#coordinates:   lon lat
 
-[f_ground]
-dimensions:    time, y0, x0
-units:         unitless [0,1]
-long_name:     grounded ice fraction
-data:          data%geometry%f_ground
-standard_name: grounded_fraction
-load:          0
-coordinates:   lon lat
+#[f_ground]
+#dimensions:    time, y0, x0
+#units:         unitless [0,1]
+#long_name:     grounded ice fraction
+#data:          data%geometry%f_ground
+#standard_name: grounded_fraction
+#load:          0
+#coordinates:   lon lat
 
 #TODO - Are these gline fields needed?
-[gl_ew]
-dimensions:    time, y1, x0
-units:         meter
-long_name:     grounding line movement in ew directions
-data:          data%ground%gl_ew
-coordinates:   lon lat
+#[gl_ew]
+#dimensions:    time, y1, x0
+#units:         meter
+#long_name:     grounding line movement in ew directions
+#data:          data%ground%gl_ew
+#coordinates:   lon lat
 
-[gl_ns]
-dimensions:    time, y0, x1
-units:         meter
-long_name:     grounding line movement in ns directions
-data:          data%ground%gl_ns
-coordinates:   lon lat
+#[gl_ns]
+#dimensions:    time, y0, x1
+#units:         meter
+#long_name:     grounding line movement in ns directions
+#data:          data%ground%gl_ns
+#coordinates:   lon lat
 
-[gline_flux]
-dimensions:   time, y1, x1
-units:        meter2/year
-long_name:    grounding line fluxu
-data:         data%ground%gline_flux
-coordinates:  lon f
+#[gline_flux]
+#dimensions:   time, y1, x1
+#units:        meter2/year
+#long_name:    grounding line fluxu
+#data:         data%ground%gline_flux
+#coordinates:  lon f
 
 [rho_ice]
 dimensions:    time
