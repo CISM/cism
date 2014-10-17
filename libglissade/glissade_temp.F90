@@ -1219,7 +1219,6 @@ contains
     ! 2. find dissipation at H-pts by averaging quantities from u-pts
     ! (2) works best for eismint divide (symmetry) but I likely to be better for full expts
 
-    !TODO (ROUNDOFF) - Change 0.25 to 0.25d0
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
 
@@ -1227,8 +1226,8 @@ contains
           !      is assumed to be at rest.
           if (thck(ew,ns) > model%numerics%thklim) then
              
-             c2 = (0.25*sum(stagthck(ew-1:ew,ns-1:ns)) * dsqrt((0.25*sum(dusrfdew(ew-1:ew,ns-1:ns)))**2 &
-                                                             + (0.25*sum(dusrfdns(ew-1:ew,ns-1:ns)))**2))**p1
+             c2 = (0.25d0*sum(stagthck(ew-1:ew,ns-1:ns)) * dsqrt((0.25d0*sum(dusrfdew(ew-1:ew,ns-1:ns)))**2 &
+                                                               + (0.25d0*sum(dusrfdns(ew-1:ew,ns-1:ns)))**2))**p1
              
              model%tempwk%dissip(:,ew,ns) = c2 * model%tempwk%c1(:) * ( &
                   flwa(:,ew-1,ns-1) + flwa(:,ew-1,ns+1) + flwa(:,ew+1,ns+1) + flwa(:,ew+1,ns-1) + &

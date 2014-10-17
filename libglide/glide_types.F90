@@ -1004,8 +1004,9 @@ module glide_types
     real(dp) :: calving_fraction = 0.8d0
     real(dp) :: dew    =    20.d3
     real(dp) :: dns    =    20.d3
-    real(dp) :: dt     =     0.d0
+    real(dp) :: dt     =     0.d0     ! ice dynamics timestep
     real(dp) :: dttem  =     0.d0
+    real(dp) :: dt_transport = 0.d0   ! timestep for subcycling transport within the dynamics timestep dt
     real(dp) :: nshlf  =     0.d0          !TODO - not currently used; remove?
     integer  :: subcyc =     1
     real(dp) :: periodic_offset_ew = 0.d0 ! optional periodic_offsets for ismip-hom and similar tests

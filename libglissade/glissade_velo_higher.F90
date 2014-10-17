@@ -3851,18 +3851,17 @@
           ! Increment loadu for east/west faces and loadv for north/south faces.
 
           ! This formula works for ice that either is floating or is partially submerged without floating
-!!          p_av = 0.5*rhoi*grav*h_qp &     ! p_out
-!!               - 0.5*rhoo*grav*h_qp * (1.d0 - min(s_qp/h_qp,1.d0))**2   ! p_in
+!!          p_av = 0.5d0*rhoi*grav*h_qp &     ! p_out
+!!               - 0.5d0*rhoo*grav*h_qp * (1.d0 - min(s_qp/h_qp,1.d0))**2   ! p_in
 
-          !TODO - Change to 0.5d0 (may change answer at roundoff level)
           ! This formula works for floating ice.
-          p_av = 0.5*rhoi*grav*h_qp * (1.d0 - rhoi/rhoo)
+          p_av = 0.5d0*rhoi*grav*h_qp * (1.d0 - rhoi/rhoo)
 
           if (trim(face) == 'west') then  ! net force in -x direction
 
              do n = 1, nNodesPerElement_2d
                 loadu(kNode(n),iNode(n),jNode(n)) = loadu(kNode(n),iNode(n),jNode(n))    &
-                                               - p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
+                                              - p_av * wqp_2d(p) * detJ/vol0 * phi_2d(n,p)
              enddo
 
           elseif (trim(face) == 'east') then  ! net force in x direction
@@ -3968,8 +3967,9 @@
     real(dp), dimension(nQuadPoints_3d) ::   &
        detJ               ! determinant of J
 
-    real(dp), dimension(nNodesPerElement_3d, nQuadPoints_3d) ::   &
-       dphi_dx_3d, dphi_dy_3d, dphi_dz_3d  ! derivatives of basis function, evaluated at quad pts
+!!    real(dp), dimension(nNodesPerElement_3d, nQuadPoints_3d) ::   &
+    real(dp), dimension(nNodesPerElement_3d) ::   &
+       dphi_dx_3d, dphi_dy_3d, dphi_dz_3d  ! derivatives of basis function, evaluated at quad pt
 
     !----------------------------------------------------------------
     ! Note: Kuu, Kuv, Kvu, and Kvv are 8x8 components of the stiffness matrix
@@ -4088,7 +4088,7 @@
 !          call t_startf('glissade_basis_function_derivs')
                 call get_basis_function_derivatives_3d(x(:),             y(:),             z(:),              &          
                                                        dphi_dxr_3d(:,p), dphi_dyr_3d(:,p), dphi_dzr_3d(:,p),  &
-                                                       dphi_dx_3d(:,p),  dphi_dy_3d(:,p),  dphi_dz_3d(:,p),   &
+                                                       dphi_dx_3d(:),    dphi_dy_3d(:),    dphi_dz_3d(:),     &
                                                        detJ(p) , i, j, k, p  )
 !          call t_stopf('glissade_basis_function_derivs')
 
@@ -4098,7 +4098,7 @@
 !          call t_startf('glissade_effective_viscosity')
                 call compute_effective_viscosity(whichefvs,        whichapprox,                       &
                                                  efvs_constant,    nNodesPerElement_3d,               &
-                                                 dphi_dx_3d(:,p),  dphi_dy_3d(:,p),  dphi_dz_3d(:,p), &
+                                                 dphi_dx_3d(:),    dphi_dy_3d(:),    dphi_dz_3d(:),   &
                                                  u(:),             v(:),                              & 
                                                  flwafact(k,i,j),  efvs_qp(p),                        &
                                                  i, j, k, p )
@@ -4114,7 +4114,7 @@
 !          call t_startf('glissade_compute_element_matrix')
                 call compute_element_matrix(whichapprox,     nNodesPerElement_3d,               & 
                                             wqp_3d(p),       detJ(p),          efvs_qp(p),      &
-                                            dphi_dx_3d(:,p), dphi_dy_3d(:,p),  dphi_dz_3d(:,p), &
+                                            dphi_dx_3d(:),   dphi_dy_3d(:),    dphi_dz_3d(:),   &
                                             Kuu(:,:),        Kuv(:,:),                          &
                                             Kvu(:,:),        Kvv(:,:),                          &
                                             i, j, k, p )
@@ -4248,7 +4248,7 @@
     real(dp), dimension(nQuadPoints_2d) ::   &
        detJ               ! determinant of J
 
-    real(dp), dimension(nNodesPerElement_2d, nQuadPoints_2d) ::   &
+    real(dp), dimension(nNodesPerElement_2d) ::   &
        dphi_dx_2d, dphi_dy_2d, dphi_dz_2d  ! derivatives of basis function, evaluated at quad pts
                                            ! set dphi_dz = 0 for 2D problem
 
@@ -4383,9 +4383,9 @@
 !          call t_startf('glissade_basis_function_derivs')
              call get_basis_function_derivatives_2d(x(:),             y(:),          &
                                                     dphi_dxr_2d(:,p), dphi_dyr_2d(:,p), &
-                                                    dphi_dx_2d(:,p),  dphi_dy_2d(:,p),  &
+                                                    dphi_dx_2d(:),    dphi_dy_2d(:),    &
                                                     detJ(p) , i, j, p)
-             dphi_dz_2d(:,p) = 0.d0
+             dphi_dz_2d(:) = 0.d0
 !          call t_stopf('glissade_basis_function_derivs')
 
 !          call t_startf('glissade_effective_viscosity')
@@ -4398,7 +4398,7 @@
                 call compute_effective_viscosity_L1L2(whichefvs,            efvs_constant,     &
                                                       nz,                   sigma,             &
                                                       nNodesPerElement_2d,  phi_2d(:,p),       &
-                                                      dphi_dx_2d(:,p),      dphi_dy_2d(:,p),   &
+                                                      dphi_dx_2d(:),        dphi_dy_2d(:),     &
                                                       u(:),                 v(:),              & 
                                                       h(:),                                    &
                                                       dsdx(:),              dsdy(:),           &
@@ -4419,7 +4419,7 @@
                 ! Compute vertically averaged effective viscosity at this quadrature point
                 call compute_effective_viscosity(whichefvs,        whichapprox,                       &
                                                  efvs_constant,    nNodesPerElement_2d,               &
-                                                 dphi_dx_2d(:,p),  dphi_dy_2d(:,p),  dphi_dz_2d(:,p), &
+                                                 dphi_dx_2d(:),    dphi_dy_2d(:),    dphi_dz_2d(:),   &
                                                  u(:),             v(:),                              & 
                                                  flwafact_2d(i,j), efvs_qp_vertavg(p),                &
                                                  i, j, 1, p)
@@ -4448,7 +4448,7 @@
              call compute_element_matrix(whichapprox,     nNodesPerElement_2d,               & 
                                          wqp_2d(p),       detJ(p),                           &
                                          h_qp*efvs_qp_vertavg(p),                            &
-                                         dphi_dx_2d(:,p), dphi_dy_2d(:,p),  dphi_dz_2d(:,p), &
+                                         dphi_dx_2d(:),   dphi_dy_2d(:),    dphi_dz_2d(:),   &
                                          Kuu(:,:),        Kuv(:,:),                          &
                                          Kvu(:,:),        Kvv(:,:),                          &
                                          i, j, 1, p )
@@ -5981,7 +5981,6 @@
        if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest .and. p==ptest) then
           print*, ' '
           print*, 'i, j, k, p =', i, j, k, p
-!!          print*, 'flwa =', (2.d0*flwafact)**(-3)
           print*, 'flwafact, effstrain (yr-1), efvs(Pa yr) =', flwafact, effstrain, efvs
        endif
  

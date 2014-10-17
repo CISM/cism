@@ -137,10 +137,9 @@ contains
                                              model%numerics%dew, model%numerics%dns, &
                                              model%general%ewn,  model%general%nsn)
 
-    !TODO ROUNDOFF - Change 2. to 2.d0
-    model%general%velo_grid = coordsystem_new(model%numerics%dew/2., model%numerics%dns/2., &
-                                              model%numerics%dew,    model%numerics%dns,    &
-                                              model%general%ewn-1,   model%general%nsn-1)
+    model%general%velo_grid = coordsystem_new(model%numerics%dew/2.d0, model%numerics%dns/2.d0, &
+                                              model%numerics%dew,      model%numerics%dns,      &
+                                              model%general%ewn-1,     model%general%nsn-1)
 
     ! allocate arrays
     call glide_allocarr(model)
@@ -488,11 +487,6 @@ contains
 
       call t_startf('glissade_transport_driver')
 
-      !TODO ROUNDOFF  It would be less confusing to just store the subcycling dt in a local/module variable - 
-      !               really only needs to be calculated once on init
-
-      model%numerics%dt = model%numerics%dt / model%numerics%subcyc
-
       if (model%options%basal_mbal == BASAL_MBAL_CONTINUITY) then    ! include bmlt in continuity equation
          bmlt_continuity(:,:) = model%temper%bmlt(:,:) * thk0/tim0   ! convert to m/s
       else                                                           ! do not include bmlt in continuity equation
@@ -508,7 +502,7 @@ contains
                               model%geomderv%stagthck * thk0,                                                 &
                               model%geomderv%dusrfdew*thk0/len0, model%geomderv%dusrfdns*thk0/len0,           &
                               model%velocity%uvel * scyr * vel0, model%velocity%vvel * scyr * vel0,           &
-                              model%numerics%dt * tim0 / scyr,                                                &
+                              model%numerics%dt_transport * tim0 / scyr,                                      &
                               model%numerics%adv_cfl_dt,         model%numerics%diff_cfl_dt )
 
        ! Call the transport driver.
@@ -520,7 +514,7 @@ contains
        ! TODO - Pass ice age as tracer 2
 
        do sc = 1, model%numerics%subcyc
-          if (model%numerics%subcyc > 1) write(*,*) 'Subcycling transport: Cycle ',sc
+          if (model%numerics%subcyc > 1 .and. main_task) write(*,*) 'Subcycling transport: Cycle ',sc
 
           ! temporary in/out arrays in SI units (m)                               
           thck_unscaled(:,:) = model%geometry%thck(:,:) * thk0
@@ -530,7 +524,7 @@ contains
                                                                 ! (and other tracers, if present)
                                                                 ! Note: We are passing arrays in SI units.
 
-             call glissade_transport_driver(model%numerics%dt * tim0,                             &
+             call glissade_transport_driver(model%numerics%dt_transport * tim0,                   &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
                                             model%general%upn-1,       model%numerics%sigma,      &
@@ -554,7 +548,7 @@ contains
              !     If no ice age is present, a dummy array will be used for tracer = 2
              ntracer = 3
 
-             call glissade_transport_driver(model%numerics%dt * tim0,                             &
+             call glissade_transport_driver(model%numerics%dt_transport * tim0,                   &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
                                             model%general%upn-1,       model%numerics%sigma,      & 
@@ -575,7 +569,7 @@ contains
                 !       averaged velocity.)  
                 ! Not sure if this option will be used in practice.
 
-             call glissade_transport_driver(model%numerics%dt * tim0,                             &
+             call glissade_transport_driver(model%numerics%dt_transport * tim0,                   &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
                                             model%general%upn-1,       model%numerics%sigma,      &
@@ -626,9 +620,6 @@ contains
          call t_stopf('after_remap_haloupds')
 
        enddo     ! subcycling
-
-       !TODO: Don't divide and multiply this variable
-       model%numerics%dt = model%numerics%dt * model%numerics%subcyc
 
        call t_stopf('glissade_transport_driver')
 

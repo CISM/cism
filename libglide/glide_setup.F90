@@ -174,6 +174,7 @@ contains
 
     model%numerics%dt     = model%numerics%tinc * scyr / tim0   
     model%numerics%dttem  = model%numerics%ntem * scyr / tim0   
+    model%numerics%dt_transport = model%numerics%dt / real(model%numerics%subcyc, dp)
     model%numerics%thklim = model%numerics%thklim  / thk0       
     model%numerics%thklim_temp = model%numerics%thklim_temp  / thk0
 
