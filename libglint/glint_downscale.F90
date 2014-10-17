@@ -296,7 +296,7 @@ contains
     ! Set the mbal method and tstep
 
     params%mbal%which = whichacab     ! = 0 for GCM coupling
-    params%mbal%tstep = years2hours   ! no. of hours in 1 year
+    params%mbal%tstep = nint(years2hours)   ! no. of hours in 1 year
 
   end subroutine glint_init_input_gcm
 

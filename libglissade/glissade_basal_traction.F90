@@ -51,8 +51,11 @@
   ! [5] beta field passed in from .nc input file as part of standard i/o
   ! [6] no slip everywhere (using Dirichlet BC rather than large beta)
   ! [7] treat beta value as till yield stress (in Pa) using Newton-type iteration (in devel.)
-  !
-  ! TODO - Renumber so that, for example, the no-slip options have small numbers. 
+  ! [8] set beta as prescribed for ISMIP-HOM test C (serial only)
+  ! [9] power law that used effective pressure
+  ! [10] Coulomb friction law
+
+  ! TODO - Renumber HO_BABC options so that, for example, the no-slip options have small numbers?
   !-----------------------------------------------------------------------------
 
   use glimmer_paramets, only : dp
@@ -178,12 +181,10 @@ contains
 
       beta(:,:) = 1.d4        ! Pa yr/m
 
-!TODO - Should these 5's be hardwired?  This will give strange results in parallel.
-!       Could fix by applying small value of beta on global domain and scattering to local.  
-!TODO - Is 10.d1 correct?  (Change to 100.d0?)
+      !TODO - Change this loop to work in parallel (set beta on the global grid and scatter to local)
       do ns=5, nsn-5
       do ew=1, ewn-1
-        beta(ew,ns) = 10.d1      ! Pa yr/m
+        beta(ew,ns) = 100.d0      ! Pa yr/m
       end do
       end do
 
@@ -202,9 +203,9 @@ contains
 
     case(HO_BABC_BETA_BWAT)  ! set value of beta as proportional to value of bwat                                         
 
-      !TODO - Test this parameterization, or add a comment that it is not scientifically tested.
-
-      !TODO - Where do these constants come from?
+      !NOTE: This parameterization has not been scientifically tested.
+      !TODO - Test option HO_BABC_BETA_BWAT
+      !       Where do these constants come from?
       C = 10.d0   ! Does this assume that bwat is in units of m or dimensionless?
       m = 1.d0
 
@@ -238,7 +239,6 @@ contains
        !      The following code sets beta on the full grid as prescribed by Pattyn et al. (2008).
        !NOTE: This works only in serial!
 
-       !TODO - Abort if domain is not square
        Ldomain = (ewn-2*nhalo) * dew   ! size of full domain (must be square)
        omega = 2.d0*pi / Ldomain
 
@@ -276,14 +276,13 @@ contains
 !!      beta(:,:) = beta(:,:) * ( tau0 / vel0 / scyr )   ! already dimensional
 
       ! this is a check for NaNs, which indicate, and are replaced by no slip
-      !TODO: Not sure I follow the logic of this ... keep/omit? Added by the UMT crew at some point
 
       do ns=1, nsn-1
-        do ew=1, ewn-1 
-          if( beta(ew,ns) /= beta(ew,ns) )then
-            beta(ew,ns) = 1.d10     ! Pa yr/m
-          endif 
-        end do
+         do ew=1, ewn-1 
+            if( beta(ew,ns) /= beta(ew,ns) )then
+               beta(ew,ns) = 1.d10     ! Pa yr/m
+            endif
+         end do
       end do
 
     case(HO_BABC_POWERLAW)   ! A power law that uses effective pressure

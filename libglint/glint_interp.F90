@@ -615,7 +615,7 @@ contains
 
     ! Divide by number of contributing points and copy to output
 
-    if (present(localsp)) localsp = temp_out/real(mean_count,dp)
+    if (present(localsp)) localsp = temp_out/real(mean_count,sp)
     if (present(localdp)) localdp = temp_out/real(mean_count,dp)
 
   end subroutine mean_to_local
@@ -788,7 +788,7 @@ contains
 
     ! Internal variables
 
-    integer :: nxl_full,nyl_full,i,j,nxg,nyg
+    integer :: nxl_full,nyl_full,i,j
     real(dp),dimension(size(local,1),size(local,2)) :: tempmask
 
     ! values of 'local' and 'tempmask' spanning full domain (all tasks)
@@ -858,7 +858,7 @@ contains
 
     ! Internal variables
 
-    integer :: nxl_full,nyl_full,i,j,nxg,nyg
+    integer :: nxl_full,nyl_full,i,j
     real(dp),dimension(size(local,1),size(local,2)) :: tempmask
 
     ! values of 'local' and 'tempmask' spanning full domain (all tasks)
@@ -1014,7 +1014,7 @@ contains
 
     integer :: i,j,il,jl,temp
     real(dp) :: ilon,jlat,xa,ya,xb,yb,xc,yc,xd,yd
-    integer :: nx, ny, nxg, nyg, n
+    integer :: nx, ny, nxg, nyg
 
     if (GLC_DEBUG .and. main_task) then
        nx = lgrid%size%pt(1)

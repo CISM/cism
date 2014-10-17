@@ -609,7 +609,7 @@ contains
             ! temp was specified - change it to tempstag
             ! If temp is listed more than once, this just changes the first instance
             nc%vars = nc%vars(1:i-1) // " tempstag " // nc%vars(i+6:len(nc%vars))
-            call write_log('Temperature remapping option uses temperature on a staggered grid.' // &
+            call write_log('Temperature remapping option uses temperature on a staggered vertical grid.' // &
               '  The netCDF output variable "temp" has been changed to "tempstag".' )
           endif
           ! Now check if flwa needs to be changed to flwastag
@@ -617,7 +617,7 @@ contains
           if (i > 0) then
             ! flwa was specified - change to flwastag
             nc%vars = nc%vars(1:i-1) // " flwastag " // nc%vars(i+6:len(nc%vars))
-            call write_log('Temperature remapping option uses flwa on a staggered grid.' // &
+            call write_log('Temperature remapping option uses flwa on a staggered vertical grid.' // &
             '  The netCDF output variable "flwa" has been changed to "flwastag".' )
           endif
       else  ! glide dycore
@@ -626,7 +626,7 @@ contains
           if (i > 0) then
             !Change tempstag to temp
             nc%vars = nc%vars(1:i-1) // " temp " // nc%vars(i+10:len(nc%vars))
-            call write_log('The netCDF output variable "tempstag" should only be used when remapping temperature.' // &
+            call write_log('The netCDF output variable "tempstag" should not be used with the Glide dycore.' // &
               '  The netCDF output variable "tempstag" has been changed to "temp".' )
           endif
           ! We want flwastag to become flwa
@@ -634,7 +634,7 @@ contains
           if (i > 0) then
             !Change flwastag to flwa
             nc%vars = nc%vars(1:i-1) // " flwa " // nc%vars(i+10:len(nc%vars))
-            call write_log('The netCDF output variable "flwastag" should only be used when remapping temperature.' // &
+            call write_log('The netCDF output variable "flwastag" should not be used with the Glide dycore.' // &
               '  The netCDF output variable "flwastag" has been changed to "flwa".' )
           endif
       endif  ! whichdycore

@@ -192,7 +192,6 @@ contains
     ! Internal variables ----------------------------------------------------------------------
 
     integer :: i, j, n      ! indices
-    integer :: il, jl, ig, jg
 
     character(len=100) :: message
     real(dp) :: dew, dns    ! gridcell dimensions

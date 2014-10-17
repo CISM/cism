@@ -91,21 +91,21 @@ contains
     select case(whichacab)
     ! Note: Mass balance timestep and accum time are typically assumed to be one year.
     case(MASS_BALANCE_GCM)
-       params%tstep=years2hours   ! mbal tstep = 1 year
+       params%tstep = nint(years2hours)   ! mbal tstep = 1 year
     case(MASS_BALANCE_PDD)
        allocate(params%annual_pdd)
        call glint_pdd_init(params%annual_pdd,config)
-       params%tstep=years2hours
+       params%tstep = nint(years2hours)
     case(MASS_BALANCE_ACCUM)
-       params%tstep=years2hours
+       params%tstep = nint(years2hours)
     case(MASS_BALANCE_EBM)
        allocate(params%ebm)
-       params%tstep=6
+       params%tstep = 6
        call EBMInitWrapper(params%ebm,nx,ny,nint(dxr),params%tstep*60,'/data/ggdagw/src/ebm/ebm_config/online')
     case(MASS_BALANCE_DAILY_PDD)
        allocate(params%daily_pdd)
        call glint_daily_pdd_init(params%daily_pdd,config)
-       params%tstep=days2hours
+       params%tstep = nint(days2hours)
     case default
        call write_log('Invalid value of whichacab',GM_FATAL,__FILE__,__LINE__)
     end select

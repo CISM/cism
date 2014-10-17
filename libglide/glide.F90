@@ -406,13 +406,13 @@ contains
     ! ***Part 1: Make geometry consistent with calving law, if necessary
     ! ------------------------------------------------------------------------       
 
-            ! ------------------------------------------------------------------------ 
-            ! Remove ice which is either floating, or is present below prescribed
-            ! depth, depending on value of whichmarn
-            ! ------------------------------------------------------------------------ 
-
-            !  On a cold start, marinlim needs the mask to be calculated, but a call to 
-            !  glide_set_mask occurs in glide_initialise, so we should be set here without calling it again.
+       ! ------------------------------------------------------------------------ 
+       ! Remove ice which is either floating, or is present below prescribed
+       ! depth, depending on value of whichmarn
+       ! ------------------------------------------------------------------------ 
+       
+       !  On a cold start, marinlim needs the mask to be calculated, but a call to 
+       !  glide_set_mask occurs in glide_initialise, so we should be set here without calling it again.
 
        call glide_marinlim(model%options%whichmarn, &
                                 model%geometry%thck,      &
@@ -429,19 +429,17 @@ contains
                                 model%general%nsn, &
                                 model%general%ewn)
 
-            ! We now need to recalculate the mask because marinlim may have modified the geometry.
+       ! We now need to recalculate the mask because marinlim may have modified the geometry.
        call glide_set_mask(model%numerics,                                &
-                                model%geometry%thck,  model%geometry%topg,     &
-                                model%general%ewn,    model%general%nsn,       &
-                                model%climate%eus,    model%geometry%thkmask,  &
-                                model%geometry%iarea, model%geometry%ivol)
+                           model%geometry%thck,  model%geometry%topg,     &
+                           model%general%ewn,    model%general%nsn,       &
+                           model%climate%eus,    model%geometry%thkmask,  &
+                           model%geometry%iarea, model%geometry%ivol)
 
-
-       !TODO - Remove call to calc_iareaf_areag?
+       ! Compute total areas of grounded and floating ice
        call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
-                            model%geometry%iarea,  model%geometry%thkmask, &
-                            model%geometry%iareaf, model%geometry%iareag)
-
+                               model%geometry%thkmask,                        &
+                               model%geometry%iareaf, model%geometry%iareag)
 
     ! ------------------------------------------------------------------------ 
     ! ***Part 2: Calculate geometry related fields
@@ -931,7 +929,7 @@ contains
 
  if (.not. oldglide) then   ! calculate area of floating and grounded ice
     call calc_iareaf_iareag(model%numerics%dew,    model%numerics%dns,     &
-                            model%geometry%iarea,  model%geometry%thkmask, &
+                            model%geometry%thkmask,                        &
                             model%geometry%iareaf, model%geometry%iareag)
  endif   ! oldglide = F
 

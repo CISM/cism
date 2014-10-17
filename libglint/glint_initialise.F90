@@ -98,7 +98,6 @@ contains
     ! Internal
     real(dp),dimension(:,:),allocatable :: thk
     integer :: config_fileunit, restart_fileunit
-    real(dp) :: timeyr       ! time in years
 
     config_fileunit = 99
     if (present(gcm_config_unit)) then
@@ -150,7 +149,7 @@ contains
 
     endif
 
-    instance%ice_tstep = get_tinc(instance%model)*years2hours
+    instance%ice_tstep = get_tinc(instance%model)*nint(years2hours)
     instance%glide_time = instance%model%numerics%tstart
     idts = instance%ice_tstep
 
@@ -262,7 +261,7 @@ contains
             'timestep must divide into one another',GM_FATAL,__FILE__,__LINE__)
     end if
 
-    if (instance%ice_tstep_multiply /= 1 .and. mod(instance%mbal_accum_time,int(years2hours)) /= 0.d0) then
+    if (instance%ice_tstep_multiply /= 1 .and. mod(instance%mbal_accum_time,nint(years2hours)) /= 0.d0) then
        call write_log('For ice time-step multiplication, mass-balance accumulation timescale '//&
             'must be an integer number of years',GM_FATAL,__FILE__,__LINE__)
     end if
@@ -355,7 +354,7 @@ contains
 
     ! Internal
 
-    integer :: config_fileunit, restart_fileunit
+    integer :: config_fileunit
 
     config_fileunit = 99
     if (present(gcm_config_unit)) then
@@ -407,7 +406,7 @@ contains
 
     endif
 
-    instance%ice_tstep = get_tinc(instance%model)*years2hours
+    instance%ice_tstep = get_tinc(instance%model)*nint(years2hours)
     idts = instance%ice_tstep
 
     instance%glide_time = instance%model%numerics%tstart
@@ -517,7 +516,7 @@ contains
                       'timestep must divide into one another',GM_FATAL,__FILE__,__LINE__)
     end if
 
-    if (instance%ice_tstep_multiply/=1 .and. mod(instance%mbal_accum_time,int(years2hours)) /= 0.d0) then
+    if (instance%ice_tstep_multiply/=1 .and. mod(instance%mbal_accum_time,nint(years2hours)) /= 0.d0) then
        call write_log('For ice time-step multiplication, mass-balance accumulation timescale '//&
                       'must be an integer number of years',GM_FATAL,__FILE__,__LINE__)
     end if

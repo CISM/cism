@@ -88,8 +88,8 @@
     use glissade_temp, only: glissade_calcbpmp
     use glissade_masks, only: glissade_get_masks
 
-!TODO - Remove nx, ny, nz from argument list?
-!       Would then have to allocate some local arrays.
+    !TODO - Remove nx, ny, nz from argument list?
+    !       Would then have to allocate some local arrays.
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -697,8 +697,7 @@
 
     integer :: i, j
 
-    ! Compute ubas and vbas at cell vertices, as in Glide.
-    ! TODO - Test computing ubas and vbas at cell edges?
+    ! Compute basal velocity at cell vertices, as in Glide.
 
     do j = 1, ny-1
        do i = 1, nx-1
@@ -837,7 +836,7 @@
        dusrf_dx_edge,         &  ! upper surface elevation gradient at cell edges (m/m)
        dusrf_dy_edge
 
-!WHL - debug
+    !WHL - debug
     real(dp), dimension(nx-1,ny-1) :: diffu
 
     ! Initialize
@@ -850,7 +849,6 @@
     ! As in Glide, this factor is located at cell vertices and is < 0 by definition.
 
     ! Loop over all vertices
-    !TODO - Make sure stagthck, stagflwa, and dusrf_dx/dy are correct in halos
     do j = 1, ny-1
        do i = 1, nx-1
           

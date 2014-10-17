@@ -55,7 +55,7 @@
     use glimmer_physcon, only: gn, rhoi, rhoo, grav, scyr, pi
     use glimmer_paramets, only: thk0, len0, tim0, tau0, vel0, vis0, evs0
     use glimmer_paramets, only: vel_scale, len_scale   ! used for whichefvs = HO_EFVS_FLOWFACT
-    use glimmer_log, only: write_log
+    use glimmer_log
     use glimmer_sparse_type
     use glimmer_sparse
     use glissade_grid_operators     
@@ -134,8 +134,6 @@
     ! Most integals are done over 3D hexahedral elements.
     ! Surface integrals are done over 2D faces of these elements. 
     !----------------------------------------------------------------
-
-    !TODO - Put a '_3d' suffix on phi, xqp, etc.
 
     real(dp), dimension(nNodesPerElement_3d, nQuadPoints_3d) ::   & 
        phi_3d,         &    ! trilinear basis function, evaluated at quad pts
@@ -585,8 +583,8 @@
   subroutine glissade_velo_higher_solve(model,                &
                                         nx,     ny,     nz)
 
-!TODO - Remove nx, ny, nz from argument list?
-!       Would then have to allocate many local arrays.
+    !TODO - Remove nx, ny, nz from argument list?
+    !       Would then have to allocate many local arrays.
 
     !----------------------------------------------------------------
     ! Solve the ice sheet flow equations for the horizontal velocity (uvel, vvel)

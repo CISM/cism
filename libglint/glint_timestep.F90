@@ -111,7 +111,8 @@ contains
     real(dp),dimension(:,:),pointer :: thck_temp    => null() ! temporary array for volume calcs
     real(dp),dimension(:,:),pointer :: calve_temp   => null() ! temporary array for calving flux
     real(dp) :: start_volume,end_volume,flux_fudge            ! note: only valid for single-task runs
-    integer :: i, j, k, ii, jj, nx, ny, il, jl, ig, jg
+
+    integer :: i, il, jl
 
     logical :: gcm_smb   ! true if getting sfc mass balance from a GCM
 
@@ -182,10 +183,6 @@ contains
 
        if (instance%mbal_accum_time < instance%ice_tstep) then 
           instance%next_time = instance%next_time + instance%ice_tstep - instance%mbal_tstep
-
-          !WHL - debug
-          print*, 'Adjust next_time:', instance%next_time
-
        end if
 
        ice_tstep = .true.
@@ -527,7 +524,7 @@ contains
 
     real(dp),dimension(:,:),pointer :: thck_temp => null() ! temporary array for volume calcs
 
-    integer :: i, j, k, nx, ny, il, jl
+    integer :: i, il, jl
 
     if (GLC_DEBUG .and. main_task) then
        print*, 'In glint_i_tstep_gcm'

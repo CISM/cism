@@ -31,7 +31,8 @@
   module glissade_velo_higher_pcg
 
     use glimmer_global, only: dp
-    use glide_types   ! Preconditioning options
+    use glide_types   ! for preconditioning options
+    use glimmer_log
     use profile
     use parallel
     
@@ -201,8 +202,7 @@
 
     !---------------------------------------------------------------
     ! Solver parameters
-    ! TODO: Pass these in as arguments?
-    !       Choose optimal value for tolerance
+    ! TODO: Pass in PCG solver parameters as arguments?  (Here and below)
     !---------------------------------------------------------------
 
     real(dp), parameter ::   &
@@ -260,9 +260,6 @@
     !        owned vertices, and x must have the correct values in
     !        halo vertices bordering the locally owned vertices.
     !       Then y = Ax will be correct for locally owned vertices.
-
-    !TODO - Could use active_vertex array to set up indirect addressing
-    !       and avoid an 'if' in the matvec subroutine
 
     ! Halo update for x (initial guess for velocity solution)
 
@@ -387,8 +384,7 @@
        !      then eta1 will be NaN.
  
        if (eta1 /= eta1) then  ! eta1 is NaN
-          write(6,*) 'Error, PCG solver has failed, eta1 = NaN'
-          stop    !TODO - Put in a proper abort
+          call write_log('PCG solver has failed, alpha = NaN', GM_FATAL)
        endif
 
        ! Update the conjugate direction vector d
@@ -451,15 +447,9 @@
        !WHL - If eta2 = 0 (e.g., because all matrix entries are zero), then alpha = NaN
  
        if (alpha /= alpha) then  ! alpha is NaN
-          write(6,*) 'eta1, eta2, alpha:', eta1, eta2, alpha
-          write(6,*) 'Error, PCG solver has failed, alpha = NaN'
-          stop    !TODO - Put in a proper abort
+!!          write(6,*) 'eta1, eta2, alpha:', eta1, eta2, alpha
+          call write_log('PCG solver has failed, alpha = NaN', GM_FATAL)
        endif
-
-!WHL - debug - print some diagnostics
-!!       if (main_task) then
-!!          print*, 'Standard PCG: niter, beta, eta1, eta2, alpha =', n, beta, eta1, eta2, alpha
-!!       endif
 
        ! Compute the new solution and residual
 
@@ -540,10 +530,10 @@
  
     if (niters == maxiters) then
        if (main_task) then
-          print*, 'Glissade PCG solver not converged'
+          print*, 'WARNING: Glissade PCG solver not converged'
           print*, 'niters, err, tolerance:', niters, err, tolerance
        endif
-!!!     stop   ! TODO - Abort cleanly
+!!!     stop
     endif
 
   end subroutine pcg_solver_standard_3d
@@ -663,8 +653,6 @@
 
     !---------------------------------------------------------------
     ! Solver parameters
-    ! TODO: Pass these in as arguments?
-    !       Choose optimal value for tolerance
     !---------------------------------------------------------------
 
     real(dp), parameter ::   &
@@ -720,9 +708,6 @@
     !        owned vertices, and x must have the correct values in
     !        halo vertices bordering the locally owned vertices.
     !       Then y = Ax will be correct for locally owned vertices.
-
-    !TODO - Could use active_vertex array to set up indirect addressing
-    !       and avoid an 'if' in the matvec subroutine
 
     ! Halo update for x (initial guess for velocity solution)
 
@@ -833,8 +818,7 @@
        !      then eta1 will be NaN.
  
        if (eta1 /= eta1) then  ! eta1 is NaN
-          write(6,*) 'Error, PCG solver has failed, eta1 = NaN'
-          stop    !TODO - Put in a proper abort
+          call write_log('PCG solver has failed, eta1 = NaN', GM_FATAL)
        endif
 
        ! Update the conjugate direction vector d
@@ -896,9 +880,8 @@
        !WHL - If eta2 = 0 (e.g., because all matrix entries are zero), then alpha = NaN
  
        if (alpha /= alpha) then  ! alpha is NaN
-          write(6,*) 'eta1, eta2, alpha:', eta1, eta2, alpha
-          write(6,*) 'Error, PCG solver has failed, alpha = NaN'
-          stop    !TODO - Put in a proper abort
+!!          write(6,*) 'eta1, eta2, alpha:', eta1, eta2, alpha
+          call write_log('PCG solver has failed, alpha = NaN', GM_FATAL)
        endif
 
        ! Compute the new solution and residual
@@ -1185,7 +1168,6 @@
 
     !---------------------------------------------------------------
     ! Solver parameters
-    ! TODO: Pass these in as arguments?
     !---------------------------------------------------------------
 
     real(dp), parameter ::   &
@@ -1243,8 +1225,6 @@
     !---- Initialize scalars and vectors
 
     niters = maxiters 
-    rho = 1.d0      !TODO - not needed?
-
     ru(:,:,:) = 0.d0
     rv(:,:,:) = 0.d0
     du(:,:,:) = 0.d0
@@ -1296,9 +1276,6 @@
     call staggered_parallel_halo(xu)
     call staggered_parallel_halo(xv)
     call t_stopf("pcg_halo_init")
-
-    !TODO - Could use active_vertex array to set up indirect addressing
-    !       and avoid an 'if' in the matvec subroutine
 
     !---- Compute A*x   (use z as a temp vector for A*x)
 
@@ -1426,15 +1403,9 @@
     alpha = rho_old/sigma
 
     if (alpha /= alpha) then  ! alpha is NaN
-       write(6,*) 'rho_old, sigma, alpha:', rho_old, sigma, alpha
-       write(6,*) 'Error, Chron-Gear PCG solver has failed, alpha = NaN'
-       stop    !TODO - Put in a proper abort
+!!       write(6,*) 'rho_old, sigma, alpha:', rho_old, sigma, alpha
+       call write_log('Chron_Gear PCG solver has failed, alpha = NaN', GM_FATAL)
     endif
-
-!WHL - debug - print some diagnostics
-!!    if (main_task) then
-!!       print*, 'ChronGearPCG: niter, beta, rho, sigma, alpha =', 1, beta, rho_old, sigma, alpha
-!!    endif
 
     !---- Update solution and residual
     !---- These are correct in halo
@@ -1550,15 +1521,9 @@
        rho_old = rho        ! (r_(i+1), PC(r_(i+1))) --> (r_i, PC(r_i))
 
        if (alpha /= alpha) then  ! alpha is NaN
-          write(6,*) 'rho, sigma, alpha:', rho, sigma, alpha
-          write(6,*) 'Error, PCG solver has failed, alpha = NaN'
-          stop    !TODO - Put in a proper abort
+!!          write(6,*) 'rho, sigma, alpha:', rho, sigma, alpha
+          call write_log('Chron-Gear PCG solver has failed, alpha = NaN', GM_FATAL)
        endif
-
-!WHL - debug - print some diagnostics
-!!       if (main_task) then
-!!          print*, 'ChronGearPCG: niter, beta, rho, sigma, alpha =', n, beta, rho, sigma, alpha
-!!       endif
 
        !---- Update d and q
        !---- These are correct in halo
@@ -1783,7 +1748,6 @@
 
     !---------------------------------------------------------------
     ! Solver parameters
-    ! TODO: Pass these in as arguments?
     !---------------------------------------------------------------
 
     real(dp), parameter ::   &
@@ -1796,7 +1760,6 @@
     integer, parameter :: &
        solv_ncheck = 5       ! check for convergence every solv_ncheck iterations
 
-!WHL - debug
     integer :: itest, jtest, rtest
 
     if (present(itest_in)) then
@@ -1840,8 +1803,6 @@
     !---- Initialize scalars and vectors
 
     niters = maxiters 
-    rho = 1.d0      !TODO - not needed?
-
     ru(:,:) = 0.d0
     rv(:,:) = 0.d0
     du(:,:) = 0.d0
@@ -1892,9 +1853,6 @@
     call staggered_parallel_halo(xu)
     call staggered_parallel_halo(xv)
     call t_stopf("pcg_halo_init")
-
-    !TODO - Could use active_vertex array to set up indirect addressing
-    !       and avoid an 'if' in the matvec subroutine
 
     !---- Compute A*x   (use z as a temp vector for A*x)
 
@@ -2009,9 +1967,8 @@
     alpha = rho_old/sigma
 
     if (alpha /= alpha) then  ! alpha is NaN
-       write(6,*) 'rho_old, sigma, alpha:', rho_old, sigma, alpha
-       write(6,*) 'Error, Chron-Gear PCG solver has failed, alpha = NaN'
-       stop    !TODO - Put in a proper abort
+!!       write(6,*) 'rho_old, sigma, alpha:', rho_old, sigma, alpha
+       call write_log('Chron_Gear PCG solver has failed, alpha = NaN', GM_FATAL)
     endif
 
     !---- Update solution and residual
@@ -2115,9 +2072,8 @@
        rho_old = rho        ! (r_(i+1), PC(r_(i+1))) --> (r_i, PC(r_i))
 
        if (alpha /= alpha) then  ! alpha is NaN
-          write(6,*) 'rho, sigma, alpha:', rho, sigma, alpha
-          write(6,*) 'Error, PCG solver has failed, alpha = NaN'
-          stop    !TODO - Put in a proper abort
+!!          write(6,*) 'rho, sigma, alpha:', rho, sigma, alpha
+          call write_log('Chron_Gear PCG solver has failed, alpha = NaN', GM_FATAL)
        endif
 
        !---- Update d and q
@@ -2619,9 +2575,9 @@
     !  and also for all halo vertices adjacent to locally owned vertices.
     ! The resulting y will then be correct for locally owned vertices.
     !
-    ! TODO: It's likely that more time will be spent in this subroutine than
-    !       in any other, so we should think about how to optimize it,
-    !       especially for GPUs.
+    ! TODO: Are the matvec_multiply routines as efficient as possible?
+    !       E.g., could use the active_vertex array to set up indirect addressing and avoid an 'if'
+    !       Could replace the three short iA/jA/kA loops with long multadds
     !---------------------------------------------------------------
 
     !---------------------------------------------------------------
@@ -2675,17 +2631,14 @@
     do j = nhalo+1, ny-nhalo
     do i = nhalo+1, nx-nhalo
 
-       !TODO - Use indirect addressing to avoid an 'if' here?
        if (active_vertex(i,j)) then
 
           do k = 1, nz
 
-             !TODO - Replace these three short loops with long multadds for better GPU efficiency?
              do kA = -1,1
              do jA = -1,1
              do iA = -1,1
 
-             !TODO - Can we somehow get rid of this 'if' statement and still keep the xu/xv indices in bounds?
                 if ( (k+kA >= 1 .and. k+kA <= nz)         &
                                 .and.                     &
                      (i+iA >= 1 .and. i+iA <= nx-1)       &
@@ -2793,7 +2746,6 @@
 
        if (active_vertex(i,j)) then
 
-             !TODO - Replace these short loops with long multadds for better GPU efficiency?
           do jA = -1,1
              do iA = -1,1
 

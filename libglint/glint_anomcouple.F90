@@ -253,7 +253,6 @@ contains
     ! Local variables
     integer :: status, ncid, varid, tvarid, ndims, i
     integer,dimension(3) :: dimids
-    integer,dimension(3) :: dimnames
     character(30) :: dntemp,timevar
     real(dp) :: interval
     

@@ -256,14 +256,12 @@ contains
 
   end subroutine get_area_vol
  
-  subroutine calc_iareaf_iareag(dew, dns, iarea, mask, iareaf, iareag, exec_serial)
+  subroutine calc_iareaf_iareag(dew, dns, mask, iareaf, iareag, exec_serial)
     
     use parallel
-    !TODO - remove iarea from the argument list since it is not used
 
     implicit none
     real(dp), intent(in) :: dew, dns
-    real(dp), intent(in) :: iarea
     real(dp), intent(out) :: iareaf, iareag
     integer, dimension(:,:), intent(in) :: mask 
     logical, optional :: exec_serial  ! If executing in serial in MPI program.
@@ -272,8 +270,7 @@ contains
     logical :: exec_serial_flag
     real(dp) :: sum(2)
  
-    !Note - exec_serial option may not be needed
-    ! Handle exec_serial optional parameter
+    !TODO - exec_serial option may not be needed
     if ( present(exec_serial) ) then
       exec_serial_flag = exec_serial
     else

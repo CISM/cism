@@ -111,7 +111,7 @@
     integer, intent(in) ::    &
        matrix_order       ! order of matrix = number of rows
 
-    type(sparse_matrix_type), intent(inout) ::  &    ! TODO: inout or out?
+    type(sparse_matrix_type), intent(inout) ::  &
        matrix             ! sparse matrix, defined in glimmer_sparse_type
                           ! includes nonzeroes, order, col, row, val 
 
@@ -143,8 +143,6 @@
        ! Load the nonzero values associated with Auu and Auv
        ! These are assigned a value of matrix%row = 2*rowA - 1
 
-!TODO: Make sure that this procedure captures all the nonzero entries
-
        do kA = -1, 1
        do jA = -1, 1
        do iA = -1, 1
@@ -171,6 +169,7 @@
              val = Auv(m,k,i,j)
              if (val /= 0.d0) then
                 ct = ct + 1
+                print*, 'ct =', ct
                 matrix%row(ct) = 2*rowA - 1
                 matrix%col(ct) = 2*colA
                 matrix%val(ct) = val
@@ -317,7 +316,7 @@
     integer, intent(in) ::    &
        matrix_order       ! order of matrix = number of rows
 
-    type(sparse_matrix_type), intent(inout) ::  &    ! TODO: inout or out?
+    type(sparse_matrix_type), intent(inout) ::  &
        matrix             ! sparse matrix, defined in glimmer_sparse_types
                           ! includes nonzeros, order, col, row, val 
 
@@ -346,8 +345,6 @@
 
        ! Load the nonzero values associated with Auu and Auv
        ! These are assigned a value of matrix%row = 2*rowA - 1
-
-!TODO: Make sure that this procedure captures all the nonzero entries
 
        do jA = -1, 1
        do iA = -1, 1
@@ -612,53 +609,51 @@
 
     print*, 'Solving test matrix, order =', matrix_order
 
-!TODO - Reduce indents
+    nNonzero_max = matrix_order*matrix_order    ! not sure how big this must be
 
-       nNonzero_max = matrix_order*matrix_order    ! not sure how big this must be
+    allocate(Atest(matrix_order,matrix_order))
+    Atest(:,:) = 0.d0
 
-       allocate(Atest(matrix_order,matrix_order))
-       Atest(:,:) = 0.d0
+    allocate(matrix%row(nNonzero_max), matrix%col(nNonzero_max), matrix%val(nNonzero_max))
+    allocate(rhs(matrix_order), answer(matrix_order))
 
-       allocate(matrix%row(nNonzero_max), matrix%col(nNonzero_max), matrix%val(nNonzero_max))
-       allocate(rhs(matrix_order), answer(matrix_order))
+    rhs(:) = 0.d0
+    answer(:) = 0.d0
+    matrix%row(:) = 0
+    matrix%col(:) = 0
+    matrix%val(:) = 0.d0
 
-       rhs(:) = 0.d0
-       answer(:) = 0.d0
-       matrix%row(:) = 0
-       matrix%col(:) = 0
-       matrix%val(:) = 0.d0
-
-       matrix%order = matrix_order
-       matrix%symmetric = .false.
-
-       if (matrix%order == 2) then    ! symmetric 2x2
-          Atest(1,1:2) = (/3.d0, 2.d0 /)
-          Atest(2,1:2) = (/2.d0, 6.d0 /)
-          rhs(1:2) = (/2.d0, -8.d0 /)   ! answer = (2 -2) 
+    matrix%order = matrix_order
+    matrix%symmetric = .false.
+    
+    if (matrix%order == 2) then    ! symmetric 2x2
+       Atest(1,1:2) = (/3.d0, 2.d0 /)
+       Atest(2,1:2) = (/2.d0, 6.d0 /)
+       rhs(1:2) = (/2.d0, -8.d0 /)   ! answer = (2 -2) 
+       
+    elseif (matrix%order == 3) then
           
-       elseif (matrix%order == 3) then
-          
-          ! symmetric
-          Atest(1,1:3) = (/ 7.d0, -2.d0,  0.d0 /)
-          Atest(2,1:3) = (/-2.d0,  6.d0, -2.d0 /)
-          Atest(3,1:3) = (/ 0.d0, -2.d0,  5.d0 /)
-          rhs(1:3)   =   (/ 3.d0,  8.d0,  1.d0 /)   ! answer = (1 2 1)
-
+       ! symmetric
+       Atest(1,1:3) = (/ 7.d0, -2.d0,  0.d0 /)
+       Atest(2,1:3) = (/-2.d0,  6.d0, -2.d0 /)
+       Atest(3,1:3) = (/ 0.d0, -2.d0,  5.d0 /)
+       rhs(1:3)   =   (/ 3.d0,  8.d0,  1.d0 /)   ! answer = (1 2 1)
+       
           ! non-symmetric
 !       Atest(1,1:3) = (/3.d0,   1.d0,  1.d0 /)
 !       Atest(2,1:3) = (/2.d0,   2.d0,  5.d0 /)
 !       Atest(3,1:3) = (/1.d0,  -3.d0, -4.d0 /)
 !       rhs(1:3)   =  (/ 6.d0,  11.d0, -9.d0 /)   ! answer = (1 2 1)
 
-       else if (matrix%order == 4) then
+    else if (matrix%order == 4) then
 
-          ! symmetric
-
-          Atest(1,1:4) = (/ 2.d0, -1.d0,  0.d0,  0.d0 /)
-          Atest(2,1:4) = (/-1.d0,  2.d0, -1.d0,  0.d0 /)
-          Atest(3,1:4) = (/ 0.d0, -1.d0,  2.d0, -1.d0 /)
-          Atest(4,1:4) = (/ 0.d0,  0.d0, -1.d0,  2.d0 /)
-          rhs(1:4)    = (/  0.d0,  1.d0, -1.d0,  4.d0 /)   ! answer = (1 2 2 3)
+       ! symmetric
+       
+       Atest(1,1:4) = (/ 2.d0, -1.d0,  0.d0,  0.d0 /)
+       Atest(2,1:4) = (/-1.d0,  2.d0, -1.d0,  0.d0 /)
+       Atest(3,1:4) = (/ 0.d0, -1.d0,  2.d0, -1.d0 /)
+       Atest(4,1:4) = (/ 0.d0,  0.d0, -1.d0,  2.d0 /)
+       rhs(1:4)    = (/  0.d0,  1.d0, -1.d0,  4.d0 /)   ! answer = (1 2 2 3)
 
           ! non-symmetric
 !       Atest(1,1:4) = (/3.d0,  0.d0,  2.d0, -1.d0 /)
@@ -667,31 +662,31 @@
 !       Atest(4,1:4) = (/5.d0,  0.d0,  2.d0,  0.d0 /)
 !       rhs(1:4)    = (/ 6.d0,  7.d0, 13.d0,  9.d0 /)   ! answer = (1 2 2 1)
 
-       elseif (matrix%order > 4) then
+    elseif (matrix%order > 4) then
   
-          Atest(:,:) = 0.d0
-          do n = 1, matrix%order 
-             Atest(n,n) = 2.d0
-             if (n > 1) Atest(n,n-1) = -1.d0
-             if (n < matrix%order) Atest(n,n+1) = -1.d0
-          enddo
+       Atest(:,:) = 0.d0
+       do n = 1, matrix%order 
+          Atest(n,n) = 2.d0
+          if (n > 1) Atest(n,n-1) = -1.d0
+          if (n < matrix%order) Atest(n,n+1) = -1.d0
+       enddo
+       
+       rhs(1) = 1.d0
+       rhs(matrix%order) = 1.d0
+       rhs(2:matrix%order-1) = 0.d0              ! answer = (1 1 1 ... 1 1 1)
+       
+    endif
 
-          rhs(1) = 1.d0
-          rhs(matrix%order) = 1.d0
-          rhs(2:matrix%order-1) = 0.d0              ! answer = (1 1 1 ... 1 1 1)
-        
-       endif
+    if (verbose_test) then
+       print*, ' '
+       print*, 'Atest =', Atest
+       print*, 'rhs =', rhs
+    endif
 
-       if (verbose_test) then
-          print*, ' '
-          print*, 'Atest =', Atest
-          print*, 'rhs =', rhs
-       endif
+    ! Put in SLAP triad format (column ascending order)
 
-       ! Put in SLAP triad format (column ascending order)
-
-       n = 0
-       do j = 1, matrix%order
+    n = 0
+    do j = 1, matrix%order
        do i = 1, matrix%order
           if (Atest(i,j) /= 0.d0) then 
              n = n + 1
@@ -700,38 +695,38 @@
              matrix%val(n) = Atest(i,j)
           endif
        enddo
+    enddo
+
+    ! Set number of nonzero values
+    matrix%nonzeros = n
+
+    if (verbose_test) then
+       print*, ' '
+       print*, 'row,       col,       val:'
+       do n = 1, matrix%nonzeros
+          print*, matrix%row(n), matrix%col(n), matrix%val(n)
        enddo
+       print*, 'Call sparse_easy_solve, whichsparse =', whichsparse
+    endif
+    
+    ! Solve the linear matrix problem
 
-       ! Set number of nonzero values
-       matrix%nonzeros = n
+    call sparse_easy_solve(matrix, rhs,    answer,  &
+                           err,    niters, whichsparse)
 
-       if (verbose_test) then
-          print*, ' '
-          print*, 'row,       col,       val:'
-          do n = 1, matrix%nonzeros
-             print*, matrix%row(n), matrix%col(n), matrix%val(n)
-          enddo
-          print*, 'Call sparse_easy_solve, whichsparse =', whichsparse
-       endif
-
-       ! Solve the linear matrix problem
-
-       call sparse_easy_solve(matrix, rhs,    answer,  &
-                              err,    niters, whichsparse)
-
-       if (verbose_test) then
-          print*, ' '
-          print*, 'answer =', answer
-          print*, 'err =', err       
-          print*, 'niters =', niters
-       endif
-
+    if (verbose_test) then
+       print*, ' '
+       print*, 'answer =', answer
+       print*, 'err =', err       
+       print*, 'niters =', niters
+    endif
+    
     stop
 
   end subroutine slap_solve_test_matrix
 
 !****************************************************************************
 
-  end module glissade_velo_higher_slap
+end module glissade_velo_higher_slap
 
 !****************************************************************************

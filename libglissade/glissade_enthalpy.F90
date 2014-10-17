@@ -30,8 +30,8 @@
 
 #include "glide_mask.inc"
 
-!TODO - This module needs to be tested.
-!       Might want to add a fully implicit option to replace Crank-Nicolson.
+!TODO - The glissade_enthalpy module needs to be tested.
+
 module glissade_enthalpy
 
     use glimmer_global, only : dp
@@ -149,8 +149,7 @@ contains
     ! fact is (dt * tim0) / (2 * H^2 * thk0^2)
     fact = model%tempwk%cons(1) / model%geometry%thck(ew,ns)**2
 
-    !WHL - TODO - These are the Crank-Nicolson matrix elements.
-    !             Allow fully implicit and make it the default as in glissade_temp?
+    !TODO - Allow a fully implicit solve in addition to  Crank-Nicolson (for increased stability).
 
     ! ice interior. layers 1:upn-1  (matrix elements 2:upn)
     subd(2:model%general%upn) = -fact * alpha_half(1:model%general%upn-1)        &
@@ -367,9 +366,8 @@ contains
 !--------------------------------------------------------------------------------
 
   subroutine glissade_enthalpy_calcbmlt(model,                &
-                                        temp,                 &
-                                        waterfrac, stagsigma, &
-                                        thck,      stagthck,  &
+                                        temp,      waterfrac, &
+                                        stagsigma, thck,      &
                                         bmlt,      floater)
 
     ! Compute the amount of basal melting.
@@ -387,7 +385,7 @@ contains
     real(dp), dimension(0:,:,:), intent(inout) :: temp
     real(dp), dimension(1:,:,:), intent(inout) :: waterfrac
     real(dp), dimension(0:),     intent(in) :: stagsigma
-    real(dp), dimension(:,:),    intent(in) :: thck,  stagthck    !TODO: Remove stagthck from argument list
+    real(dp), dimension(:,:),    intent(in) :: thck
     real(dp), dimension(:,:),    intent(out):: bmlt    ! scaled melt rate (m/s * tim0/thk0)
                                                        ! > 0 for melting, < 0 for freeze-on
     logical,  dimension(:,:),    intent(in) :: floater
@@ -398,8 +396,6 @@ contains
     integer :: up, ew, ns
 
     bmlt(:,:) = 0.0d0
-
-    !LOOP TODO - This loop should be over locally owned cells? (ilo:ihi,jlo:jhi)
 
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1

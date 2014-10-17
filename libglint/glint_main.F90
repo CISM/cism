@@ -249,8 +249,8 @@ contains
     type(ConfigSection), pointer :: global_config, instance_config, section  ! configuration stuff
     character(len=100) :: message                                            ! For log-writing
     character(fname_length),dimension(:),pointer :: config_fnames=>null()    ! array of config filenames
-    type(ConfigSection), pointer :: econf
-    integer :: i, j, n
+
+    integer :: i, j
     real(dp),dimension(:,:),allocatable :: orog_temp, if_temp, vf_temp, sif_temp,  &
                                            svf_temp,  sd_temp, alb_temp      ! Temporary output arrays
     integer,dimension(:),allocatable :: mbts,idts ! Array of mass-balance and ice dynamics timesteps
@@ -647,9 +647,7 @@ contains
     character(len=100) :: message                                            ! For log-writing
     character(fname_length),dimension(:),pointer :: config_fnames=>null()    ! array of config filenames
 
-    type(ConfigSection), pointer :: econf
-
-    integer :: i
+    integer :: i, j
 
     integer,dimension(:),allocatable :: mbts,idts ! Array of mass-balance and ice dynamics timesteps
 
@@ -661,7 +659,6 @@ contains
 
     integer :: n
     integer :: nec       ! number of elevation classes
-    integer :: j, ii, jj
 
     if (present(gcm_debug)) then
        GLC_DEBUG = gcm_debug
@@ -1021,7 +1018,7 @@ contains
 
     ! Internal variables ----------------------------------------------------------------------------
 
-    integer :: i, n
+    integer :: i, j
     real(dp),dimension(:,:),allocatable :: albedo_temp, if_temp, vf_temp, sif_temp, svf_temp,  &
                                            sd_temp, wout_temp, orog_out_temp, win_temp
     real(dp) :: twin_temp,twout_temp,icevol_temp
@@ -1033,7 +1030,6 @@ contains
     real(dp),dimension(:,:),pointer :: precip
     real(dp),dimension(:,:),pointer :: temp
     real(dp) :: yearfrac
-    integer :: j, ig, jg
 
     if (GLC_DEBUG .and. main_task) then
 !       write (stdout,*) 'In subroutine glint, current time (hr) =', time
@@ -1401,7 +1397,7 @@ contains
 
     ! Internal variables ----------------------------------------------------------------------------
 
-    integer :: i, j, ig, jg, n
+    integer :: i
 
     logical :: icets
     character(250) :: message

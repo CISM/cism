@@ -279,7 +279,7 @@ contains
     real(dp),dimension(:,:),intent(out)   :: out
     logical, dimension(:,:),intent(out)   :: zeros
     
-    integer :: i,j,ii
+    integer :: i,j
 
     integer :: iter,ierr
     real(dp) :: err

@@ -98,7 +98,6 @@ contains
     type(ConfigSection),pointer :: config !> structure holding sections of configuration file   
     type(global_grid) :: pgrid,sgrid,ogrid 
     character(20) :: sttu,prtu ! Units
-    integer :: ierr,i
 
     if (verbose_glex_climate) print*, 'Read config file: ', filename
     call ConfigRead(filename,config)
@@ -255,8 +254,6 @@ contains
 
     integer :: ncerr     ! NetCDF error 
     integer :: ncid      ! NetCDF file id
-    integer :: varid     ! NetCDF variable id
-    integer :: ndims     ! Number of dimensions
 
     integer :: lon_id,lon_nd,lat_id,lat_nd
     character(30) :: lon_varn,lat_varn
@@ -418,8 +415,6 @@ contains
     character(*), intent(in)      :: filename,varname
     real(dp),dimension(:),pointer :: array
     character(*),optional,intent(out) :: units
-
-    real(dp),dimension(:),allocatable :: dim1
 
     integer  :: ncerr     ! NetCDF error 
     integer  :: ncid      ! NetCDF file id
@@ -700,8 +695,6 @@ contains
     real(dp),dimension(:,:),intent(out)  :: precip,temp
     real(dp),intent(in) :: time ! Time (hours)
 
-    integer :: ntemp,nprecip
-    real(dp) :: tsp,tst
     real(dp) :: pos
     integer :: lower,upper
 
@@ -816,7 +809,7 @@ contains
 
      real(dp), dimension(0:glc_nec), intent(in) :: glc_topomax  ! upper elevation of each class (m)
 
-     integer :: nx, ny, nec
+     integer :: nx, ny
      integer :: i, j, k
 
      real(dp), dimension(glc_nec) :: glc_topomid   ! midrange elevation of each class (m)
