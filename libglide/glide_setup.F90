@@ -168,13 +168,12 @@ contains
 
     type(glide_global_type)  :: model !> model instance
 
-    !TODO - Change ntem and nvel to dttem and dtvel.  Is nvel used?
-    model%numerics%ntem = model%numerics%ntem * model%numerics%tinc   
-    model%numerics%nvel = model%numerics%nvel * model%numerics%tinc   
+    model%numerics%dttem = real(model%numerics%ntem,dp) * model%numerics%tinc   
 
     model%numerics%dt     = model%numerics%tinc * scyr / tim0   
     model%numerics%dttem  = model%numerics%ntem * scyr / tim0   
     model%numerics%dt_transport = model%numerics%dt / real(model%numerics%subcyc, dp)
+
     model%numerics%thklim = model%numerics%thklim  / thk0       
     model%numerics%thklim_temp = model%numerics%thklim_temp  / thk0
 
@@ -186,9 +185,9 @@ contains
     model%numerics%periodic_offset_ew = model%numerics%periodic_offset_ew / thk0
     model%numerics%periodic_offset_ns = model%numerics%periodic_offset_ns / thk0
 
-    model%velowk%trc0   = vel0 * len0 / (thk0**2)          ! keep scyr?
+    model%velowk%trc0   = vel0 * len0 / (thk0**2)
     model%velowk%btrac_const = model%paramets%btrac_const/model%velowk%trc0/scyr
-    model%velowk%btrac_max = model%paramets%btrac_max/model%velowk%trc0/scyr    
+    model%velowk%btrac_max   = model%paramets%btrac_max / model%velowk%trc0/scyr    
     model%velowk%btrac_slope = model%paramets%btrac_slope*acc0/model%velowk%trc0
 
     model%paramets%ho_beta_const = model%paramets%ho_beta_const / (tau0/(vel0*scyr))
@@ -471,7 +470,6 @@ contains
     call GetValue(section,'dt',model%numerics%tinc)
     call GetValue(section,'subcyc',model%numerics%subcyc)
     call GetValue(section,'ntem',model%numerics%ntem)
-    call GetValue(section,'nvel',model%numerics%nvel)
     call GetValue(section,'profile',model%numerics%profile_period)
 
     call GetValue(section,'dt_diag',model%numerics%dt_diag)
@@ -500,13 +498,10 @@ contains
     call write_log(message)
     write(message,*) 'time step (yr)      : ',model%numerics%tinc
     call write_log(message)
-    write(message,*) 'thermal dt factor   : ',model%numerics%ntem
-    call write_log(message)
-    if ( (model%numerics%ntem < 1.0d0) .or. & 
-       (floor(model%numerics%ntem) /= model%numerics%ntem) ) then
+    if (model%numerics%ntem < 1) then
        call write_log('ntem is a multiplier on the basic time step.  It should be a positive integer.  Aborting.',GM_FATAL)
     endif
-    write(message,*) 'velo dt factor      : ',model%numerics%nvel
+    write(message,*) 'temperature time step (yr): ',model%numerics%dttem
     call write_log(message)
     write(message,*) 'profile frequency   : ',model%numerics%profile_period
     call write_log(message)

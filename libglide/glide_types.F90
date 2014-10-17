@@ -994,8 +994,7 @@ module glide_types
     real(dp) :: tend   =  1000.d0 !> end time
     real(dp) :: time   =     0.d0 !> main loop counter in years
     real(dp) :: tinc   =     1.d0 !> time step of main loop in years 
-    real(dp) :: ntem   =     1.d0 !> temperature time step (multiplier of main time step)
-    real(dp) :: nvel   =     1.d0 !> velocity time step (multiplier of main time step)
+    integer  :: ntem   =     1    !> multiplier of main time step; allows longer temperature time step
     real(dp) :: alpha  =    0.5d0 !> richard suggests 1.5 - was a parameter in original
     real(dp) :: alphas =    0.5d0 !> was a parameter in the original
     real(dp) :: thklim =   100.d0 ! min thickness for computing ice dynamics (m) 
@@ -1005,7 +1004,7 @@ module glide_types
     real(dp) :: dew    =    20.d3
     real(dp) :: dns    =    20.d3
     real(dp) :: dt     =     0.d0     ! ice dynamics timestep
-    real(dp) :: dttem  =     0.d0
+    real(dp) :: dttem  =     0.d0     ! temperature timestep
     real(dp) :: dt_transport = 0.d0   ! timestep for subcycling transport within the dynamics timestep dt
     real(dp) :: nshlf  =     0.d0          !TODO - not currently used; remove?
     integer  :: subcyc =     1
