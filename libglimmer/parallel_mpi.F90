@@ -29,6 +29,29 @@ module parallel
   use netcdf
   implicit none
 
+  ! Information on the local & global bounds of an array
+  ! This is used to distinguish between arrays on the staggered vs. unstaggered grids
+  type, private :: bounds_info_type
+     ! Global number of points in each dimension
+     integer :: global_ewn
+     integer :: global_nsn
+
+     ! Range of indices that this proc is responsible for (excludes halo cells)
+     ! These are the indices in global index space
+     integer :: mybounds_ew_lb
+     integer :: mybounds_ew_ub
+     integer :: mybounds_ns_lb
+     integer :: mybounds_ns_ub
+
+     ! Local indices that this proc is responsible for (excludes halo cells)
+     ! These are the indices in local index space
+     integer :: ilo
+     integer :: ihi
+     integer :: jlo
+     integer :: jhi
+  end type bounds_info_type
+
+
 !PW - Repeat from glimmer_horiz_bcs_parallel.F90
   integer, parameter, private :: HORIZ_BCS_WALL_SLIP = 0
   integer, parameter, private :: HORIZ_BCS_CYCLIC = 1
@@ -457,6 +480,13 @@ contains
     integer,dimension(:),allocatable :: recvbuf
     integer,dimension(:,:),allocatable :: sendbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -532,6 +562,13 @@ contains
     integer,dimension(:),allocatable :: displs,recvcounts
     logical,dimension(:),allocatable :: recvbuf
     logical,dimension(:,:),allocatable :: sendbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     ! first time
     if (.not. allocated(d_gs_bounds)) then
@@ -609,6 +646,13 @@ contains
     real(4),dimension(:),allocatable :: recvbuf
     real(4),dimension(:,:),allocatable :: sendbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -685,6 +729,13 @@ contains
     integer,dimension(:),allocatable :: displs,recvcounts
     real(4),dimension(:),allocatable :: recvbuf
     real(4),dimension(:,:,:),allocatable :: sendbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     ! first time
     if (.not. allocated(d_gs_bounds)) then
@@ -780,6 +831,13 @@ contains
     real(8),dimension(:),allocatable :: recvbuf
     real(8),dimension(:,:),allocatable :: sendbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -856,6 +914,13 @@ contains
     integer,dimension(:),allocatable :: displs,recvcounts
     real(8),dimension(:),allocatable :: recvbuf
     real(8),dimension(:,:,:),allocatable :: sendbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_gather does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     ! first time
     if (.not. allocated(d_gs_bounds)) then
@@ -1571,6 +1636,14 @@ contains
     integer,dimension(:,:),allocatable :: global_values,sendbuf
 
     ! begin
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_print does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     mybounds(1) = ewlb+lhalo
     mybounds(2) = ewub-uhalo
     mybounds(3) = nslb+lhalo
@@ -1647,6 +1720,14 @@ contains
     real(8),dimension(:,:),allocatable :: global_values,sendbuf
 
     ! begin
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_print does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     mybounds(1) = ewlb+lhalo
     mybounds(2) = ewub-uhalo
     mybounds(3) = nslb+lhalo
@@ -1723,6 +1804,14 @@ contains
     real(8),dimension(:,:,:),allocatable :: global_values,sendbuf
 
     ! begin
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_print does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     mybounds(1) = ewlb+lhalo
     mybounds(2) = ewub-uhalo
     mybounds(3) = nslb+lhalo
@@ -1791,7 +1880,8 @@ contains
     integer,dimension(:) :: start
     integer,dimension(:,:) :: values
 
-    integer :: ew,i,ierror,ns
+    type(bounds_info_type) :: bounds_info
+    integer :: i,ierror
     integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
     integer,dimension(:,:),allocatable :: bounds
@@ -1800,19 +1890,12 @@ contains
 
     ! begin
 
-    if (size(values,1)==local_ewn) then
-       ew = global_ewn
-       ns = global_nsn
-    else if (size(values,1)==local_ewn-1) then
-       ew = global_ewn-1
-       ns = global_nsn-1
-    else
-       call parallel_stop(__FILE__,__LINE__)
-    end if
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
+    bounds_info = get_bounds_info(size(values,1))
+
+    mybounds(1) = bounds_info%mybounds_ew_lb
+    mybounds(2) = bounds_info%mybounds_ew_ub
+    mybounds(3) = bounds_info%mybounds_ns_lb
+    mybounds(4) = bounds_info%mybounds_ns_ub
     if (main_task) then
        allocate(bounds(4,tasks))
     else
@@ -1838,7 +1921,8 @@ contains
        allocate(recvbuf(1))
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
-    sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    sendbuf(:,:) = values(bounds_info%ilo:bounds_info%ihi, &
+                          bounds_info%jlo:bounds_info%jhi)
     call fc_gatherv_int(sendbuf,size(sendbuf),mpi_integer,&
        recvbuf,recvcounts,displs,mpi_integer,main_rank,comm)
     if (main_task) then
@@ -1848,7 +1932,7 @@ contains
                (/bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1/))
        end do
        distributed_put_var_integer_2d = nf90_put_var(ncid,varid,&
-            global_values(1:ew,1:ns),start)
+            global_values(1:bounds_info%global_ewn, 1:bounds_info%global_nsn),start)
     end if
     call broadcast(distributed_put_var_integer_2d)
     !automatic deallocation
@@ -1947,7 +2031,8 @@ contains
     integer,dimension(:) :: start
     real(4),dimension(:,:) :: values
 
-    integer :: ew,i,ierror,ns
+    type(bounds_info_type) :: bounds_info
+    integer :: i,ierror
     integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
     integer,dimension(:,:),allocatable :: bounds
@@ -1956,19 +2041,12 @@ contains
 
     ! begin
 
-    if (size(values,1)==local_ewn) then
-       ew = global_ewn
-       ns = global_nsn
-    else if (size(values,1)==local_ewn-1) then
-       ew = global_ewn-1
-       ns = global_nsn-1
-    else
-       call parallel_stop(__FILE__,__LINE__)
-    end if
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
+    bounds_info = get_bounds_info(size(values,1))
+
+    mybounds(1) = bounds_info%mybounds_ew_lb
+    mybounds(2) = bounds_info%mybounds_ew_ub
+    mybounds(3) = bounds_info%mybounds_ns_lb
+    mybounds(4) = bounds_info%mybounds_ns_ub
     if (main_task) then
        allocate(bounds(4,tasks))
     else
@@ -1994,7 +2072,8 @@ contains
        allocate(recvbuf(1))
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
-    sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    sendbuf(:,:) = values(bounds_info%ilo:bounds_info%ihi, &
+                          bounds_info%jlo:bounds_info%jhi)
     call fc_gatherv_real4(sendbuf,size(sendbuf),mpi_real4,&
        recvbuf,recvcounts,displs,mpi_real4,main_rank,comm)
     if (main_task) then
@@ -2004,7 +2083,7 @@ contains
                (/bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1/))
        end do
        distributed_put_var_real4_2d = nf90_put_var(ncid,varid,&
-            global_values(1:ew,1:ns),start)
+            global_values(1:bounds_info%global_ewn, 1:bounds_info%global_nsn),start)
     end if
     call broadcast(distributed_put_var_real4_2d)
     !automatic deallocation
@@ -2104,7 +2183,8 @@ contains
     integer,dimension(:) :: start
     real(8),dimension(:,:) :: values
 
-    integer :: ew,i,ierror,ns
+    type(bounds_info_type) :: bounds_info
+    integer :: i,ierror
     integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
     integer,dimension(:,:),allocatable :: bounds
@@ -2113,19 +2193,12 @@ contains
 
     ! begin
 
-    if (size(values,1)==local_ewn) then
-       ew = global_ewn
-       ns = global_nsn
-    else if (size(values,1)==local_ewn-1) then
-       ew = global_ewn-1
-       ns = global_nsn-1
-    else
-       call parallel_stop(__FILE__,__LINE__)
-    end if
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
+    bounds_info = get_bounds_info(size(values,1))
+
+    mybounds(1) = bounds_info%mybounds_ew_lb
+    mybounds(2) = bounds_info%mybounds_ew_ub
+    mybounds(3) = bounds_info%mybounds_ns_lb
+    mybounds(4) = bounds_info%mybounds_ns_ub
     if (main_task) then
        allocate(bounds(4,tasks))
     else
@@ -2151,7 +2224,8 @@ contains
        allocate(recvbuf(1))
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4)))
-    sendbuf(:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo)
+    sendbuf(:,:) = values(bounds_info%ilo:bounds_info%ihi, &
+                          bounds_info%jlo:bounds_info%jhi)
     call fc_gatherv_real8(sendbuf,size(sendbuf),mpi_real8,&
        recvbuf,recvcounts,displs,mpi_real8,main_rank,comm)
     if (main_task) then
@@ -2161,7 +2235,7 @@ contains
                (/bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1/))
        end do
        distributed_put_var_real8_2d = nf90_put_var(ncid,varid,&
-            global_values(1:ew,1:ns),start)
+            global_values(1:bounds_info%global_ewn, 1:bounds_info%global_nsn),start)
     end if
     call broadcast(distributed_put_var_real8_2d)
     !automatic deallocation
@@ -2174,7 +2248,8 @@ contains
     integer,dimension(:) :: start
     real(8),dimension(:,:,:) :: values
 
-    integer :: ew,i,ierror,ns,nz
+    type(bounds_info_type) :: bounds_info
+    integer :: i,ierror,nz
     integer,dimension(4) :: mybounds
     integer,dimension(:),allocatable :: displs,recvcounts
     integer,dimension(:,:),allocatable :: bounds
@@ -2184,19 +2259,12 @@ contains
     ! begin
 
     nz = size(values,3)
-    if (size(values,1)==local_ewn) then
-       ew = global_ewn
-       ns = global_nsn
-    else if (size(values,1)==local_ewn-1) then
-       ew = global_ewn-1
-       ns = global_nsn-1
-    else
-       call parallel_stop(__FILE__,__LINE__)
-    end if
-    mybounds(1) = ewlb+lhalo
-    mybounds(2) = ewub-uhalo
-    mybounds(3) = nslb+lhalo
-    mybounds(4) = nsub-uhalo
+    bounds_info = get_bounds_info(size(values,1))
+
+    mybounds(1) = bounds_info%mybounds_ew_lb
+    mybounds(2) = bounds_info%mybounds_ew_ub
+    mybounds(3) = bounds_info%mybounds_ns_lb
+    mybounds(4) = bounds_info%mybounds_ns_ub
     if (main_task) then
        allocate(bounds(4,tasks))
     else
@@ -2223,7 +2291,9 @@ contains
        allocate(recvbuf(1))
     end if
     allocate(sendbuf(mybounds(1):mybounds(2),mybounds(3):mybounds(4),nz))
-    sendbuf(:,:,:) = values(1+lhalo:local_ewn-uhalo,1+lhalo:local_nsn-uhalo,:)
+    sendbuf(:,:,:) = values(bounds_info%ilo:bounds_info%ihi, &
+                            bounds_info%jlo:bounds_info%jhi, &
+                            :)
     call fc_gatherv_real8(sendbuf,size(sendbuf),mpi_real8,&
        recvbuf,recvcounts,displs,mpi_real8,main_rank,comm)
     if (main_task) then
@@ -2233,7 +2303,7 @@ contains
                (/bounds(2,i)-bounds(1,i)+1,bounds(4,i)-bounds(3,i)+1,nz/))
        end do
        distributed_put_var_real8_3d = nf90_put_var(ncid,varid,&
-            global_values(1:ew,1:ns,:),start)
+            global_values(1:bounds_info%global_ewn, 1:bounds_info%global_nsn ,:),start)
     end if
     call broadcast(distributed_put_var_real8_3d)
     !automatic deallocation
@@ -2253,6 +2323,13 @@ contains
     integer,dimension(:),allocatable :: displs,sendcounts
     integer,dimension(:),allocatable :: sendbuf
     integer,dimension(:,:),allocatable :: recvbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     ! first time
     if (.not. allocated(d_gs_bounds)) then
@@ -2317,6 +2394,13 @@ contains
     logical,dimension(:),allocatable :: sendbuf
     logical,dimension(:,:),allocatable :: recvbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -2380,6 +2464,13 @@ contains
     real(4),dimension(:),allocatable :: sendbuf
     real(4),dimension(:,:),allocatable :: recvbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -2442,6 +2533,13 @@ contains
     integer,dimension(:),allocatable :: displs,sendcounts
     real(4),dimension(:),allocatable :: sendbuf
     real(4),dimension(:,:,:),allocatable :: recvbuf
+
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
 
     ! first time
     if (.not. allocated(d_gs_bounds)) then
@@ -2508,6 +2606,13 @@ contains
     real(8),dimension(:),allocatable :: sendbuf
     real(8),dimension(:,:),allocatable :: recvbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     ! first time
     if (.not. allocated(d_gs_bounds)) then
        if (main_task) then
@@ -2573,6 +2678,13 @@ contains
     real(8),dimension(:),allocatable :: sendbuf
     real(8),dimension(:,:,:),allocatable :: recvbuf
 
+    if (uhalo==0 .and. size(values,1)==local_ewn-1) then
+       ! Fixing this would require some generalization as is done for distributed_put_var
+       write(*,*) "distributed_scatter does not currently work for"
+       write(*,*) "variables on the staggered grid when uhalo=0"
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
     if (present(deallocflag)) then
        deallocmem = deallocflag
     else
@@ -2629,6 +2741,47 @@ contains
     if (deallocmem) deallocate(global_values)
     ! automatic deallocation
   end subroutine distributed_scatter_var_real8_3d
+
+  function get_bounds_info(array_ew_size) result(bounds_info)
+    ! Determines information on the local & global bounds of an array
+    ! This is used to distinguish between arrays on the staggered vs. unstaggered grids
+    
+    type(bounds_info_type) :: bounds_info
+    integer, intent(in) :: array_ew_size  ! size of the array of interest in the EW direction
+
+    if (array_ew_size == local_ewn) then
+       bounds_info%global_ewn = global_ewn
+       bounds_info%global_nsn = global_nsn
+
+       bounds_info%mybounds_ew_lb = ewlb + lhalo
+       bounds_info%mybounds_ew_ub = ewub - uhalo
+       bounds_info%mybounds_ns_lb = nslb + lhalo
+       bounds_info%mybounds_ns_ub = nsub - uhalo
+
+       bounds_info%ilo = 1 + lhalo
+       bounds_info%ihi = local_ewn - uhalo
+       bounds_info%jlo = 1 + lhalo
+       bounds_info%jhi = local_nsn - uhalo
+
+    else if (array_ew_size == (local_ewn - 1)) then
+       bounds_info%global_ewn = global_ewn - 1
+       bounds_info%global_nsn = global_nsn - 1
+
+       bounds_info%mybounds_ew_lb = ewlb + staggered_lhalo
+       bounds_info%mybounds_ew_ub = (ewub - 1) - staggered_uhalo
+       bounds_info%mybounds_ns_lb = nslb + staggered_lhalo
+       bounds_info%mybounds_ns_ub = (nsub - 1) - staggered_uhalo
+
+       bounds_info%ilo = 1 + staggered_lhalo
+       bounds_info%ihi = (local_ewn - 1) - staggered_uhalo
+       bounds_info%jlo = 1 + staggered_lhalo
+       bounds_info%jhi = (local_nsn - 1) - staggered_uhalo
+
+    else
+       call parallel_stop(__FILE__, __LINE__)
+    end if
+
+  end function get_bounds_info
 
   subroutine global_sum_real8_scalar(x)
     use mpi_mod
@@ -4240,6 +4393,13 @@ contains
     ! begin
     if (size(a,1)/=local_ewn-1.or.size(a,2)/=local_nsn-1) &
          call parallel_stop(__FILE__,__LINE__)
+    
+    if (uhalo==0) then
+       ! NOTE(wjs, 2014-10-16) I think that fixing this would involve replacing instances
+       ! of (-uhalo+1) with (-staggered_uhalo)
+       write(*,*) 'parallel_velo_halo currently does not work for uhalo=0'
+       call parallel_stop(__FILE__,__LINE__)
+    end if
 
     call mpi_irecv(erecv,size(erecv),mpi_real8,east,east,&
          comm,erequest,ierror)
