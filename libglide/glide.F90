@@ -776,7 +776,8 @@ contains
 
     ! Note: These times have units of years.
 
-    if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
+!!    if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
+    if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%dttem*tim0/scyr)) then
 
        call glide_prof_start(model,model%glide_prof%temperature)
 

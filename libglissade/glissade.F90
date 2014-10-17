@@ -400,7 +400,7 @@ contains
 
     ! Note: These times have units of years
 
-    if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
+    if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%dttem*tim0/scyr)) then
 
       call t_startf('glissade_temp_driver')
       call glissade_temp_driver(model, model%options%whichtemp)
