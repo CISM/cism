@@ -4649,9 +4649,7 @@
     !   accurate than method 1 with upstream gradients.)
     !-----------------------------------------------------------------------------------------------
 
-    !TODO - Set edge_velocity = false for L1L2
-    logical, parameter :: edge_velocity = .true.
-!!    logical, parameter :: edge_velocity = .false.
+    logical, parameter :: edge_velocity = .false.
 
     real(dp), dimension(nx,ny) ::   &
        uedge, vedge        ! velocity components at edges of a layer, relative to bed (m/yr)
