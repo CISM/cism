@@ -993,22 +993,22 @@ contains
     model%velocity%vbas(:,:) = model%velocity%vvel(k,:,:)
     model%velocity%velnorm(:,:,:) = sqrt(model%velocity%uvel(:,:,:)**2 + model%velocity%vvel(:,:,:)**2)
 
-    ! Copy uvel and vvel to arrays uvel_icegrid and vvel_icegrid.
+    ! Copy uvel and vvel to arrays uvel_extend and vvel_extend.
     ! These arrays have horizontal dimensions (nx,ny) instead of (nx-1,ny-1).
     ! Thus they are better suited for I/O if we have periodic BC,
     !  where the velocity field we are solving for has global dimensions (nx,ny).
     ! Since uvel and vvel are not defined for i = nx or j = ny, the
-    !  uvel_icegrid and vvel_icegrid arrays will have values of zero at these points.
+    !  uvel_extend and vvel_extend arrays will have values of zero at these points.
     ! But these are halo points, so when we write netCDF I/O it shouldn't matter;
     !  we should have the correct values at physical points.
     
-    model%velocity%uvel_icegrid(:,:,:) = 0.d0
-    model%velocity%vvel_icegrid(:,:,:) = 0.d0
+    model%velocity%uvel_extend(:,:,:) = 0.d0
+    model%velocity%vvel_extend(:,:,:) = 0.d0
 
     do j = 1, model%general%nsn-1
        do i = 1, model%general%ewn-1
-          model%velocity%uvel_icegrid(:,i,j) = model%velocity%uvel(:,i,j)
-          model%velocity%vvel_icegrid(:,i,j) = model%velocity%vvel(:,i,j)             
+          model%velocity%uvel_extend(:,i,j) = model%velocity%uvel(:,i,j)
+          model%velocity%vvel_extend(:,i,j) = model%velocity%vvel(:,i,j)             
        enddo
     enddo
  

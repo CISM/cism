@@ -155,7 +155,7 @@ if __name__ == '__main__':
            try:
     #         Extract the output data for comparison to the other models
 
-    #         NOTE: The script now assumes that uvel_icegrid & vvel_icegrid are ALWAYS present.
+    #         NOTE: The script now assumes that uvel_extend and vvel_extend are ALWAYS present.
     #         Those fields containthe ice velocity computed at the upper right corner of each grid cell.
     #         They appear to be on the x1,y1 grid in their metadata but are actually on the x0,y0 grid.
     #         The additional row/column include the first halo value past ewn/nsn.
@@ -173,7 +173,7 @@ if __name__ == '__main__':
 
               netCDFfile = NetCDFFile(filename+'.out.nc','r')
               if netCDF_module == 'Scientific.IO.NetCDF':
-                 velscale = netCDFfile.variables['uvel_icegrid'].scale_factor
+                 velscale = netCDFfile.variables['uvel_extend'].scale_factor
               else:
                  velscale = 1.0
 
@@ -233,27 +233,27 @@ if __name__ == '__main__':
                   # Figure out u,v since all experiments needs at least one of them (avoids duplicate code in each case below
                   #   Want to use last time level.  Most experiments should only have a single time level, but F may have many in the file.
                   #   Apparently some older versions of netCDF4 give an error when using the -1 dimension if the size is 1, hence this bit of seemingly unnecessary logic...
-                  if netCDFfile.variables['uvel_icegrid'][:].shape[0] == 1:
+                  if netCDFfile.variables['uvel_extend'][:].shape[0] == 1:
                     t = 0
                   else:
                     t = -1
-                  us = netCDFfile.variables['uvel_icegrid'][t,0,:,:] * velscale  # top level of last time
+                  us = netCDFfile.variables['uvel_extend'][t,0,:,:] * velscale  # top level of last time
                   us = np.concatenate( (us[:,-1:], us), axis=1)  # copy the column at x=1.0 to x=0.0
                   us = np.concatenate( (us[-1:,:], us), axis=0)  # copy the row at y=1.0 to y=0.0
-                  vs = netCDFfile.variables['vvel_icegrid'][t,0,:,:] * velscale  # top level of last time
+                  vs = netCDFfile.variables['vvel_extend'][t,0,:,:] * velscale  # top level of last time
                   vs = np.concatenate( (vs[:,-1:], vs), axis=1)  # copy the column at x=1.0 to x=0.0
                   vs = np.concatenate( (vs[-1:,:], vs), axis=0)  # copy the row at y=1.0 to y=0.0
-                  ub = netCDFfile.variables['uvel_icegrid'][t,-1,:,:] * velscale  # bottom level of last time
+                  ub = netCDFfile.variables['uvel_extend'][t,-1,:,:] * velscale  # bottom level of last time
                   ub = np.concatenate( (ub[:,-1:], ub), axis=1)  # copy the column at x=1.0 to x=0.0
                   ub = np.concatenate( (ub[-1:,:], ub), axis=0)  # copy the row at y=1.0 to y=0.0
-                  vb = netCDFfile.variables['vvel_icegrid'][t,-1,:,:] * velscale  # bottom level of last time
+                  vb = netCDFfile.variables['vvel_extend'][t,-1,:,:] * velscale  # bottom level of last time
                   vb = np.concatenate( (vb[:,-1:], vb), axis=1)  # copy the column at x=1.0 to x=0.0
                   vb = np.concatenate( (vb[-1:,:], vb), axis=0)  # copy the row at y=1.0 to y=0.0
                   #nan = ub*np.NaN  # create a dummy matrix for uncalculated values.
                   nan = np.ones(ub.shape)*-999.0  # create a dummy matrix for uncalculated values.
 
               # make arrays of the variables needed for each experiment
-              # the icegrid velocities have the periodic edge in the last x-position.  We also want it in the first x-position.
+              # the extended-grid velocities have the periodic edge in the last x-position.  We also want it in the first x-position.
               # After building the 2-d array as needed for each variable from the raw file data, then build a list called 'data'.
               if experiment == 'a':
                 #  This is supposed to be: [('uvel',0),('vvel',0),('wvel',0),('tau_xz',-1),('tau_yz',-1),[deltap]]

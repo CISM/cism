@@ -717,12 +717,11 @@ module glide_types
 !    real(dp),dimension(:,:,:),pointer :: vres  => null() !> 3D $y$-residual.
 !    real(dp),dimension(:,:,:),pointer :: magres  => null() !> 3D $magnitude$-residual.
 
-    !TODO - Change '_icegrid' suffix to something less confusing?
-    !! WHL - next 2 used for output of uvel, vvel on a staggered grid that is the same size as the unstaggered grid
-    !! (e.g., for problems with periodic BC, where the number of velocity points is
-    !!  equal to the number of grid cells)
-    real(dp),dimension(:,:,:),pointer :: uvel_icegrid => null() !> 3D $x$-velocity
-    real(dp),dimension(:,:,:),pointer :: vvel_icegrid => null() !> 3D $x$-velocity
+    ! Note: uvel_extend and vvel_extend can be used for output of uvel, vvel on a staggered grid 
+    !       that is the same size as the unstaggered grid (e.g., for ISMIP-HOM problems with periodic BC, 
+    !       where the number of velocity points is equal to the number of grid cells.)
+    real(dp),dimension(:,:,:),pointer :: uvel_extend => null()  !> 3D $x$-velocity on extended staggered grid
+    real(dp),dimension(:,:,:),pointer :: vvel_extend => null()  !> 3D $y$-velocity on extended staggered grid
 
     real(dp),dimension(:,:)  ,pointer :: bed_softness => null() !> bed softness parameter
     real(dp),dimension(:,:)  ,pointer :: btrc  => null()        !>  basal traction (scaler field)
@@ -1432,12 +1431,14 @@ contains
     call coordsystem_allocate(model%general%velo_grid, model%velocity%bed_softness)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%btrc)
     call coordsystem_allocate(model%general%velo_grid, 2, model%velocity%btraction)
-    call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%uvel_icegrid)
-    call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%vvel_icegrid)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%resid_u)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%resid_v)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%rhs_u)
     call coordsystem_allocate(model%general%velo_grid, upn, model%velocity%rhs_v)
+
+    ! These two are on the extended staggered grid, which is the same size as the ice grid.
+    call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%uvel_extend)
+    call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%vvel_extend)
 
     call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas)
     call coordsystem_allocate(model%general%velo_grid, model%velocity%ubas_tavg)
@@ -1675,10 +1676,10 @@ contains
         deallocate(model%velocity%btrc)
     if (associated(model%velocity%btraction)) &
         deallocate(model%velocity%btraction)
-    if (associated(model%velocity%uvel_icegrid)) &
-        deallocate(model%velocity%uvel_icegrid)
-    if (associated(model%velocity%vvel_icegrid)) &
-        deallocate(model%velocity%vvel_icegrid)
+    if (associated(model%velocity%uvel_extend)) &
+        deallocate(model%velocity%uvel_extend)
+    if (associated(model%velocity%vvel_extend)) &
+        deallocate(model%velocity%vvel_extend)
     if (associated(model%velocity%resid_u)) &
         deallocate(model%velocity%resid_u)
     if (associated(model%velocity%resid_v)) &
