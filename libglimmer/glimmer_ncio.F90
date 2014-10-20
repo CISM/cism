@@ -597,8 +597,10 @@ contains
 
       ! Check if tempstag should be output
 
-      ! TODO If both temp and tempstag are specified, should one be removed?
-      ! TODO Modify this to work if multiple output files are specified?
+      ! If both temp and tempstag are specified, temp will get converted to tempstag
+      ! and then there will be two tempstags in the list, but that is ok because
+      ! the parser ignores duplicate entries in the varlist.  
+      ! (The check for the existence of variables looks like:    pos = index(NCO%vars,' acab ')  )
 
       !print *, "Original varstring:", varstring
 

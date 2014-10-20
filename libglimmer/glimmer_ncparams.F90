@@ -181,7 +181,7 @@ contains
     call GetValue(section,'frequency',handle_output%freq)
     call GetValue(section,'variables',handle_output%nc%vars)
     call GetValue(section,'mode',mode_str)
-    call GetValue(section,'xtype',xtype_str) !EIB! from gc2, needed?
+    call GetValue(section,'xtype',xtype_str)
 
     ! handle mode field
     if (trim(mode_str)=='append'.or.trim(mode_str)=='APPEND') then

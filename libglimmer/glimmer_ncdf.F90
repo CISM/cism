@@ -76,7 +76,7 @@ module glimmer_ncdf
      integer timevar
      !> id of time variable 
 
-     ! TODO - Create a variable for vars length so it can be made longer
+     ! TODO - Create a variable for vars length so it can be made longer (Matt has this implemented in his subglacial hydrology branch)
      !        Apply it here for vars, vars_copy and to restart_variable_list in glimmer_ncparams.F90
 
      character(len=310) vars
@@ -117,8 +117,6 @@ module glimmer_ncdf
      integer :: timecounter = 1                           !< time counter
      real(dp) :: total_time = 0.d0                        !< accumulate time steps (used for taking time averages)
 
-     !TODO - Change default_xtype to dp?
-     !       I'm unclear on how the default xtype is overridden
      integer :: default_xtype = NF90_REAL                 !< the default external type for storing floating point values
      logical :: do_averages = .false.                     !< set to .true. if we need to handle averages
 
