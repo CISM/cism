@@ -451,11 +451,19 @@ contains
        ! Calculate heating from basal friction -----------------------------------
 
        call glissade_calcbfric( model,                        &
+                                model%options%whichdycore,    &
                                 model%geometry%thck,          &
                                 model%velocity%btraction,     &
                                 model%velocity%ubas,          &
                                 model%velocity%vbas,          &
-                                GLIDE_IS_FLOAT(model%geometry%thkmask) )
+                                GLIDE_IS_FLOAT(model%geometry%thkmask), &
+                                model%temper%bfricflx )
+
+       !WHL - debug
+       ew = model%numerics%idiag_local
+       ns = model%numerics%jdiag_local
+!!       print*, ' '
+!!       print*, 'ew, ns, bfricflx:', ew, ns, model%temper%bfricflx(ew,ns)
 
        ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
 
@@ -718,11 +726,13 @@ contains
       ! Calculate heating from basal friction -----------------------------------
 
       call glissade_calcbfric( model,                        &
+                               model%options%whichdycore,    &
                                model%geometry%thck,          &
                                model%velocity%btraction,     &
                                model%velocity%ubas,          &
                                model%velocity%vbas,          &
-                               GLIDE_IS_FLOAT(model%geometry%thkmask) )
+                               GLIDE_IS_FLOAT(model%geometry%thkmask), &
+                               model%temper%bfricflx )
 
       ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
 
@@ -1008,10 +1018,10 @@ contains
   !-----------------------------------------------------------------------
   !TODO: Remove unused arguments ubas, vbas.
 
-  subroutine glissade_calcbfric (model,                 &
+  subroutine glissade_calcbfric (model,    whichdycore, &
                                  thck,     btraction,   &
                                  ubas,     vbas,        &
-                                 float)
+                                 float,    bfricflx)
 
     ! compute frictional heat source due to sliding at the bed
 
@@ -1019,15 +1029,28 @@ contains
     use glimmer_paramets, only: thk0, vel0, vel_scale
 
     type(glide_global_type) :: model
+    integer, intent(in) :: whichdycore   ! 1 = Glam, 2 = Glissade
     real(dp), dimension(:,:), intent(in) :: thck
     real(dp), dimension(:,:), intent(in) :: ubas, vbas
     real(dp), dimension(:,:,:), intent(in) :: btraction
     logical, dimension(:,:), intent(in) :: float
+    ! Note: bfricflx needs to have intent (inout) in case it has already been computed by Glissade.
+    real(dp), dimension(:,:), intent(inout) :: bfricflx
 
     real(dp) :: slterm       ! sliding friction
  
     integer :: ewp, nsp, ew, ns
     integer :: slide_count   ! number of neighbor cells with nonzero sliding
+
+!WHL TODO - Use Glam heat flux for now (to avoid answer changes), but switch soon.
+!           Note: Glissade does not compute btraction, so bfricflx = 0 if using Glam logic
+
+!!    if (whichdycore == DYCORE_GLISSADE) then
+
+       ! basal friction heat flux (model%temper%bfricflx) already computed in velocity solver
+       ! do nothing and return
+
+!!    else   ! Glam dycore
 
        ! compute heat source due to basal friction
        ! Note: slterm and bfricflx are defined to be >= 0
@@ -1040,8 +1063,6 @@ contains
 
              !WHL - copied Steve Price's formulation from calcbmlt
              ! btraction is computed in glam_strs2.F90
-
-             !TODO - Make sure we have btraction for all locally owned velocity cells.
 
              !WHL - Using thklim instead of thklim_temp because ice thinner than thklim
              !      is assumed to be at rest.
@@ -1070,8 +1091,7 @@ contains
              endif  ! thk > thklim, not floating
 
           ! include sliding contrib only if temperature node is surrounded by sliding velo nodes
-          !TODO - This may result in non-conservation of energy.
-          !       Why not include all nonzero terms? 
+          !NOTE - The following logic may result in non-conservation of energy.  Include all nonzero terms? 
 
           if (slide_count >= 4) then
              slterm = 0.25d0 * slterm
@@ -1079,10 +1099,12 @@ contains
              slterm = 0.0d0
           end if
 
-          model%temper%bfricflx(ew,ns) = slterm
+          bfricflx(ew,ns) = slterm
 
        enddo    ! ns
        enddo    ! ew
+
+!!    endif       ! whichdycore
 
   end subroutine glissade_calcbfric
 
