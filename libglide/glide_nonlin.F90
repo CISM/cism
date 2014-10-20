@@ -210,15 +210,14 @@ contains
             norm5 = norm5 + vec_new(i) ** 2
         end do
 
-        !TODO - Change PI to pi
         !Compute the angle between successive correction vectors
         if ((abs(norm2) < 1d-10) .or. (abs(norm3) < 1d-10)) then
-            theta=PI/2.
+            theta=pi/2.
         else
             theta=acos(norm4/sqrt(norm2*norm3))
         endif
 
-        if ( (theta <= (5.*PI/6.) ) ) then
+        if ( (theta <= (5.*pi/6.) ) ) then
             !We've requested unstable manifold correction, and the angle is
             !small (less than 5pi/6, a value identified by Hindmarsh and Payne
             !to work well).   If this is the case, we compute and apply

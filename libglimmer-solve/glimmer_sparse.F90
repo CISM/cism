@@ -36,14 +36,8 @@ module glimmer_sparse
   use glimmer_global, only: dp
   use glimmer_sparse_type
   use glimmer_sparse_slap
+  use glide_types
 
-    ! Would like to use glide_types for HO_NONLIN and HO_SPARSE options
-    ! The automake build system does not allow this, because libglimmer-solve
-    !  is built before libglide.
-    ! The cmake build system is more flexible and is OK with 'use glide_types'
-
-!!  use glide_types 
- 
   implicit none
 
   type sparse_solver_options
@@ -55,40 +49,24 @@ module glimmer_sparse
         type(slap_solver_workspace), pointer :: slap => null()
   end type
 
-    !TODO - The following parameters are redundant with glide_types but are included here 
-    !        because of automake issues.  (This module cannot use glide_types if libglimmer-solve
-    !        is built before libglide.)
-    !       Can remove these parameters and use glide_types if we stop supporting automake,
-    !        or move this module to libglide.
 
-    integer, parameter :: SPARSE_HO_NONLIN_PICARD = 0
-    integer, parameter :: SPARSE_HO_NONLIN_JFNK = 1
+    ! These module level parameters are assigned from similar parameters defined in glide_types.F90
+    integer, parameter :: SPARSE_HO_NONLIN_PICARD = HO_NONLIN_PICARD
+    integer, parameter :: SPARSE_HO_NONLIN_JFNK = HO_NONLIN_JFNK
 
     ! The first three options use the SLAP solver and work only on one processor.
-    integer, parameter :: SPARSE_SOLVER_PCG_INCH = -1     ! SLAP PCG with incomplete Cholesky preconditioner
-    integer, parameter :: SPARSE_SOLVER_BICG = 0          ! SLAP biconjugate gradient
-    integer, parameter :: SPARSE_SOLVER_GMRES = 1         ! SLAP GMRES
-    integer, parameter :: STANDALONE_PCG_STANDARD = 2     ! Native PCG, parallel-enabled, standard solver
-    integer, parameter :: STANDALONE_PCG_CHRONGEAR = 3    ! Native PCG, parallel-enabled, Chronopoulos-Gear solver
-    integer, parameter :: STANDALONE_TRILINOS_SOLVER = 4  ! Trilinos solver
-                                                          ! Does not go through sparse_easy_solve because 
-                                                          !  it has a different sparse matrix format  
+    integer, parameter :: SPARSE_SOLVER_PCG_INCH = HO_SPARSE_PCG_INCH     ! SLAP PCG with incomplete Cholesky preconditioner
+    integer, parameter :: SPARSE_SOLVER_BICG = HO_SPARSE_BICG          ! SLAP biconjugate gradient
+    integer, parameter :: SPARSE_SOLVER_GMRES = HO_SPARSE_GMRES         ! SLAP GMRES
+    integer, parameter :: STANDALONE_PCG_STANDARD = HO_SPARSE_PCG_STANDARD     ! Native PCG, parallel-enabled, standard solver
+    integer, parameter :: STANDALONE_PCG_CHRONGEAR = HO_SPARSE_PCG_CHRONGEAR    ! Native PCG, parallel-enabled, Chronopoulos-Gear solver
+    integer, parameter :: STANDALONE_TRILINOS_SOLVER = HO_SPARSE_TRILINOS  ! Trilinos solver
 
 
-!EIB!  !MAKE_RESTART
-!EIB!#ifdef RESTARTS
-!EIB!#define RST_GLIMMER_SPARSE
-!EIB!#include "glimmer_rst_head.inc"
-!EIB!#undef RST_GLIMMER_SPARSE
-!EIB!#endif
 
 contains
 
-!EIB!#ifdef RESTARTS
-!EIB!#define RST_GLIMMER_SPARSE
-!EIB!#include "glimmer_rst_body.inc"
-!EIB!#undef RST_GLIMMER_SPARSE
-!EIB!#endif
+
 
     subroutine sparse_solver_default_options(method, opt, nonlinear)
 
@@ -97,16 +75,15 @@ contains
         integer, optional, intent(in) :: nonlinear    ! Picard vs. JFNK flag 
         type(sparse_solver_options) :: opt            !TODO - intent inout or out?
 
-        !TODO - Change 1e-08 to 1.e-08
         opt%base%method = method
-        opt%base%tolerance  = 1e-08   !WHL - used to be 1e-11
+        opt%base%tolerance  = 1.0d-08   !WHL - used to be 1e-11
         opt%base%maxiters = 200
 
         if ( present(nonlinear) )then
-            if (nonlinear .eq. SPARSE_HO_NONLIN_PICARD) opt%base%tolerance  = 1e-08 ! Picard
-            if (nonlinear .eq. SPARSE_HO_NONLIN_JFNK) opt%base%tolerance  = 1e-03 ! JFNK
+            if (nonlinear .eq. SPARSE_HO_NONLIN_PICARD) opt%base%tolerance  = 1.0d-08 ! Picard
+            if (nonlinear .eq. SPARSE_HO_NONLIN_JFNK) opt%base%tolerance  = 1.0d-03 ! JFNK
         else   ! Picard
-            opt%base%tolerance  = 1e-08
+            opt%base%tolerance  = 1.0d-08
         end if
 
         !TODO - Remove calls to not_parallel?

@@ -115,66 +115,7 @@ contains
 
   end subroutine init_velo
 
-!TODO - What is the '#if 0' option?
-!TODO - Remove subroutine velo_compute_strain_rates?  It is never called,
-!       and would not compile if the ifdef were removed. 
-#if 0
-  subroutine velo_compute_strain_rates(strain_zx, strain_zy, 
-                                       stagthck, dusrfdew, dusrfdns, sigma, 
-                                       flwa, ho_stress_zx, ho_stress_zy)
 
-    !> Computes the strain rates \epsilon_{zx} and \epsilon{zy} using the formula:
-    !> \epsilon_{zi}(\sigma) = A(\sigma)(-\rho g H \sigma \frac{\partial s}{\partial i} - HO_i)^n
-    !> No vertical integration is done at this point
-    
-    ewn = size(strain_zx, 2)
-    nsn = size(strain_zx, 3)
-    upn = size(strain_zx, 1)
-
-    !TODO: velo_compute_strain_rates: Make this work with rescaling
-    do i = 1, upn
-      do j = 1, ewn
-        do k = 1, nsn
-          !Compute everything inside the exponentiation
-          !(we factor out -rhoi*g*H*\sigma so it's only computed once
-           !TODO - Where is g defined as the gravitational constant?  Should be grav.
-          zx = -rhoi*g*sigma(i)*stagthck(j,k)
-          zy = zx*dusrfdns(j,k)
-          zx = zx*dusrfdew(j,k)
-
-          !Add higher-order stresses if they were provided
-          if (present(ho_stress_zx) .and. present(ho_stress_zy)) then
-            zx = zx - ho_stress_zx(i,j,k)
-            zy = zy - ho_stress_zy(i,j,k)
-          end if
-
-          !Exponentiate and finish computation
-          zx = A(i,j,k)*zx**gn
-          zy = A(i,j,k)*zy**gn
-
-          strain_zx(i,j,k) = zx
-          strain_zy(i,j,k) = zy
-        end do
-      end do
-    end do
-  end subroutine velo_compute_strain_rates
-
-!TODO - Remove subroutine velo_integrate_strain?  It is never called. 
-  subroutine velo_integrate_strain(strain_zx, strain_zy, ubas, vbas,
-
-    !Find the 3d velocity field by vertically integrating the strain rate from the base up
-    call vertint_output3d(strain_zx, uvel, sigma, .false., ubas)
-    call vertint_output3d(strain_zy, vvel, sigma, .false., vbas)
-    
-    !Normally, we have \epsilon_{xz} = \frac{1}{2}(\frac{\partial u}{\partial z} + \frac{\partial w}{\partial x})
-    !However, we assume that $u_z >> w_x$ by assuming simple shear deformation.
-    !This gives us $u_z$ = 2\epsilon_{xz}
-    !This 2 is pulled out of the integral.  We correct for it here.
-    uvel = 2*uvel
-    vvel = 2*vvel
-           
-  end subroutine velo_integrate_strain
-#endif
   
   !*****************************************************************************
   ! new velo functions come here

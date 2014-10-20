@@ -28,7 +28,13 @@
 #include "config.inc"
 #endif
 
-  !TODO - Are we still supporting profiling using the glide_profile module?
+  ! This module and (profile.F90) is needed for both the Glimmer 1.x profiling functionality 
+  ! and the newer GPTL profiling functionality added by Pat Worley during the SEACISM project.
+  ! When GPTL profiling is enabled some of the below routines are used and others
+  ! are ifdef'ed out to allow GPTL-enabled versions to be used instead.
+  ! Currently, the old Glimmer 1.x profiling functionality does nothing more than
+  ! print the total run time, and should eventually be deprecated, at which point
+  ! the glide_profile.F90 and profile.F90 modules could be cleaned up.
 
 module glide_profile
 

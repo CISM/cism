@@ -169,6 +169,8 @@ contains
 
     function slap_solve (matrix, rhs, solution, options, workspace,err,niters, verbose)
 
+        use glide_types  ! only for HO_SPARSE parameter values
+
         !> Solves the slap linear system, and reports status information.
         !> This function returns an error code that should be zero if the
         !> call succeeded and nonzero if it failed.  No additional error codes
@@ -337,14 +339,13 @@ contains
 
         endif   ! check_symmetry
 
-!TODO - Case numbers are hardwired.  Change to SPARSE_SOLVER values?
-!       Note: This module cannot use SPARSE_SOLVER values in glimmer_sparse.F90 without circular dependency.
-!             Could define new SLAP_SOLVER options in this module.
-!       Or pass in which_ho_sparse?
- 
+
             select case(options%base%method)
 
-               case(1)   ! GMRES
+               ! Case values come from parameters defined in glide_types.F90.
+               ! (These parameter values are also used in glimmer_sparse.F90.)
+
+               case(HO_SPARSE_GMRES)   ! GMRES
 
                   if (verbose_slap) then
                      print*, 'Call dslugm (GMRES)'
@@ -360,7 +361,7 @@ contains
 
                   if (verbose_slap) print*, 'GMRES: iters, err =', niters, err
 
-                case(2)  ! PCG with incomplete Cholesky preconditioner 
+                case(HO_SPARSE_PCG_STANDARD)  ! PCG with incomplete Cholesky preconditioner 
 
                   if (verbose_slap) then
                      print*, 'Call dsiccg (PCG, incomplete Cholesky)'
@@ -378,7 +379,7 @@ contains
 
                   if (verbose_slap) print*, 'PCG_inch: iters, err =', niters, err
 
-               case default   ! Biconjugate gradient
+               case (HO_SPARSE_BICG)   ! Biconjugate gradient
 
                   if (verbose_slap) then
                      print*, 'Call dslucs (biconjugate gradient)'
@@ -392,6 +393,9 @@ contains
                               workspace%rwork, size(workspace%rwork), workspace%iwork, size(workspace%iwork))
 
                   if (verbose_slap) print*, 'BiCG: iters, err =', niters, err
+
+               case default
+                  call write_log('Unknown method passed to SLAP solver', GM_FATAL)
 
             end select   ! slap solver
 

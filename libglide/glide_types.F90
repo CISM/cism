@@ -708,7 +708,6 @@ module glide_types
     real(dp),dimension(:,:)  ,pointer :: diffu_y => null() 
     real(dp),dimension(:,:)  ,pointer :: total_diffu => null() !> total diffusivity
 
-    !TODO - Remove ubas and vbas? (since basal velocities are included in uvel and vvel)
     real(dp),dimension(:,:)  ,pointer :: ubas  => null()   !> 
     real(dp),dimension(:,:)  ,pointer :: ubas_tavg  => null()
     real(dp),dimension(:,:)  ,pointer :: vbas  => null()   !> 

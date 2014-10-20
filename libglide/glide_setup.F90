@@ -563,8 +563,6 @@ contains
     call GetValue(section,'topo_is_relaxed',model%options%whichrelaxed)
     call GetValue(section,'periodic_ew',model%options%periodic_ew)
     call GetValue(section,'sigma',model%options%which_sigma)
-
-    !TODO - Not sure if model%funits%ncfile is still needed
     call GetValue(section,'ioparams',model%funits%ncfile)
 
     ! Both terms 'hotstart' and 'restart' are supported in the config file, 
