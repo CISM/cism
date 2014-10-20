@@ -370,8 +370,8 @@ contains
     use glimmer_physcon, only: shci, coni, rhoi
     use glide_mask
     use glissade_enthalpy
-
-    use glide_grid_operators, only: stagvarb
+    use glissade_grid_operators, only: glissade_stagger
+    use glissade_masks, only: glissade_get_masks
 
     !TODO - Modify glissade_temp_driver to compute over locally owned cells only?
     !       This would make the module a bit cheaper but would require halo updates at the end.
@@ -380,8 +380,8 @@ contains
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-    type(glide_global_type),intent(inout) :: model       ! Ice model parameters.
-    integer,                intent(in)    :: whichtemp    ! Flag to choose method.
+    type(glide_global_type),intent(inout) :: model       ! Ice model parameters
+    integer,                intent(in)    :: whichtemp   ! Flag to choose method
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -401,6 +401,9 @@ contains
     real(dp) :: einit, efinal, delta_e, dTtop, dTbot
 
     real(dp) :: maxtemp, mintemp   ! max and min temps in column
+
+    integer, dimension(model%general%ewn,model%general%nsn) ::  &
+         ice_mask   ! = 1 where thck > thklim_temp, else = 0
 
     !WHL - debug
     logical, parameter:: verbose_temp = .false.
@@ -669,24 +672,28 @@ contains
                                model%temper%bmlt,         &
                                GLIDE_IS_FLOAT(model%geometry%thkmask))
 
-       !TODO - Use staggered scalar routine from glissade_grid_operators?
-       !       If so, stag_flag_in = 1?  (Ignore ice-free cells)
+       ! Interpolate basal temperature and pressure melting point onto velocity grid
+       !WHL - I replaced calls to stagvarb (an old Glide routine) with calls to glissade_stagger.
+       !       stagger_margin_in = 1 implies that ice-free cells (where the basal temperature has
+       !       no physical meaning) are not included in the average.
+       !      With stagvarb, values in ice-free cells are (erroneously) included.
 
-       ! Transform basal temperature and pressure melting point onto velocity grid
+       call glissade_get_masks(model%general%ewn,    model%general%nsn,           &
+                               model%geometry%thck,  model%geometry%topg,         &
+                               model%climate%eus,    model%numerics%thklim_temp,  &
+                               ice_mask)
 
-       call stagvarb(model%temper%temp(model%general%upn, 1:model%general%ewn, 1:model%general%nsn), &
-                     model%temper%stagbtemp ,&
-                     model%general%ewn, &
-                     model%general%nsn)
-       
-       call glissade_calcbpmp(model%general%ewn, model%general%nsn,  &
-                              model%geometry%thck,  &
-                              model%temper%bpmp)
+       call glissade_stagger(model%general%ewn,     model%general%nsn,  &
+                             model%temper%temp(model%general%upn,:,:),  &
+                             model%temper%stagbtemp(:,:),               &
+                             ice_mask(:,:),                             &
+                             stagger_margin_in = 1)
 
-       call stagvarb(model%temper%bpmp, &
-                     model%temper%stagbpmp ,&
-                     model%general%ewn, &
-                     model%general%nsn)
+       call glissade_stagger(model%general%ewn,     model%general%nsn,  &
+                             model%temper%bpmp(:,:),                    &
+                             model%temper%stagbpmp(:,:),                &
+                             ice_mask(:,:),                             &
+                             stagger_margin_in = 1)
 
    case(TEMP_STEADY)! do nothing
 
@@ -805,22 +812,28 @@ contains
                                       model%temper%bmlt,         &
                                       GLIDE_IS_FLOAT(model%geometry%thkmask))
 
-      ! Transform basal temperature and pressure melting point onto velocity grid
-      ! NOTE: Use glissade staggered scalare operator here?
+      ! Interpolate basal temperature and pressure melting point onto velocity grid
+       !WHL - Replaced calls to stagvarb (an old Glide routine) with calls to glissade_stagger.
+       !       stagger_margin_in = 1 implies that ice-free cells (where the basal temperature has
+       !       no physical meaning) are not included in the average.
+       !      With stagvarb, values in ice-free cells are (erroneously) included.
 
-      call stagvarb(model%temper%temp(model%general%upn, 1:model%general%ewn, 1:model%general%nsn), &
-                    model%temper%stagbtemp ,                                                        &
-                    model%general%  ewn,                                                            &
-                    model%general%  nsn)
-       
-      call glissade_calcbpmp(model%general%ewn, model%general%nsn,  &
-                             model%geometry%thck,  &
-                             model%temper%bpmp)
+       call glissade_get_masks(model%general%ewn,    model%general%nsn,           &
+                               model%geometry%thck,  model%geometry%topg,         &
+                               model%climate%eus,    model%numerics%thklim_temp,  &
+                               ice_mask)
 
-      call stagvarb(model%temper%bpmp,      &
-                    model%temper%stagbpmp,  &
-                    model%general%ewn,      &
-                    model%general%nsn)
+       call glissade_stagger(model%general%ewn,     model%general%nsn,  &
+                             model%temper%temp(model%general%upn,:,:),  &
+                             model%temper%stagbtemp(:,:),               &
+                             ice_mask(:,:),                             &
+                             stagger_margin_in = 1)
+
+       call glissade_stagger(model%general%ewn,     model%general%nsn,  &
+                             model%temper%bpmp(:,:),                    &
+                             model%temper%stagbpmp(:,:),                &
+                             ice_mask(:,:),                             &
+                             stagger_margin_in = 1)
 
     end select
 
