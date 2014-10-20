@@ -33,7 +33,7 @@
 #include "glide_mask.inc"
 #include "config.inc"
 
-!TODO - Get rid of the globalIDs option.
+!NOTE - Get rid of the globalIDs option.
 !       Make it the default for Trilinos, else not used.
 
 !GlobalIDs are for distributed TRILINOS variable IDs
@@ -41,7 +41,7 @@
 #define globalIDs
 #endif
 
-!TODO:  In this module there are chunks of code that are used more than once, for Picard as well as JFNK.
+!NOTE:  In this module there are chunks of code that are used more than once, for Picard as well as JFNK.
 !       It would be better to combine these chunks of code into subroutines that can be called
 !        from multiple places in the code--or even better, to remove the extra chunks of code
 !        if they are no longer needed.
@@ -208,7 +208,7 @@ subroutine glam_velo_init( ewn,   nsn,   upn,    &
 
     ! p1 = -1/n   - used with rate factor in eff. visc. def.
     ! p2 = (1-n)/2n   - used with eff. strain rate in eff. visc. def. 
-    ! p3 = (1-n)/n   !TODO - Remove p3?  It is never used.
+    ! p3 = (1-n)/n   !NOTE - Remove p3?  It is never used.
 
     p1 = -1.d0 / real(gn,dp)
     p2 = (1.d0 - real(gn,dp)) / (2.d0 * real(gn,dp))
@@ -280,7 +280,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   integer, intent(in) :: ewn, nsn, upn
   integer, dimension(:,:),   intent(inout)  :: umask
 
-  !TODO - Make umask intent in?
+  !NOTE - Make umask intent in?
   ! NOTE: 'inout' status to 'umask' should be changed to 'in' at some point, 
   ! but for now this allows for some minor internal hacks to CISM-defined mask  
 
@@ -338,15 +338,15 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
  call t_startf("PICARD_pre")
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
-!TODO - Can we get rid of whatsparse and use only whichsparse?
+!NOTE - Can we get rid of whatsparse and use only whichsparse?
   whatsparse = whichsparse
 
   ! assign value for nonlinear iteration flag
   nonlinear = whichnonlinear
 
-!TODO - Note: d2usrfdew2 and d2usrfdns2 are needed at all locally owned velocity points.
+!NOTE - Note: d2usrfdew2 and d2usrfdns2 are needed at all locally owned velocity points.
 !       I am not sure where and why the upwind 2nd derivatives are computed.
-!TODO MJH These 2nd derivatives are already calculated in subroutine geometry_derivs(model) in glide_thck.  
+!NOTE MJH These 2nd derivatives are already calculated in subroutine geometry_derivs(model) in glide_thck.  
 !These calls could either be deleted and just use those previous calculations, or possibly use that module here.  
 !First it needs to be determined that they are making the same (or not) calculation!
 
@@ -366,7 +366,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
 !!!!!!!!!! Boundary conditions HACKS section !!!!!!!!!!!!!
 
-!TODO - Remove this commented-out code if no longer needed.
+!NOTE - Remove this commented-out code if no longer needed.
 
 !! A hack of the boundary condition mask needed for the Ross Ice Shelf exp.
 !! The quick check of whether or not this is the Ross experiment is to look
@@ -574,7 +574,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 ! jfl 20100412: residual for v comp: Fv= A(u^k-1,v^k-1)v^k-1 - b(u^k-1,v^k-1)  
 !==============================================================================
 
-    !TODO - Is L2square summed correctly in res_vect?
+    !NOTE - Is L2square summed correctly in res_vect?
     !JEFF - The multiplication Ax is done across all nodes, but Ax - b is only 
     !       computed locally, so L2square needs to be summed.
  call t_startf("PICARD_res_vect")
@@ -767,7 +767,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
 
     if (this_rank == 0) then
 
-        !TODO - Does this comment still apply, or is parallel_single defunct?
+        !NOTE - Does this comment still apply, or is parallel_single defunct?
 
         ! Can't use main_task flag because main_task is true for all processors in case of parallel_single
         ! output the iteration status: iteration number, max residual, and location of max residual
@@ -801,7 +801,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   call ghost_postprocess( ewn, nsn, upn, uindx, uk_1, vk_1, &
                           ughost, vghost )
 
-!TODO - I don't think uflx and vflx are needed; they are not used by the remapping subroutine.
+!NOTE - I don't think uflx and vflx are needed; they are not used by the remapping subroutine.
 
   do ns = 1+staggered_lhalo, size(umask,2)-staggered_uhalo
       do ew = 1+staggered_lhalo, size(umask,1)-staggered_uhalo
@@ -820,7 +820,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   !call staggered_parallel_halo(uvel) (called earlier)
   !call staggered_parallel_halo(vvel) (called earlier)
 
-!TODO - Do we need halo updates for btraction and efvs?
+!NOTE - Do we need halo updates for btraction and efvs?
 !       I think we don't need an update for efvs, because it is already computed in a layer of halo cells.
 !       And I think we don't need an update for btraction, because it is computed in bodyset for all
 !        locally owned velocity points.
@@ -828,7 +828,7 @@ subroutine glam_velo_solver(ewn,      nsn,    upn,  &
   call parallel_halo(efvs)
   call staggered_parallel_halo(btraction)
 
-  !TODO - Pretty sure we don't need these updates; uflx and vflx are not used elsewhere.
+  !NOTE - Pretty sure we don't need these updates; uflx and vflx are not used elsewhere.
   call staggered_parallel_halo(uflx)
   call staggered_parallel_halo(vflx)
 
@@ -866,7 +866,7 @@ end subroutine glam_velo_solver
 
 !***********************************************************************
 
-!TODO - Remove umask from argument list; it's the same as model%geometry%stagmask
+!NOTE - Remove umask from argument list; it's the same as model%geometry%stagmask
 
 subroutine JFNK_velo_solver  (model,umask)
 
@@ -880,7 +880,7 @@ subroutine JFNK_velo_solver  (model,umask)
 
   type(glide_global_type) ,target, intent(inout) :: model
 
-  !TODO - Can we make the mask intent in?
+  !NOTE - Can we make the mask intent in?
 
   integer, dimension(:,:),   intent(inout)  :: umask  !*SFP* replaces the prev., internally calc. mask
                                                       ! ... 'inout' status allows for a minor alteration
@@ -931,7 +931,7 @@ subroutine JFNK_velo_solver  (model,umask)
 
 ! currently needed to assess whether basal traction is updated after each nonlinear iteration
 !  integer :: k 
-!TODO: "k" is not needed in order to calculate basal traction; note that new subroutine calls
+!NOTE: "k" is not needed in order to calculate basal traction; note that new subroutine calls
 ! at lines 1175 below pass in a dummy value for this variable. In the long run, we can likely remove
 ! this argument altogether - it was originally passed in to aid in stabilization
 ! of the ice shelf boundary conditions but may no longer be needed (grep for the variable "cc" within
@@ -984,13 +984,13 @@ subroutine JFNK_velo_solver  (model,umask)
   efvs => model%stress%efvs(:,:,:)
 
   ! RN_20100125: assigning value for whatsparse, which is needed for putpcgc()
-!TODO - Can we use just one variable for each of these options?
+!NOTE - Can we use just one variable for each of these options?
   whatsparse = whichsparse
   nonlinear = whichnonlinear
 
-!TODO - Much of the following code is a copy of code above.  
+!NOTE - Much of the following code is a copy of code above.  
 !       Can we get by with a single copy?  I'm thinking of operations that are done once, before the iterations begin.
-!TODO MJH: can we put these derivative calculations in the diagnostic solve part where the other derivatives are calculated?
+!NOTE MJH: can we put these derivative calculations in the diagnostic solve part where the other derivatives are calculated?
 
   ! *SFP* geometric 1st deriv. for generic input variable 'ipvr',
   !      output as 'opvr' (includes 'upwinding' for boundary values)
@@ -1061,7 +1061,7 @@ subroutine JFNK_velo_solver  (model,umask)
   endif
 #endif
 
-!TODO This is the end of the block of code that is (mostly) cut and pasted from above.
+!NOTE This is the end of the block of code that is (mostly) cut and pasted from above.
 
 !==============================================================================
 ! RN_20100126: End of the block
@@ -1207,7 +1207,7 @@ end if
      print*,"Solution vector norm after JFNK = " ,sqrt(DOT_PRODUCT(xk_1,xk_1))
   end if
 
-!TODO - The remaining code in this subroutine is cut and pasted from above.
+!NOTE - The remaining code in this subroutine is cut and pasted from above.
 !       Can we encapsulate this repeated code in a subroutine?
 
 !       I don't think uflx and vflux are needed.
@@ -1249,7 +1249,7 @@ end if
   call staggered_parallel_halo(uvel)
   call staggered_parallel_halo(vvel)
 
-!TODO - Not sure we need halo updates for efvs, btraction, uflx, vflx
+!NOTE - Not sure we need halo updates for efvs, btraction, uflx, vflx
 !       I think we do not need an update for efvs, because it is already computed in a layer of halo cells.
 !       And I think we don't need an update for btraction, because it is computed in bodyset for all
 !        locally owned velocity points.
@@ -1357,7 +1357,7 @@ subroutine findefvsstr(ewn,  nsn, upn,       &
 
      end if
 
-!TODO - Can remove the 'if' becuase Glam required temp and flwa on staggered vertical grid.
+!NOTE - Can remove the 'if' becuase Glam required temp and flwa on staggered vertical grid.
 
      if (size(flwa,1)==upn-1) then   ! temperature and flwa live on staggered vertical grid
 
@@ -1620,7 +1620,7 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask, return_global_IDs)
      return_globalIDs = .true.
   endif
 
-!TODO - Make this if which_ho_sparse = 4 instead (or ifdef Trilinos?)
+!NOTE - Make this if which_ho_sparse = 4 instead (or ifdef Trilinos?)
 #ifdef globalIDs
   ! Returns in (:,:,1) the global ID bases for each grid point, including 
   ! halos and those without ice.
@@ -1633,7 +1633,7 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask, return_global_IDs)
 !   print*, 'In getlocationarray, ifdef globalIDs' 
 !   print*, 'return_globalIDs =', return_globalIDs
 
-!LOOP TODO - Not sure if these loops are correct.
+!LOOP NOTE - Not sure if these loops are correct.
 !       Is the input mask on the scalar (ice) grid? 
 !SFP: Need to check indices here - getlocationarray should exist on the velocity grid, not the thickness (scalar) grid
 
@@ -1669,7 +1669,7 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask, return_global_IDs)
         end do
      end do
 
-!TODO - Clean this up, so we always use this procedure when solving without Trilinos.
+!NOTE - Clean this up, so we always use this procedure when solving without Trilinos.
 
   else  ! use the procedure below under #else
 
@@ -1726,7 +1726,7 @@ function getlocationarray(ewn, nsn, upn, mask, indxmask, return_global_IDs)
 end function getlocationarray
 
 !***********************************************************************
-!TODO - Remove function slapsolvstr?  I think it's no longer used.
+!NOTE - Remove function slapsolvstr?  I think it's no longer used.
 
 function slapsolvstr(ewn, nsn, upn, &
                      vel, uindx, its, answer )
@@ -2197,7 +2197,7 @@ end subroutine reset_effstrmin
 
 !***********************************************************************
 
-!TODO - There is more repeated code here.
+!NOTE - There is more repeated code here.
 
  subroutine calc_F (xtp, F, xk_size, c_ptr_to_object, ispert) bind(C, name='calc_F')
 
@@ -2445,7 +2445,7 @@ end subroutine reset_effstrmin
 
     F(pcgsize(1)+1:2*pcgsize(1)) = vectp(1:pcgsize(1)) 
 
-!TODO: Older code that doesn't seem to be needed anymore? Note that "res_vect_jfnk" sits inside of "res_vect.F90"
+!NOTE: Older code that doesn't seem to be needed anymore? Note that "res_vect_jfnk" sits inside of "res_vect.F90"
 ! and should NOT be removed. It is still useful, as per below where it can be used during debug/perf. testing to
 ! output the 3d residual fields.
 !
@@ -2652,8 +2652,8 @@ subroutine mindcrshstr(pt,whichresid,vel,counter,resid)
 
   real(dp), intent(out) :: resid
 
-!TODO - critlimit is never used
-!TODO - SCALING - Does 'small' need a velocity scale factor?
+!NOTE - critlimit is never used
+!NOTE - SCALING - Does 'small' need a velocity scale factor?
   real(dp), parameter :: ssthres = 5.d0 * pi / 6.d0, &
                          critlimit = 10.d0 / (scyr * vel0), &
                          small = 1.0d-16
@@ -2841,7 +2841,7 @@ end subroutine mindcrshstr
 
 !***********************************************************************
 
-!TODO - There are two mindcrshstr subroutines.  Remove one of them?
+!NOTE - There are two mindcrshstr subroutines.  Remove one of them?
 
 function mindcrshstr2(pt,whichresid,vel,counter,resid)
 
@@ -3236,7 +3236,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
                        whichbabc, assembly )
         enddo  ! upn
         ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        !TODO - Not sure COMP_DOMAIN_BND condition is needed
+        !NOTE - Not sure COMP_DOMAIN_BND condition is needed
       elseif ( GLIDE_IS_CALVING( mask(ew,ns) ) .and. .not. &
                comp_bound .and. .not. &
                GLIDE_IS_DIRICHLET_BOUNDARY(mask(ew,ns)) .and. .not. &
@@ -3283,7 +3283,7 @@ subroutine findcoefstr(ewn,  nsn,   upn,            &
         enddo
         lateralboundry = .false.
         ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        !TODO - Here we deal with cells on the computational domain boundary.
+        !NOTE - Here we deal with cells on the computational domain boundary.
         !       Currently the velocity is always set to a specified value on this boundary.
         !       With open (non-Dirichlet) BCs, we might want to solve for these velocities,
         !        using the code above to compute the matrix elements.
@@ -3429,7 +3429,7 @@ subroutine bodyset(ew,  ns,  up,           &
 
         end if
 
-!TODO: conduct realistic test cases with and w/o this hack
+!NOTE: conduct realistic test cases with and w/o this hack
 !        !! Hack to avoid bad sfc and basal bc normal vectors !!
 !        slopex = 0.d0; slopey = 0.d0
 
@@ -3554,7 +3554,7 @@ subroutine bodyset(ew,  ns,  up,           &
     ! put the coeff. for the b.c. equation in the same place as the prev. equation
     ! (w.r.t. cols), on a new row ...
 
-!TODO: is above comment correct or is this now just a normal scatter of coeffs. into the matrix?
+!NOTE: is above comment correct or is this now just a normal scatter of coeffs. into the matrix?
     call fillsprsebndy( g, loc2plusup(1), loc_latbc, up, normal, pt )
 
 
@@ -5094,7 +5094,7 @@ function indshift( which, ew, ns, up, ewn, nsn, upn, loc_array, thck )
   ! extracted near domain boundaries. NOTE that this contains duplication of some of the code in the 
   ! subroutine "getlatboundinfo", and the two could be combined at some point.
 
-!TODO: Function indshift does not use loc_array.  Remove from argument list?
+!NOTE: Function indshift does not use loc_array.  Remove from argument list?
 
   implicit none
 
@@ -5128,7 +5128,7 @@ function indshift( which, ew, ns, up, ewn, nsn, upn, loc_array, thck )
       upshift = 0
   end if
 
-  !TODO - Remove hardwiring of case numbers?
+  !NOTE - Remove hardwiring of case numbers?
   select case(which)
 
       case(0)   !! internal to lateral boundaries; no shift to ew,ns indices
@@ -5234,7 +5234,7 @@ subroutine geom2derscros(ewn,  nsn,   &
 
   dewdns = dew*dns
  
-! TODO: Check this over and if ok remove old code !!
+! NOTE: Check this over and if ok remove old code !!
 !  *SFP* OLD method; replaced (below) w/ loops and logic for compatibility w/ gnu compilers
 !  where (stagthck /= 0.d0)
 !    opvrewns = (eoshift(eoshift(ipvr,1,0.d0,2),1,0.d0,1) + ipvr   &
@@ -5299,7 +5299,7 @@ subroutine geom2ders(ewn,    nsn,  &
 
   ! *** 2nd order boundaries using upwinding
 
-!TODO - If nhalo = 2, then I'm not clear on why upwinding is needed.
+!NOTE - If nhalo = 2, then I'm not clear on why upwinding is needed.
 !       Where are these values used in the computation?
 !       I don't think they should be used for any interior halo cells.
 !       Are they needed at the global boundaries?  If so, then need to use the correct indices for global boundaries.
@@ -5616,7 +5616,7 @@ end subroutine putpcgc
           integer :: curdiff, mindiff
           integer :: lindex
 
-          !LOOP TODO: Please confirm that these are the correct loop bounds.
+          !LOOP NOTE: Please confirm that these are the correct loop bounds.
          ! loc2_array-based search
           minew = 1
           minns = 1
@@ -5697,7 +5697,7 @@ function scalebasalbc( coeffblock, bcflag, lateralboundry, beta, efvs )
   logical :: lateralboundry
   real(dp), dimension(:,:,:), intent(in) :: coeffblock 
   real(dp), dimension(:,:,:), intent(in) :: efvs       
-  real(dp), intent(in) :: beta   !TODO - Remove? Commented out in computation below
+  real(dp), intent(in) :: beta   !NOTE - Remove? Commented out in computation below
 
   real(dp) :: scale, scalebasalbc 
 
@@ -5945,7 +5945,7 @@ real(dp) :: scale_ghosts = 0.0d0
 !         endif
 !      end do
 ! when the combined version is used, convergence wrong
-!TODO (KJE) what is the comment above. What is wrong?
+!NOTE (KJE) what is the comment above. What is wrong?
 
       do i = 1, nu2
          if (g_flag(i) == 0) then

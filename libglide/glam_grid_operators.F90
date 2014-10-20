@@ -70,7 +70,7 @@ contains
                        model%numerics%thklim, &
                        model%geometry%thkmask)
 
-!TODO: Should these calls to stagvarb be replaced by calls to df_field_2d_staggered?    
+!NOTE: Should these calls to stagvarb be replaced by calls to df_field_2d_staggered?    
     call stagvarb(model%geometry%lsrf, &
                   model%geomderv%staglsrf,&
                   model%general%ewn, &
@@ -345,7 +345,7 @@ contains
             end do
         end do
 
-        !TODO - Remove this chunk of commented-out code
+        !NOTE - Remove this chunk of commented-out code
 !               !Deal with periodic boundary conditions.  We will do so by
 !               !providing another set of values at the end of each dimension
 !               !that contains the derivative of the value off the edge of the
@@ -375,7 +375,7 @@ contains
 
 !----------------------------------------------------------------------------
 
-        !TODO - Remove subroutine df_field_3d?  It is never called.
+        !NOTE - Remove subroutine df_field_3d?  It is never called.
  
     subroutine df_field_3d(f,                                  &
                            deltax,      deltay,      deltaz,   &
@@ -470,7 +470,7 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !TODO - Remove subroutine df_field_3d_stag?  It is never called.
+    !NOTE - Remove subroutine df_field_3d_stag?  It is never called.
 
     subroutine df_field_3d_stag(f,                                  &
                                 deltax,      deltay,      deltaz,   &
@@ -538,7 +538,7 @@ contains
 
 !----------------------------------------------------------------------------
 
-    !TODO - Check the rest of this module for unused functions we might want to remove
+    !NOTE - Check the rest of this module for unused functions we might want to remove
 
     !> Computes derivative with respect to x at a given point.
     !> Applies periodic boundary conditions if needed.
@@ -1365,7 +1365,7 @@ contains
     end function whichway
 
 !----------------------------------------------------------------------------
-    !TODO: Remove this commented-out code?
+    !NOTE: Remove this commented-out code?
 
 !       real(dp), dimension(:,:), intent(in) :: f
 !       real(dp), dimension(:,:), intent(out) :: d2fdx2, d2fdy2

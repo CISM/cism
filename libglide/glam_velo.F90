@@ -31,7 +31,7 @@
 #include "glide_nan.inc"
 #include "glide_mask.inc"
 
-!TODO - What is shapedbg?
+!NOTE - What is shapedbg?
 #define shapedbg(x) write(*,*) "x", shape(x)
 
 module glam_velo
@@ -70,7 +70,7 @@ contains
         ! Velocity prep; compute geometry info.
         !-------------------------------------------------------------------
 
-        !TODO - The next chunk of code needs work.  Several calls are repeated.
+        !NOTE - The next chunk of code needs work.  Several calls are repeated.
         !       We should work out which calls are actually needed.
 
         ! ------------------------------------------------------------------------ 
@@ -78,11 +78,11 @@ contains
         ! calculate derivatives that may be needed for the velocity solve.
         ! ------------------------------------------------------------------------     
 
-        !TODO - Make sure these geometry derivs are computed everywhere they are needed
+        !NOTE - Make sure these geometry derivs are computed everywhere they are needed
         !       (all locally owned velocity points?)
 
 
-        !TODO - The subroutine glam_geometry_derivs calls subroutine stagthickness to compute stagthck.
+        !NOTE - The subroutine glam_geometry_derivs calls subroutine stagthickness to compute stagthck.
         !       Similarly for dthckdew/ns and dusrfdew/ns
         !       I don't know why we need to call the next three subroutines as well as glam_geometry_derivs.
         !       This calculation of stagthck differs from that in glam_geometry_derivs which calls stagthickness() 
@@ -102,7 +102,7 @@ contains
         ! first have had their global halos updated. As w/ above calls to halo updates, these may be better 
         ! placed elsewhere. The only call originally here was the one to calc stagthck.
 
-        !TODO - Should we replace these with calls to df_field_2d_staggered?
+        !NOTE - Should we replace these with calls to df_field_2d_staggered?
 
         call stagvarb(model%geometry%usrf, model%geomderv%stagusrf,&
                       model%general%ewn,   model%general%nsn)
@@ -132,7 +132,7 @@ contains
         !you are not populating the stag field global halos with bad information that may have been sitting in the 
         !associated non-stag field halos in the case that you forgot to update them. Maybe?
 
-        !TODO - Not sure halo updates are needed for dusrfdew, etc.
+        !NOTE - Not sure halo updates are needed for dusrfdew, etc.
         !Halo updates required for inputs to glide_stress?
         call staggered_parallel_halo (model%geomderv%dusrfdew)
         call staggered_parallel_halo (model%geomderv%dusrfdns)
@@ -141,7 +141,7 @@ contains
         ! call parallel_halo(model%geometry%thkmask) in earlier glide_set_mask call
 
         ! Compute the new geometry derivatives for this time step
-        ! TODO Merge glam_geometry_derivs with the above calculation.
+        ! NOTE Merge glam_geometry_derivs with the above calculation.
 
         !SFP: For some reason, this next call IS needed. It does not affect the results of the periodic ismip-hom test case either
         ! way (that is, if it is active or commented out), or the dome test case. But for some reason, if it is not active, it
@@ -154,7 +154,7 @@ contains
 
         !WHL - This is the end of the geometry calculations that need to be streamlined.
 
-        !TODO - Verify that glide_set_mask works correctly when the input field is on the velo grid.
+        !NOTE - Verify that glide_set_mask works correctly when the input field is on the velo grid.
         !       Would be safer to call a set_mask_staggered subroutine?
 
         !Compute the "geometry mask" (type of square) for the staggered grid
@@ -233,7 +233,7 @@ contains
         else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
 
            ! noxsolve could eventually go here 
-           !TODO - Remove model%geometry%stagmask from argument list; just pass in model
+           !NOTE - Remove model%geometry%stagmask from argument list; just pass in model
            !       (model%geometry%stagmask used to be called geom_mask_stag, which was not part of model derived type)
 
            call t_startf('JFNK_velo_solver')
