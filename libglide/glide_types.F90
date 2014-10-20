@@ -184,6 +184,7 @@ module glide_types
   integer, parameter :: HO_RESID_MAXU_NO_UBAS = 1
   integer, parameter :: HO_RESID_MEANU = 2
   integer, parameter :: HO_RESID_L2NORM = 3
+  integer, parameter :: HO_RESID_L2NORM_RELATIVE = 4
 
   integer, parameter :: HO_SPARSE_PCG_INCH = -1
   integer, parameter :: HO_SPARSE_BICG = 0
@@ -469,6 +470,7 @@ module glide_types
     !> \item[1] maxval ignoring basal velocity 
     !> \item[2] mean value
     !> \item[3] L2 norm of system residual, Ax-b=resid
+    !> \item[4] L2 norm of system residual relative to rhs, |Ax-b|/|b|
     !> \begin{description}
 
     integer :: which_ho_sparse = 0

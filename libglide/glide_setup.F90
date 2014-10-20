@@ -756,11 +756,12 @@ contains
          'use standard Picard iteration  ', &
          'use JFNK                       '/)
 
-    character(len=*), dimension(0:3), parameter :: ho_whichresid = (/ &
-         'max value               ', &
-         'max value ignoring ubas ', &
-         'mean value              ', &
-         'L2 norm of Ax-b = resid ' /)
+    character(len=*), dimension(0:4), parameter :: ho_whichresid = (/ &
+         'max value                   ', &
+         'max value ignoring ubas     ', &
+         'mean value                  ', &
+         'L2 norm of Ax-b = resid     ', &
+         'relative L2 norm, |Ax-b|/|b|' /)
 
     character(len=*), dimension(-1:4), parameter :: ho_whichsparse = (/ &
          'PCG with incomplete Cholesky preconditioner', &

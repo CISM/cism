@@ -167,7 +167,6 @@
              val = Auv(m,k,i,j)
              if (val /= 0.d0) then
                 ct = ct + 1
-                print*, 'ct =', ct
                 matrix%row(ct) = 2*rowA - 1
                 matrix%col(ct) = 2*colA
                 matrix%val(ct) = val
@@ -538,8 +537,9 @@
 
 !****************************************************************************
 
-  subroutine slap_compute_residual_vector(matrix,    answer,   rhs, &
-                                          resid_vec, L2_norm)
+  subroutine slap_compute_residual_vector(matrix,  answer,    &
+                                          rhs,     resid_vec, &
+                                          L2_norm, L2_norm_relative)
 
     ! Compute the residual vector Ax - b and its L2 norm.
     ! This subroutine assumes that the matrix is stored in triad (row/col/val) format.
@@ -556,9 +556,14 @@
        resid_vec          ! residual vector
 
     real(dp), intent(out) ::    &
-       L2_norm             ! L2 norm of residual vector
+       L2_norm            ! L2 norm of residual vector, |Ax - b|
+  
+    real(dp), intent(out), optional ::    &
+       L2_norm_relative   ! L2 norm of residual vector relative to rhs, |Ax - b| / |b|
 
     integer :: n, r, c
+    
+    real(dp) :: L2_norm_rhs  ! L2 norm of rhs vector, |b|
 
     resid_vec(:) = 0.d0
 
@@ -575,6 +580,24 @@
     enddo
 
     L2_norm = sqrt(L2_norm)
+
+    if (present(L2_norm_relative)) then
+
+       L2_norm_rhs = 0.d0
+
+       do r = 1, matrix%order
+          L2_norm_rhs = L2_norm_rhs + rhs(r)*rhs(r)
+       enddo
+
+       L2_norm_rhs = sqrt(L2_norm_rhs)
+
+       if (L2_norm_rhs > 0.d0) then
+          L2_norm_relative = L2_norm / L2_norm_rhs
+       else
+          L2_norm_relative = 0.d0
+       endif
+
+    endif  ! present(L2_norm_relative)
 
   end subroutine slap_compute_residual_vector
 

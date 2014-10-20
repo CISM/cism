@@ -751,8 +751,10 @@
 
     real(dp) :: &
        resid_velo,          & ! quantity related to velocity convergence
-       L2_norm,             & ! L2 norm of residual
-       L2_target,           & ! nonlinear convergence target   !TODO - Make sure this is set correctly
+       L2_norm,             & ! L2 norm of residual, |Ax - b|
+       L2_target,           & ! nonlinear convergence target for residual
+       L2_norm_relative,    & ! L2 norm of residual relative to rhs, |Ax - b| / |b|
+       L2_target_relative,  & ! nonlinear convergence target for relative residual
        err,                 & ! solution error from sparse_easy_solve
        outer_it_criterion,  & ! current value of outer (nonlinear) loop converence criterion
        outer_it_target        ! target value for outer-loop convergence
@@ -1597,6 +1599,8 @@
        print *, ' '
        if (whichresid == HO_RESID_L2NORM) then  ! use L2 norm of residual
           print *, 'iter #     resid (L2 norm)       target resid'
+       elseif (whichresid == HO_RESID_L2NORM_RELATIVE) then  ! relative residual, |Ax-b|/|b|
+          print *, 'iter #     resid, |Ax-b|/|b|     target resid'
        else                                     ! residual based on velocity
           print *, 'iter #     velo resid            target resid'
        end if
@@ -1609,9 +1613,15 @@
 
     counter = 0
     resid_velo = 1.d0
+
     L2_norm   = 1.0d20      ! arbitrary large value
-    L2_target = 1.0d-4      !TODO - Is this the best value?  
-                            ! Should it stay fixed during the outer loop, or should it evolve?
+    L2_target = 1.0d-4      
+
+    !WHL: For standard test cases (dome, circular shelf), a relative target of 1.d-7 is 
+    !     roughly as stringent as an absolute target of 1.d-4.
+    !       
+    L2_norm_relative = 1.0d20
+    L2_target_relative = 1.0d-7
 
     outer_it_criterion = 1.0d10   ! guarantees at least one loop
     outer_it_target    = 1.0d-12 
@@ -2311,6 +2321,7 @@
           resid_u_2d(:,:) = 0.d0
           resid_v_2d(:,:) = 0.d0
           L2_norm = 0.d0   ! to force convergence on first step
+          L2_norm_relative = 0.d0
 
        elseif (whichsparse == HO_SPARSE_PCG_STANDARD .or.   &
                whichsparse == HO_SPARSE_PCG_CHRONGEAR) then   ! native PCG solver
@@ -2335,7 +2346,7 @@
                                              bu_2d,       bv_2d,         &
                                              uvel_2d,     vvel_2d,       &
                                              resid_u_2d,  resid_v_2d,    &
-                                             L2_norm)
+                                             L2_norm,     L2_norm_relative)
              call t_stopf('glissade_resid_vec')
 
              if (verbose .and. main_task) then
@@ -2389,7 +2400,7 @@
                                              bu,          bv,            &
                                              uvel,        vvel,          &
                                              resid_u,     resid_v,       &
-                                             L2_norm)
+                                             L2_norm,     L2_norm_relative)
              call t_stopf('glissade_resid_vec')
 
              !------------------------------------------------------------------------
@@ -2457,7 +2468,7 @@
                                              bu_2d,       bv_2d,         &
                                              uvel_2d,     vvel_2d,       &
                                              resid_u_2d,  resid_v_2d,    &
-                                             L2_norm)
+                                             L2_norm,     L2_norm_relative)
              call t_stopf('glissade_resid_vec')
 
              !------------------------------------------------------------------------
@@ -2515,7 +2526,7 @@
                                              bu,          bv,            &
                                              uvel,        vvel,          &
                                              resid_u,     resid_v,       &
-                                             L2_norm)
+                                             L2_norm,     L2_norm_relative)
              call t_stopf('glissade_resid_vec')
 
              !------------------------------------------------------------------------
@@ -2613,8 +2624,9 @@
           !------------------------------------------------------------------------
 
           call t_startf('glissade_slap_resid_vec')
-          call slap_compute_residual_vector(matrix,    answer,   rhs,  &
-                                            resid_vec, L2_norm)
+          call slap_compute_residual_vector(matrix,  answer,    &
+                                            rhs,     resid_vec, &
+                                            L2_norm, L2_norm_relative)
           call t_stopf('glissade_slap_resid_vec')
 
           if (verbose_residual .and. main_task) then
@@ -2661,9 +2673,6 @@
           call t_stopf('glissade_slap_post')
 
        endif   ! whichsparse 
-
-       !TODO - For 2D case, check the 2D residual velocity; move 3D velocity fill
-       !       after the outer loop.
 
        if (solve_2d) then
 
@@ -2738,25 +2747,11 @@
 
        if (main_task) then
           if (whichresid == HO_RESID_L2NORM) then
-             if (verbose) then
-!                print*, ' '
-!                print*, 'Using L2 norm convergence criterion'
-                print*, 'iter#, L2 norm, L2 target:', counter, L2_norm, L2_target
-             else   ! standard short message
-                print '(i4,2g20.6)', counter, L2_norm, L2_target
-             endif
-             !write(message,'(i4,3g20.6)') counter, L2_norm, L2_target
-             !call write_log (message)
+             print '(i4,2g20.6)', counter, L2_norm, L2_target
+          elseif (whichresid == HO_RESID_L2NORM_RELATIVE) then
+             print '(i4,2g20.6)', counter, L2_norm_relative, L2_target_relative
           else
-             if (verbose) then
-!                print*, ' '
-!                print*, 'Using velocity residual convergence criterion'
-                print*, 'iter#, resid velo, resid target:', counter, resid_velo, resid_target
-             else
-                print '(i4,2g20.6)', counter, resid_velo, resid_target
-             endif
-             !write(message,'(i4,2g20.6)') counter, resid_velo, resid_target
-             !call write_log (message)
+             print '(i4,2g20.6)', counter, resid_velo, resid_target
           end if
        endif
 
@@ -2766,7 +2761,10 @@
 
        if (whichresid == HO_RESID_L2NORM) then
           outer_it_criterion = L2_norm
-          outer_it_target = L2_target      ! L2_target is currently set to 1.d-4 and held constant
+          outer_it_target = L2_target           ! L2_target is currently set to 1.d-4 and held constant
+       elseif (whichresid == HO_RESID_L2NORM_RELATIVE) then
+          outer_it_criterion = L2_norm_relative
+          outer_it_target = L2_target_relative  ! L2_target_relative is currently set to 1.d-7 and held constant
        else
           outer_it_criterion = resid_velo
           outer_it_target = resid_target   ! resid_target is currently a parameter = 1.d-4  
@@ -7014,7 +7012,7 @@
                                         bu,          bv,            &
                                         uvel,        vvel,          &
                                         resid_u,     resid_v,       &
-                                        L2_norm)
+                                        L2_norm,     L2_norm_relative)
 
     ! Compute the residual vector Ax - b and its L2 norm.
     ! This subroutine assumes that the matrix is stored in structured (x/y/z) format.
@@ -7048,9 +7046,14 @@
        resid_v
 
     real(dp), intent(out) ::    &
-       L2_norm             ! L2 norm of residual vector
+       L2_norm             ! L2 norm of residual vector, |Ax - b|
 
-    integer :: i, j, k, iA, jA, kA, m 
+    real(dp), intent(out), optional ::    &
+       L2_norm_relative    ! L2 norm of residual vector relative to rhs, |Ax - b| / |b|
+
+    integer :: i, j, k, iA, jA, kA, m
+
+    real(dp) :: L2_norm_rhs   ! L2 norm of rhs vector, |b|
 
     ! Compute u and v components of A*x
 
@@ -7120,7 +7123,6 @@
     enddo        ! j
 
     ! Take global sum, then take square root
-
     L2_norm = parallel_reduce_sum(L2_norm)
     L2_norm = sqrt(L2_norm)
 
@@ -7132,6 +7134,32 @@
        print*, 'u,  v :', uvel(k,i,j), vvel(k,i,j)
        print*, 'bu, bv:', bu(k,i,j), bv(k,i,j)
        print*, 'resid_u, resid_v:', resid_u(k,i,j), resid_v(k,i,j)
+    endif
+
+    if (present(L2_norm_relative)) then   ! compute L2_norm relative to rhs
+
+       L2_norm_rhs = 0.d0
+
+       do j = nhalo+1, ny-nhalo
+       do i = nhalo+1, nx-nhalo
+          if (active_vertex(i,j)) then
+             do k = 1, nz
+                L2_norm_rhs = L2_norm_rhs + bu(k,i,j)*bu(k,i,j) + bv(k,i,j)*bv(k,i,j)
+             enddo  ! k
+          endif     ! active vertex
+       enddo        ! i
+       enddo        ! j
+
+       ! Take global sum, then take square root
+       L2_norm_rhs = parallel_reduce_sum(L2_norm_rhs)
+       L2_norm_rhs = sqrt(L2_norm_rhs)
+
+       if (L2_norm_rhs > 0.d0) then
+          L2_norm_relative = L2_norm / L2_norm_rhs
+       else
+          L2_norm_relative = 0.d0
+       endif
+
     endif
 
   end subroutine compute_residual_vector_3d
@@ -7146,7 +7174,7 @@
                                         bu,          bv,            &
                                         uvel,        vvel,          &
                                         resid_u,     resid_v,       &
-                                        L2_norm)
+                                        L2_norm,     L2_norm_relative)
 
     ! Compute the residual vector Ax - b and its L2 norm.
     ! This subroutine assumes that the matrix is stored in structured (x/y/z) format.
@@ -7179,9 +7207,14 @@
        resid_v
 
     real(dp), intent(out) ::    &
-       L2_norm             ! L2 norm of residual vector
+       L2_norm             ! L2 norm of residual vector, |Ax - b|
+
+    real(dp), intent(out), optional ::    &
+       L2_norm_relative    ! L2 norm of residual vector relative to rhs, |Ax - b| / |b|
 
     integer :: i, j, iA, jA, m 
+
+    real(dp) :: L2_norm_rhs   ! L2 norm of rhs vector, |b|
 
     ! Compute u and v components of A*x
 
@@ -7252,6 +7285,30 @@
        print*, 'u,  v :', uvel(i,j), vvel(i,j)
        print*, 'bu, bv:', bu(i,j), bv(i,j)
        print*, 'resid_u, resid_v:', resid_u(i,j), resid_v(i,j)
+    endif
+
+    if (present(L2_norm_relative)) then   ! compute L2_norm relative to rhs
+
+       L2_norm_rhs = 0.d0
+
+       do j = nhalo+1, ny-nhalo
+       do i = nhalo+1, nx-nhalo
+          if (active_vertex(i,j)) then
+             L2_norm_rhs = L2_norm_rhs + bu(i,j)*bu(i,j) + bv(i,j)*bv(i,j)
+          endif     ! active vertex
+       enddo        ! i
+       enddo        ! j
+
+       ! Take global sum, then take square root
+       L2_norm_rhs = parallel_reduce_sum(L2_norm_rhs)
+       L2_norm_rhs = sqrt(L2_norm_rhs)
+
+       if (L2_norm_rhs > 0.d0) then
+          L2_norm_relative = L2_norm / L2_norm_rhs
+       else
+          L2_norm_relative = 0.d0
+       endif
+
     endif
 
   end subroutine compute_residual_vector_2d
@@ -7358,7 +7415,7 @@
 
 
    case default    ! max speed difference, including basal speeds
-                   ! (case HO_RESID_MAXU or HO_RESID_L2NORM)
+                   ! (case HO_RESID_MAXU or HO_RESID_L2NORM or HO_RESID_L2NORM_RELATIVE)
 
        ! Loop over locally owned vertices
 
