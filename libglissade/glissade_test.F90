@@ -23,10 +23,19 @@
 !   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!
+! This module holds some test subroutines for the Glissade dynamical core
+!
+! Author: William Lipscomb
+!         Los Alamos National Laboratory
+!         Group T-3, MS B216
+!         Los Alamos, NM 87545
+!         USA
+!         <lipscomb@lanl.gov>
+!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 module glissade_test
-
-  ! This module holds some test subroutines for the Glissade dynamical core
 
   use glimmer_global, only: dp
   use glimmer_log

@@ -23,11 +23,8 @@
 !   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
 !
-! This module contains routines for computing the ice velocity
-!  using the shallow-ice approximation.
+! This module contains routines for computing the ice velocity using the shallow-ice approximation.
 !
 ! It is roughly based on module glissade_velo_higher but is much simpler, 
 !  computing only the SIA velocities. 
@@ -42,14 +39,18 @@
 ! The function of the module is to allow a parallel SIA calculation using an 
 !  explicit transport scheme, instead of an implicit diffusion calculation as in Glide.
 ! This can also be done using glissade_velo_higher, setting which_ho_approx = HO_APPROX_SIA.
-!  This uses the same numerical techniques as the higher-order solve but with only the
-!  SIA matrix elements.  However, HO_APPROX_SIA is more expensive than HO_APPROX_LOCAL_SIA, 
+!  That method uses the same numerical techniques as the higher-order solve but with only the
+!  SIA matrix elements.  However, HO_APPROX_SIA is much more expensive than HO_APPROX_LOCAL_SIA,
 !  and is somewhat less accurate for the Halfar test problem.
 !
 ! Author: William Lipscomb
 !         Los Alamos National Laboratory
+!         Group T-3, MS B216
+!         Los Alamos, NM 87545
+!         USA
+!         <lipscomb@lanl.gov>
 !
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   module glissade_velo_sia
 

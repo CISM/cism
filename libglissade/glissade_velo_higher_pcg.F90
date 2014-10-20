@@ -23,6 +23,18 @@
 !   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!
+! This module contains subroutines called from glissade_velo_higher.F90 and used 
+! to solve the problem Ax = b using the preconditioned conjugate gradient method.
+!
+! Author: William Lipscomb
+!         Los Alamos National Laboratory
+!         Group T-3, MS B216
+!         Los Alamos, NM 87545
+!         USA
+!         <lipscomb@lanl.gov>
+!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #ifdef HAVE_CONFIG_H
 #include "config.inc"

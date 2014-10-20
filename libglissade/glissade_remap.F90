@@ -23,19 +23,21 @@
 !   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-!=======================================================================
-!BOP
 !
-! !MODULE: glissade_remap - horizontal transport via incremental remapping
-!
-! !DESCRIPTION:
-!
-! Transports quantities using the second-order conservative remapping
-! scheme developed by John Dukowicz and John Baumgardner (DB) and modified
-! for sea ice by William Lipscomb and Elizabeth Hunke.
+! This module contains subroutines to transport 2D fields using the second-order 
+! incremental remapping scheme developed by John Dukowicz and John Baumgardner 
+! (DB) and modified for sea ice by William Lipscomb and Elizabeth Hunke.
 !
 ! Further modified for ice sheets by William Lipscomb.
+!
+! Author: William Lipscomb
+!         Los Alamos National Laboratory
+!         Group T-3, MS B216
+!         Los Alamos, NM 87545
+!         USA
+!         <lipscomb@lanl.gov>
+!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
 ! References:
 !
@@ -51,9 +53,7 @@
 !  revision 313, 6 Jan. 2011.
 ! The repository is here: http://oceans11.lanl.gov/svn/CICE
 !
-! author William H. Lipscomb, LANL
-!
-! !INTERFACE:
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
       module glissade_remap
 !

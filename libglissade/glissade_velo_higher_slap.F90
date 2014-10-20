@@ -23,8 +23,6 @@
 !   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
 !
 ! This module contains subroutines called from glissade_velo_higher.F90
 ! and used to process data before and after linking to SLAP solver routines.
@@ -36,7 +34,7 @@
 !         USA
 !         <lipscomb@lanl.gov>
 !
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   module glissade_velo_higher_slap
 

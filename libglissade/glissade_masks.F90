@@ -23,13 +23,19 @@
 !   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
 !
-! This module contains routines for computing various masks used
-!  by the glissade velocity solver.
 !
-! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+! This module contains routines for computing various masks used by the Glissade 
+! velocity solver.
+!
+! Author: William Lipscomb
+!         Los Alamos National Laboratory
+!         Group T-3, MS B216
+!         Los Alamos, NM 87545
+!         USA
+!         <lipscomb@lanl.gov>
+!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   module glissade_masks
 

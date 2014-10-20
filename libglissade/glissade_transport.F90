@@ -23,17 +23,17 @@
 !   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-!=======================================================================
-!BOP
 !
-! !MODULE: glissade_transport - driver for transport of mass and tracers
+! This module contains drivers for incremental remapping and upwind ice transport.
 !
-! !DESCRIPTION:
+! Author: William Lipscomb
+!         Los Alamos National Laboratory
+!         Group T-3, MS B216
+!         Los Alamos, NM 87545
+!         USA
+!         <lipscomb@lanl.gov>
 !
-! Drivers for remapping and upwind ice transport
-!
-! author: William H. Lipscomb, LANL 
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
 ! This version was created from ice_transport_driver in CICE,
 !  revision 313, 6 Jan. 2011.

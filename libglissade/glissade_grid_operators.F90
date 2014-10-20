@@ -23,9 +23,18 @@
 !   along with CISM. If not, see <http://www.gnu.org/licenses/>.
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-! Various grid operators for glissade dycore, including routines for computing gradients
-! and switching between staggered and unstaggered grids
+!
+! This module contains various grid operators for the Glissade dycore, including routines 
+! for computing gradients and interpolating between staggered and unstaggered grids.
+!
+! Author: William Lipscomb
+!         Los Alamos National Laboratory
+!         Group T-3, MS B216
+!         Los Alamos, NM 87545
+!         USA
+!         <lipscomb@lanl.gov>
+!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 module glissade_grid_operators
 
