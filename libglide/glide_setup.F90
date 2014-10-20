@@ -168,10 +168,13 @@ contains
 
     type(glide_global_type)  :: model !> model instance
 
-    model%numerics%dttem = real(model%numerics%ntem,dp) * model%numerics%tinc   
+    model%numerics%dttem = model%numerics%ntem * model%numerics%tinc   
 
+    ! convert dt and dttem to scaled time units
     model%numerics%dt     = model%numerics%tinc * scyr / tim0   
-    model%numerics%dttem  = model%numerics%ntem * scyr / tim0   
+    model%numerics%dttem  = model%numerics%dttem * scyr / tim0   
+
+    ! allow for subcycling of ice transport
     model%numerics%dt_transport = model%numerics%dt / real(model%numerics%subcyc, dp)
 
     model%numerics%thklim = model%numerics%thklim  / thk0       
@@ -498,7 +501,8 @@ contains
     call write_log(message)
     write(message,*) 'time step (yr)      : ',model%numerics%tinc
     call write_log(message)
-    if (model%numerics%ntem < 1) then
+    if ( (model%numerics%ntem < 1.0d0) .or. & 
+       (floor(model%numerics%ntem) /= model%numerics%ntem) ) then
        call write_log('ntem is a multiplier on the basic time step.  It should be a positive integer.  Aborting.',GM_FATAL)
     endif
     write(message,*) 'temperature time step (yr): ',model%numerics%dttem

@@ -309,7 +309,7 @@ contains
 !!    if (model%options%which_bproc == BAS_PROC_FULLCALC .or. &
 !!        model%options%which_bproc == BAS_PROC_FASTCALC) then
 !!        call Basal_Proc_init (model%general%ewn, model%general%nsn,model%basalproc,     &
-!!                              model%numerics%ntem)
+!!                              model%numerics%dttem)
 !!    end if      
 
     call glide_set_mask(model%numerics,                                   &
@@ -770,13 +770,9 @@ contains
     ! Calculate temperature evolution and Glen's A, if necessary
     ! ------------------------------------------------------------------------ 
 
-!debug
-!    print*, 'tinc, time, ntem =', model%numerics%tinc, model%numerics%time,  model%numerics%ntem 
-!    print*, ' '
-
     ! Note: These times have units of years.
+    !       dttem has scaled units, so multiply by tim0/scyr to convert to years
 
-!!    if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%ntem)) then
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%dttem*tim0/scyr)) then
 
        call glide_prof_start(model,model%glide_prof%temperature)

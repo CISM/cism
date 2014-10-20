@@ -994,7 +994,7 @@ module glide_types
     real(dp) :: tend   =  1000.d0 !> end time
     real(dp) :: time   =     0.d0 !> main loop counter in years
     real(dp) :: tinc   =     1.d0 !> time step of main loop in years 
-    integer  :: ntem   =     1    !> multiplier of main time step; allows longer temperature time step
+    real(dp) :: ntem   =     1.d0 !> multiplier of main time step; allows longer temperature time step
     real(dp) :: alpha  =    0.5d0 !> richard suggests 1.5 - was a parameter in original
     real(dp) :: alphas =    0.5d0 !> was a parameter in the original
     real(dp) :: thklim =   100.d0 ! min thickness for computing ice dynamics (m) 

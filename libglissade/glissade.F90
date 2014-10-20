@@ -263,7 +263,7 @@ contains
 !!    if (model%options%which_bmod == BAS_PROC_FULLCALC .or. &
 !!        model%options%which_bmod == BAS_PROC_FASTCALC) then        
 !!        call Basal_Proc_init (model%general%ewn, model%general%nsn,model%basalproc,     &
-!!                              model%numerics%ntem)
+!!                              model%numerics%dttem)
 !!    end if      
 
     ! calculate mask
@@ -399,6 +399,7 @@ contains
     ! ------------------------------------------------------------------------ 
 
     ! Note: These times have units of years
+    !       dttem has scaled units, so multiply by tim0/scyr to convert to years
 
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%dttem*tim0/scyr)) then
 
