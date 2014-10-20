@@ -501,12 +501,12 @@ contains
     call write_log(message)
     write(message,*) 'time step (yr)      : ',model%numerics%tinc
     call write_log(message)
+    write(message,*) 'thermal dt factor   : ',model%numerics%ntem
+    call write_log(message)
     if ( (model%numerics%ntem < 1.0d0) .or. & 
        (floor(model%numerics%ntem) /= model%numerics%ntem) ) then
        call write_log('ntem is a multiplier on the basic time step.  It should be a positive integer.  Aborting.',GM_FATAL)
     endif
-    write(message,*) 'temperature time step (yr): ',model%numerics%dttem
-    call write_log(message)
     write(message,*) 'profile frequency   : ',model%numerics%profile_period
     call write_log(message)
 
