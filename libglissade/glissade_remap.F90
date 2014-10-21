@@ -273,7 +273,7 @@ module glissade_remap
 
       use parallel
 
-      ! INPUT/OUTPUT PARAMETERS:
+      ! input/output arguments
 
       real(dp), intent(in) ::     &
          dt           ! time step
@@ -657,10 +657,10 @@ module glissade_remap
       !WHL - Changed this condition from 'mass < puny' to 'mass < 0.d0'
       !      to preserve monotonicity in grid cells with very small thickness
       !
-      ! author William H. Lipscomb, LANL
-      !
-      ! !INPUT/OUTPUT PARAMETERS:
-      !
+      ! author William H.
+
+      !input/output arguments
+
       integer, intent(in) ::     &
            nx_block, ny_block  ,&! block dimensions
            ilo,ihi,jlo,jhi     ,&! beginning and end of physical domain
@@ -752,7 +752,7 @@ module glissade_remap
       ! authors William H. Lipscomb, LANL
       !         John R. Baumgardner, LANL
       !
-      ! !INPUT/OUTPUT PARAMETERS:
+      ! input/output arguments
       !
       integer, intent(in) ::   &
          nx_block, ny_block  ,&! block dimensions
@@ -952,7 +952,7 @@ module glissade_remap
      ! authors William H. Lipscomb, LANL
      !         John R. Baumgardner, LANL
      !
-     ! !INPUT/OUTPUT PARAMETERS:
+     ! input/output arguments
      !
       integer, intent(in) ::   &
           nx_block, ny_block,&! block dimensions
@@ -1108,7 +1108,7 @@ module glissade_remap
       !
       ! author William H. Lipscomb, LANL
       !
-      ! !INPUT/OUTPUT PARAMETERS:
+      ! input/output arguments
 
       integer, intent(in) ::   &
          nx_block, ny_block,&! block dimensions
@@ -1330,7 +1330,7 @@ module glissade_remap
       ! authors William H. Lipscomb, LANL
       !         John R. Baumgardner, LANL
       !
-      ! !INPUT/OUTPUT PARAMETERS:
+      ! input/output arguments
 
       integer, intent(in) ::   &
          nx_block, ny_block,&! block dimensions
@@ -2736,7 +2736,7 @@ module glissade_remap
       ! author William H. Lipscomb, LANL
       !
       !
-      ! !INPUT/OUTPUT PARAMETERS:
+      ! input/output arguments
 
       integer, intent(in) ::   &
            nx_block, ny_block  ! block dimensions
@@ -2827,7 +2827,7 @@ module glissade_remap
       ! author William H. Lipscomb, LANL
       !
       !
-      ! !INPUT/OUTPUT PARAMETERS:
+      ! input/output arguments
 
       integer, intent(in) ::   &
            nx_block, ny_block  ,&! block dimensions
@@ -3023,7 +3023,7 @@ module glissade_remap
       !
       ! author William H. Lipscomb, LANL
       !
-      ! !INPUT/OUTPUT PARAMETERS:
+      ! input/output arguments
 
       integer, intent(in) ::   &
          nx_block, ny_block,&! block dimensions

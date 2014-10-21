@@ -35,24 +35,16 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-! This version was created from ice_transport_driver in CICE,
-!  revision 313, 6 Jan. 2011.
+! This version was created from ice_transport_driver in CICE, revision 313, 6 Jan. 2011.
 ! The repository is here: http://oceans11.lanl.gov/svn/CICE
 
-! !INTERFACE:
-
   module glissade_transport
-!
-! !USES:
+
     use glimmer_global, only: dp
     use glimmer_log
     use glissade_remap, only: glissade_horizontal_remap, make_remap_mask, puny
-
     use parallel 
 
-!
-!EOP
-!
     implicit none
     save
     private
@@ -63,19 +55,13 @@
 
     integer :: &
          ntracer = 1   ! number of tracers to transport (just temperature if ntracer = 1)
-
-    !TODO - Code uses Protex documenting.  Revise for doxygen
+                       ! can be set to a different value in glissade.F90
 
 !=======================================================================
 
   contains
 
 !=======================================================================
-!BOP
-!
-! !IROUTINE: glissade_transport_driver - driver for mass and tracer transport
-!
-! !INTERFACE:
 !
     subroutine glissade_transport_driver(dt,                   &
                                          dx,       dy,         &
@@ -90,44 +76,32 @@
                                          waterfrac,            &
                                          upwind_transport_in)
 
-!
-! !DESCRIPTION:
-!
-! This subroutine solves the transport equations for one timestep
-! using the conservative remapping scheme developed by John Dukowicz
-! and John Baumgardner and modified for sea ice by William
-! Lipscomb and Elizabeth Hunke.
-!
-! This scheme preserves monotonicity of ice area and tracers.  That is,
-! it does not produce new extrema.  It is second-order accurate in space,
-! except where gradients are limited to preserve monotonicity. 
-!
-! Optionally, the remapping scheme can be replaced with a simple
-! first-order upwind scheme.
-!
-! !REVISION HISTORY:
-!
-! author William H. Lipscomb, LANL
-!
-! !USES:
-!
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
+
+      ! This subroutine solves the transport equations for one timestep
+      ! using the conservative remapping scheme developed by John Dukowicz
+      ! and John Baumgardner and modified for sea ice by William
+      ! Lipscomb and Elizabeth Hunke.
+      !
+      ! This scheme preserves monotonicity of ice area and tracers.  That is,
+      ! it does not produce new extrema.  It is second-order accurate in space,
+      ! except where gradients are limited to preserve monotonicity. 
+      !
+      ! Optionally, the remapping scheme can be replaced with a simple
+      ! first-order upwind scheme.
+      !
+      ! author William H. Lipscomb, LANL
+      !
+      ! input/output arguments
 
       real(dp), intent(in) ::     &
          dt,                   &! time step (s)
          dx, dy                 ! gridcell dimensions (m)
                                 ! (cells assumed to be rectangular)
 
-      !TODO - Pass in dx and dy as 3D fields to allow for spatially varying
-      !       cell dimensions as in POP/CICE?
-      !TODO - Declare ntracer somewhere instead of passing in?
-
       integer, intent(in) ::   &
          nx, ny,               &! horizontal array size
          nlyr,                 &! number of vertical layers
-         ntracer
+         ntracer                ! number of tracers
 
       real(dp), intent(in), dimension(nlyr+1) :: &
          sigma                  ! layer interfaces in sigma coordinates
@@ -161,9 +135,7 @@
 
       logical, intent(in), optional ::  &
          upwind_transport_in    ! if true, do first-order upwind transport
-! 
-!EOP
-!
+
       ! local variables
 
       integer ::     &
@@ -255,8 +227,6 @@
       !Note: (ilo,ihi) and (jlo,jhi) are the lower and upper bounds of the local domain
       ! (i.e., grid cells owned by this processor).
 
-      !TODO - Replace ilo with 1+nhalo, ihi with nx-nhalo, etc.?
-
       ilo = nhalo + 1
       ihi = nx - nhalo
       jlo = nhalo + 1
@@ -296,7 +266,7 @@
             tracer(:,:,3,k) = waterfrac(k,:,:)
          endif
 
-         !TODO - Other tracer fields could be added here
+         ! Other tracer fields could be added here
 
       enddo
 
@@ -323,7 +293,6 @@
                                    nhalo,                              &
                                    thck_layer(:,:,:), msum_init,       &
                                    tracer(:,:,:,:),   mtsum_init(:))
-
       endif
 
       if (upwind_transport) then
@@ -360,8 +329,6 @@
             !-----------------------------------------------------------------
             ! Upwind transport
             !-----------------------------------------------------------------
-            !TODO - Pass in dx and dy as 3D fields to allow for spatially varying
-            !       cell dimensions as in POP/CICE?
  
             do nt = 0, ntracer
                call upwind_field (nx,             ny,                  &
@@ -369,7 +336,6 @@
                                   dx,             dy,                  &
                                   dt,             worku(:,:,nt),       &
                                   uee(:,:),       vnn    (:,:))
-
             enddo   ! ntracer
 
             ! Recompute thickness and tracers
@@ -394,7 +360,7 @@
       else    ! remapping transport
 
       !-------------------------------------------------------------------
-      ! Define a mask: = 1 where ice is present, = 0 otherwise         
+      ! Define a mask: = 1 where ice is present (thck > 0), = 0 otherwise         
       ! The mask is used to prevent tracer values in cells without ice from
       !  being used to compute tracer gradients.
       !-------------------------------------------------------------------
@@ -443,8 +409,6 @@
          !-------------------------------------------------------------------
          ! Main remapping routine: Step ice thickness and tracers forward in time.
          !-------------------------------------------------------------------
-         !TODO - Pass in dx and dy as 3D fields to allow for spatially varying
-         !       cell dimensions as in POP/CICE?
 
             call glissade_horizontal_remap (dt,                                  &
                                             dx,                dy,               &
@@ -643,7 +607,8 @@
          if (present(temp)) temp(k,:,:) = tracer(:,:,1,k)
          if (present(age) .and. ntracer >= 2) age(k,:,:) = tracer(:,:,2,k)
          if (present(waterfrac)) waterfrac(k,:,:) = tracer(:,:,3,k)
-         !WHL - Could add more tracer fields here
+
+         ! Could add more tracer fields here
 
       enddo
 
@@ -651,46 +616,50 @@
 
 !=======================================================================
 
-    subroutine glissade_check_cfl(ewn, nsn, nlyr, dew, dns, sigma,         &
-                     stagthk, dusrfdew, dusrfdns, uvel, vvel, deltat,      &
-                     allowable_dt_adv, allowable_dt_diff)
-!
-! !DESCRIPTION:
-!
-! Calculate maximum allowable time step based on both 
-! advective and diffusive CFL limits.
-!
-! !REVISION HISTORY:
-!
-! author Matt Hoffman, LANL, March 2014
-!
-! !USES:
-! !INPUT/OUTPUT PARAMETERS:
-!
+    subroutine glissade_check_cfl(ewn,     nsn,      nlyr,          & 
+                                  dew,     dns,      sigma,         &
+                                  stagthk, dusrfdew, dusrfdns,      &
+                                  uvel,    vvel,     deltat,        &
+                                  allowable_dt_adv,  allowable_dt_diff)
+
+      ! Calculate maximum allowable time step based on both 
+      ! advective and diffusive CFL limits.
+      !
+      ! author Matt Hoffman, LANL, March 2014
+      !
+      ! input/output arguments
+
       integer, intent(in) ::     &
          ewn, nsn    ! number of cells in the x, y dimensions
+
       integer, intent(in) ::     &
          nlyr        ! number of vertical layers (layer centers)
+
       real(dp), intent(in) :: &
          dew, dns    ! grid spacing in x, y (not assumed to be equal here), dimensional m
+
       real(dp), dimension(:), intent(in) :: &
          sigma       ! vertical coordinate spacing
+
       real(dp), dimension(:,:), intent(in) :: &
          stagthk     ! thickness on the staggered grid, dimensional m
+
       real(dp), dimension(:,:), intent(in) :: &
          dusrfdew, dusrfdns    ! slope in x,y directions on the staggered grid, dimensionless m/m
+
       real(dp), dimension(:,:,:), intent(in) :: &
          uvel, vvel  ! 3-d x,y velocity components on the staggered grid, dimensional m/yr
+
       real(dp), intent(in) :: &
          deltat      ! model deltat (yrs)
 
       real(dp), intent(out) :: &
          allowable_dt_adv     ! maximum allowable dt (yrs) based on advective CFL 
+
       real(dp), intent(out) :: &
          allowable_dt_diff    ! maximum allowable dt (yrs) based on diffusive CFL 
 
-!
-! === Locals
+      ! Local variables
       integer :: k
       integer :: xs, xe, ys, ye  ! start and end indices for locally owned cells on the staggered grid in the x and y directions
       real(dp), dimension(nlyr, ewn-1, nsn-1) :: uvel_layer, vvel_layer  ! velocities at layer midpoints, stag. grid
@@ -722,11 +691,12 @@
       ! TODO use depth-averaged velocity or layer-by-layer (top layer only?), or something else (BB09)?
       ! For now check all layers
 
-      ! Calculate depth-averaged flux and velocity on the B-grid
-      ! the IR code basically uses a B-grid, the FO-Upwind method uses a C-grid
+      ! Calculate depth-averaged flux and velocity on the B-grid.
+      ! The IR code basically uses a B-grid, the FO-Upwind method uses a C-grid.
       ! The B-grid calculation should be more conservative because that is where the
       ! velocities are calculated so there will be no averaging.
       ! (Also, IR is the primary advection method, so make this check most appropriate for that.)
+
       do k = 1, nlyr
          ! Average velocities to the midpoint of the layer
          uvel_layer(k,:,:) = 0.5d0 * (uvel(k,:,:) + uvel(k+1,:,:))
@@ -760,6 +730,7 @@
       ! Estimate diffusivity using the relation that the 2-d flux Q=-D grad h and Q=UH, 
       ! where h is surface elevation, D is diffusivity, U is 2-d velocity vector, and H is thickness
       ! Solving for D = UH/-grad h
+
       allowable_dt_diff = 1.0d20  ! start with a huge value
       indices_diff(:) = 1 ! Initialize these to something, on the off-chance they never get set... (e.g., no ice on this processor)
       ! Loop over locally-owned cells only!
@@ -794,7 +765,6 @@
       !print *,'LOCAL ADV DT, POSITION', allowable_dt_adv, indices_adv(2), indices_adv(3)
       !print *,'LOCAL DIFF DT, POSITION', allowable_dt_diff, indices_diff(1), indices_diff(2)
 
-
       ! ------------------------------------------------------------------------
       ! Now check for errors
 
@@ -817,7 +787,8 @@
           write(ypos_string,'(i12)') indices_adv(3)
           write(message,*) 'Advective CFL violation!  Maximum allowable time step for advective CFL condition is ' &
                // trim(adjustl(dt_string)) // ' yr, limited by global position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
-          call write_log(trim(message),GM_WARNING)      ! Write a warning first before throwing a fatal error so we can also check the diffusive CFL before aborting
+          ! Write a warning first before throwing a fatal error so we can also check the diffusive CFL before aborting
+          call write_log(trim(message),GM_WARNING)      
       endif
 
       ! Perform global reduce for diffusive time step and determine where in the domain it occurs
@@ -837,7 +808,8 @@
           write(ypos_string,'(i12)') indices_diff(2)
           write(message,*) 'Diffusive CFL violation!  Maximum allowable time step for diffusive CFL condition is ' &
                // trim(adjustl(dt_string)) // ' yr, limited by global position i=' // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
-          call write_log(trim(message),GM_WARNING)    ! Diffusive CFL violation is just a warning (because it may be overly restrictive as currently formulated)
+          ! Diffusive CFL violation is just a warning (because it may be overly restrictive as currently formulated)
+          call write_log(trim(message),GM_WARNING)    
           write(message,*) '(Note the currently implemented diffusive CFL calculation may be overly restrictive for higher-order dycores.)'
           call write_log(trim(message))
       endif
@@ -912,30 +884,18 @@
 
 !=======================================================================
 !
-!BOP
-!
-! !IROUTINE: global_conservation - check for changes in conserved quantities
-!
-! !INTERFACE:
-!
-      subroutine global_conservation (msum_init,  msum_final,         &
-                                      errflag,    melt_potential_in,  &
-                                      ntracer,                        &
-                                      mtsum_init, mtsum_final)
-!
-! !DESCRIPTION:
-!
-! Check whether values of conserved quantities have changed.
-! An error probably means that ghost cells are treated incorrectly.
-!
-! !REVISION HISTORY:
-!
-! author William H. Lipscomb, LANL
-!
-! !USES:
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
+    subroutine global_conservation (msum_init,  msum_final,         &
+                                    errflag,    melt_potential_in,  &
+                                    ntracer,                        &
+                                    mtsum_init, mtsum_final)
+      !
+      ! Check whether values of conserved quantities have changed.
+      ! An error probably means that ghost cells are treated incorrectly.
+      !
+      ! author William H. Lipscomb, LANL
+      !
+      ! input/output arguments
+
       real(dp), intent(in) ::     &
          msum_init   ,&! initial global ice mass 
          msum_final    ! final global ice mass
@@ -955,9 +915,7 @@
          mtsum_final   ! final global ice mass*tracer
 
       character(len=100) :: message
-!
-!EOP
-!
+
       integer ::      &
          nt            ! tracer index
 
@@ -1013,17 +971,17 @@
          enddo
       endif                     ! present(mtsum_init)
 
-      end subroutine global_conservation
+    end subroutine global_conservation
 
 !----------------------------------------------------------------------
 
-   subroutine glissade_add_smb(nx,         ny,         &
-                               nlyr,       ntracer,    &
-                               nhalo,      dt,         &
-                               thck_layer, tracer,     &
-                               acab,       tsfc,       &
-                               bmlt,       tbed,       &
-                               melt_potential)
+    subroutine glissade_add_smb(nx,         ny,         &
+                                nlyr,       ntracer,    &
+                                nhalo,      dt,         &
+                                thck_layer, tracer,     &
+                                acab,       tsfc,       &
+                                bmlt,       tbed,       &
+                                melt_potential)
 
       ! Adjust the layer thickness based on the surface and basal mass balance
 
@@ -1198,7 +1156,7 @@
 
       call global_sum(melt_potential)
 
-      end subroutine glissade_add_smb
+    end subroutine glissade_add_smb
 
 !----------------------------------------------------------------------
 
@@ -1338,30 +1296,20 @@
     end subroutine glissade_vertical_remap
 
 !=======================================================================
-!BOP
-!
-! !IROUTINE: upwind_field - first-order upwind transport
-!
-! !INTERFACE:
-!
-      subroutine upwind_field (nx,       ny,         &
-                               ilo, ihi, jlo, jhi,   &
-                               dx,       dy,         &
-                               dt,       phi,        &
-                               uee,      vnn)
-!
-! !DESCRIPTION:
-!
-! upwind transport algorithm
-!
-! !REVISION HISTORY:
-!
-! Authors: Elizabeth Hunke and William Lipscomb, LANL
-!
-! !USES:
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
+
+    subroutine upwind_field (nx,       ny,         &
+                             ilo, ihi, jlo, jhi,   &
+                             dx,       dy,         &
+                             dt,       phi,        &
+                             uee,      vnn)
+      !
+      ! first-order upwind transport algorithm
+      !
+      !
+      ! Authors: Elizabeth Hunke and William Lipscomb, LANL
+      !
+      ! input/output arguments
+
       integer, intent (in) ::     &
          nx, ny             ,&! block dimensions
          ilo,ihi,jlo,jhi      ! beginning and end of physical domain
@@ -1377,9 +1325,9 @@
       real(dp), dimension(nx,ny),         &
          intent(in)::     &
          uee, vnn             ! cell edge velocities
-!
-!EOP
-!
+
+      ! local variables
+
       integer ::     &
          i, j                   ! standard indices
 
@@ -1414,10 +1362,10 @@
       enddo
       enddo
 
-      end subroutine upwind_field
+    end subroutine upwind_field
 
 !=======================================================================
 
-      end module glissade_transport
+  end module glissade_transport
 
 !=======================================================================

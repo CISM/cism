@@ -32,7 +32,7 @@
 #include "glide_nan.inc"
 #include "glide_mask.inc"
 
-!TODO - What is this?
+!TODO - What is shapedbg(x)?
 #define shapedbg(x) write(*,*) "x", shape(x)
 
 !WHL - This module used to contain calls to both the glam and glissade velo solvers. 
