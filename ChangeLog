@@ -3,8 +3,7 @@ CISM Changelog
 Changes in CISM Version 2.0
 ===========================
 
-CISM2.0, which originated from Glimmer-CISM and Glimmer, has a number of major changes
-relative to these previous codes:
+CISM version 2.0, which originated from Glimmer-CISM and Glimmer, has a number of major changes and additions relative to these previous codes, including:
 
 * addition of robust, parallel, 2D and 3D, higher-order accurate approximations to the Stokes momentum balance (Blatter-Pattyn, L1L2, and SSA, all available within the "Glissade" dynamical core)
 * adition of 3D, parallel mass and temperature transport
@@ -18,13 +17,13 @@ relative to these previous codes:
 * new and updated documentation
 
 More information including full documentation of the code can be found at:
-http://oceans11.lanl.gov/cism/index.html
+http://oceans11.lanl.gov/cism/
 
 CISM version 2.0 will be hosted at the CISM Github organization:
-!! Matt, please add URL here !!
+https://github.com/cism/cism
 
 The original Glimmer-CISM and Glimmer codes can be found at the Glimmer-CISM Github organization:
 https://github.com/glimmer-cism
 
-updated 8/27/2014
+updated 10/21/2014
 
