@@ -1029,7 +1029,6 @@ contains
   end subroutine glissade_findvtri
 
   !-----------------------------------------------------------------------
-  !TODO: Remove unused arguments ubas, vbas.
 
   subroutine glissade_calcbfric (model,    whichdycore, &
                                  thck,     btraction,   &
@@ -1161,8 +1160,9 @@ contains
 
           if (thck(ew,ns) > model%numerics%thklim_temp .and. .not. floater(ew,ns)) then
 
-             ! Basal friction term is computed above in subroutine glissade_calcbfric
-
+             ! Basal friction term is computed above in subroutine glissade_calcbfric,
+             !  or in the Glissade velocity solver.
+             !
              ! Compute basal melting
              ! Note: bmlt > 0 for melting, < 0 for freeze-on
              !       bfricflx >= 0 by definition
@@ -1175,7 +1175,7 @@ contains
              !       What should we do if bwat = 0?
 
              bflx = model%temper%bfricflx(ew,ns) + model%temper%lcondflx(ew,ns) - model%temper%bheatflx(ew,ns)
-             bmlt(ew,ns) = bflx * model%tempwk%f(2)   ! f(2) = tim0 / (thk0 * lhci * rhoi)
+             bmlt(ew,ns) = bflx * model%tempwk%f(2) * model%numerics%dttem  ! f(2) = tim0 / (thk0 * lhci * rhoi)
 
             ! Add internal melting associated with temp > pmptemp
             ! Note: glissade_calcpmpt does not compute pmpt at the top surface or the bed.
@@ -1195,11 +1195,21 @@ contains
                  endif
              enddo
 
-             ! Reset basal temp to pmptemp, if necessary
+             ! Cap basal temp at pmptemp, if necessary
 
              up = model%general%upn
              call glissade_calcpmpt_bed(pmptemp(up), thck(ew,ns))
              temp(up,ew,ns) = min (temp(up,ew,ns), pmptemp(up))
+
+             ! If freeze-on was computed above (bmlt < 0) and Tbed = Tpmp but no basal water is present, then set T(upn) < Tpmp.
+             ! Note: In subroutine findvtri, we solve for Tbed (instead of holding it at Tpmp) when Tbed < 0.001.
+             !       With an offset here of 0.01, we will solve for T_bed at the next timestep.
+             ! Note: Energy is not exactly conserved here.
+
+             up = model%general%upn  ! basal level
+             if (bmlt(ew,ns) < 0.d0 .and. model%temper%bwat(ew,ns)==0.d0 .and. temp(up,ew,ns) >= pmptemp(up)) then
+                temp(up,ew,ns) = pmptemp(up) - 0.01d0
+             endif
 
           endif   ! thk > thklim_temp
 
