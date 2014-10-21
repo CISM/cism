@@ -24,7 +24,6 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-!
 !TODO - Are all these includes needed?
 #ifdef HAVE_CONFIG_H 
 #include "config.inc" 
@@ -32,18 +31,11 @@
 #include "glide_nan.inc"
 #include "glide_mask.inc"
 
-!TODO - What is shapedbg(x)?
-#define shapedbg(x) write(*,*) "x", shape(x)
-
-!WHL - This module used to contain calls to both the glam and glissade velo solvers. 
-!      I moved the glam part to a separate module (glam_velo.F90), leaving just the
-!      glissade part in this module.
-
 module glissade_velo
 
     use parallel
 
-    ! Driver for glam and glissade higher-order velocity solvers
+    ! Driver for Glissade velocity solvers
 
     implicit none
     
@@ -69,8 +61,7 @@ contains
       !-------------------------------------------------------------------
       ! Call the velocity solver.
       ! The standard glissade higher-order solver is glissade_velo_higher_solve.
-      ! For testing we have the additional option of glissade_velo_sia_solve,
-      !  which compute shallow-ice velocities instead.
+      ! There is an additional local shallow-ice solver, glissade_velo_sia_solve.
       !-------------------------------------------------------------------
       
       if (model%options%which_ho_approx == HO_APPROX_LOCAL_SIA) then
@@ -80,6 +71,7 @@ contains
                                        model%general%upn)
                        
       else   ! standard higher-order solve
+             ! can be BP, L1L2, SSA or SIA, depending on model%options%which_ho_approx
 
          !-------------------------------------------------------------------
          ! Compute mask for staggered grid. This is needed as an input to calcbeta
@@ -98,24 +90,7 @@ contains
             !       These updates are done in subroutine glissade_diagnostic_variable_solve
             !        in module glissade.F90.
 
-            
-!WHL - debug
-            if (this_rank==model%numerics%rdiag_local) then
-!!            print*, ' '
-!!            print*, 'Call glissade_velo_higher_solve, task', this_rank
-!!            print*, 'nx, ny =', model%general%ewn, model%general%nsn
-!!            print*, 'size(kinbcmask) =', size(model%velocity%kinbcmask,1), size(model%velocity%kinbcmask,2)
-!!            print*, ' '
-!!            print*, 'kinbcmask before halo update:'
-               do j = model%general%nsn-1, 1, -1
-                  do i = 1, model%general%ewn-1
-                     !!    write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
-                  enddo
-!!               write(6,*) ' '
-               enddo
-            endif    ! main_task
-
-            !WHL - Instead of assuming that kinbcmask is periodic, extrapolate
+            ! Note: Instead of assuming that kinbcmask is periodic, we extrapolate
             !       the kinbcmask into the global halo region
             !       (and also into the north and east rows of the global domain,
             !       which are not included on the global staggered grid).
@@ -123,50 +98,30 @@ contains
 
             call staggered_parallel_halo_extrapolate (model%velocity%kinbcmask)  ! = 1 for Dirichlet BCs
 
-!WHL - debug
-            if (this_rank==model%numerics%rdiag_local) then
-               print*, ' '
-!!            print*, 'kinbcmask after halo update:'
-               do j = model%general%nsn-1, 1, -1
-                  do i = 1, model%general%ewn-1
-!!                  write(6,'(46i3)',advance='no') model%velocity%kinbcmask(i,j)
-                  enddo
-!!               write(6,*) ' '
-               enddo
-            endif
-
             call t_startf('glissade_velo_higher_solver')
             call glissade_velo_higher_solve(model,                                             &
                                             model%general%ewn,      model%general%nsn,         &
                                             model%general%upn)
             call t_stopf('glissade_velo_higher_solver')
 
-!WHL - debug
-            if (this_rank==model%numerics%rdiag_local) then
-!            print*, ' '
-!            print*, 'efvs (Pa yr, k = 1):'
-               do j = model%general%nsn, 1, -1
-                  do i = 1, model%general%ewn
-!                  write(6,'(8e10.2)',advance='no') model%stress%efvs(1,i,j) * evs0/scyr
-                  enddo
-!               write(6,*) ' '
-               enddo
-            endif
+         else if (model%options%which_ho_nonlinear == HO_NONLIN_JFNK) then
 
-         else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
+            !TODO - Create a JFNK solver?
 
-            !TODO - Create a JFNK solver that can work with an arbitrary calcF routine?
-            !       (i.e., glissade as well as glam)
-            ! noxsolve could eventually go here 
-
-            call write_log('JFNK not supported for glissade velocity solver',GM_FATAL)
+            call write_log('JFNK not supported for Glissade velocity solver', GM_FATAL)
 
          else   
-            call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
-         end if
+
+            call write_log('Invalid which_ho_nonlinear option.', GM_FATAL)
+
+         end if  ! which_ho_nonlinear
 
       endif   ! which_ho_approx
 
     end subroutine glissade_velo_driver
 
-end module glissade_velo
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  end module glissade_velo
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

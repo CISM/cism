@@ -24,15 +24,17 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-! This module computes temperature diffusion and strain heating
-!  in a local column without doing horizontal or vertical advection.
-! Temperature advection is done separately, e.g. using the incremental 
-!  remapping transport scheme.
-! It is assumed here that temperature values are staggered in the
-!  vertical compared to the velocity.  That is, the temperature lives
-!  at the midpoint of each layer instead of at layer interfaces.
-! As in the unstaggered case, the temperature is also defined at the 
-!  upper and lower surfaces with appropriate boundary conditions.   
+  ! This module is based on glide_temp.F90, but has been modified for Glissade
+  !  by William Lipscomb (LANL).
+  ! It computes temperature diffusion and strain heating in a local column 
+  !  without doing horizontal or vertical advection.
+  ! Temperature advection is done separately, e.g. using the incremental 
+  !  remapping transport scheme.
+  ! It is assumed here that temperature values are staggered in the
+  !  vertical compared to the velocity.  That is, the temperature lives
+  !  at the midpoint of each layer instead of at layer interfaces.
+  ! The temperature is also defined at the upper and lower surfaces with 
+  !  appropriate boundary conditions.   
 
 #ifdef HAVE_CONFIG_H
 #include "config.inc"
@@ -45,6 +47,7 @@ module glissade_temp
     use glimmer_global, only : dp 
     use glide_types
     use glimmer_log
+    use parallel, only: this_rank
 
     implicit none
 
@@ -52,19 +55,19 @@ module glissade_temp
     public :: glissade_init_temp, glissade_temp_driver, glissade_calcflwa, glissade_calcbpmp
 
     ! time stepping scheme
-    !WHL: I am setting this to false.  
-    !     For the dome test case, the Crank-Nicolson scheme can give unstable 
-    !      temperature fluctuations for thin ice immediately after the ice 
-    !      becomes thick enough for the temperature calculation.
-    !     The fully implicit scheme seems stable for all cases (but is only
-    !      first-order accurate in time). 
+
+    !NOTE:  For the dome test case, the Crank-Nicolson scheme can give unstable 
+    !        temperature fluctuations for thin ice immediately after the ice 
+    !        becomes thick enough for the temperature calculation.
+    !       The fully implicit scheme has been stable for all cases (but is only
+    !        first-order accurate in time). 
 
     logical, parameter::   &
          crank_nicolson = .false.  ! if true, use Crank-Nicolson time-stepping
                                    ! if false, use fully implicit
 
     ! max and min allowed temperatures
-    ! Temperatures can go below -100 for cases where Crank-Nicholson is unstable
+    ! Temperatures sometimes go below -100 for cases where Crank-Nicholson is unstable
     real(dp), parameter ::   &
        maxtemp_threshold = 1.d11,   &
        mintemp_threshold = -100.d0
@@ -83,7 +86,7 @@ contains
     use parallel, only: lhalo, uhalo
     use glissade_enthalpy, only: glissade_init_enthalpy
 
-    type(glide_global_type),intent(inout) :: model       !*FD Ice model parameters.
+    type(glide_global_type),intent(inout) :: model       !> Ice model parameters.
 
     integer, parameter :: p1 = gn + 1  
     integer up, ns, ew
@@ -106,8 +109,7 @@ contains
 
     model%tempwk%dups = 0.0d0
 
-!WHL - Note that the 'dups' grid coefficients are not the same as for unstaggered temperatures.
-
+    !Note: The 'dups' grid coefficients are not the same as for unstaggered temperatures.
     up = 1
     model%tempwk%dups(up,1) = 1.d0/((model%numerics%sigma(up+1) - model%numerics%sigma(up)) * &
                                     (model%numerics%stagsigma(up) - model%numerics%sigma(up)) )
@@ -127,7 +129,7 @@ contains
     model%tempwk%zbed = 1.0d0 / thk0
     model%tempwk%dupn = model%numerics%sigma(model%general%upn) - model%numerics%sigma(model%general%upn-1)
 
-!WHL - We need only two of these (cons(1) and cons(5)) for the staggered case with no advection.
+    !WHL - We need only two of these (cons(1) and cons(5)) for the staggered case with no advection.
 !!    model%tempwk%cons = (/ 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2), &
 !!         model%numerics%dttem / 2.0d0, &
 !!         VERT_DIFF*2.0d0 * tim0 * model%numerics%dttem / (thk0 * rhoi * shci), &
@@ -136,8 +138,6 @@ contains
 !!         ( tau0 * vel0 / len0 ) / ( rhoi * shci ) * ( model%numerics%dttem * tim0 ) /)  
          !*sfp* added last term to vector above for use in HO & SSA dissip. cacl
 
-    !TODO - Give these constants (tempwk%cons, tempwk%f, tempwk%c) better names.
-
 !WHL - The factor of 2 in the numerator in the original code can be traced to a missing factor of 0.5
 !      in the denominator of the dups coefficients.  On the vertically staggered grid, there is no
 !      factor of 0.5 in the dups coefficients, so there is no factor of 2 here.
@@ -145,7 +145,6 @@ contains
 !      If doing fully implicit timestepping, model%tempwk%cons(1) is multiplied by 2 below.
 !!    model%tempwk%cons(1) = 2.0d0 * tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
     model%tempwk%cons(1) = tim0 * model%numerics%dttem * coni / (2.0d0 * rhoi * shci * thk0**2)
-
     model%tempwk%cons(5) = (tau0 * vel0 / len0 ) / (rhoi * shci) * (model%numerics%dttem * tim0)
 
     !Note: stagsigma here instead of sigma
@@ -270,8 +269,6 @@ contains
 
     endif    ! restart file, input file, or other options
 
-    !TODO - If only locally owned values are filled here, then make sure there is a halo update in glissade_initialise.
-
     !BDM - make call to glissade_enthalpy_init if using enthalpy approach
     if (model%options%whichtemp == TEMP_ENTHALPY) then
        call glissade_init_enthalpy(model)
@@ -286,7 +283,7 @@ contains
                                        thck,        temp)
 
   ! Initialize temperatures in a column based on the value of temp_init.
-  ! Threee possibilities:
+  ! Three possibilities:
   ! (1) Set ice temperature in column to 0 C (TEMP_INIT_ZERO)
   ! (2) Set ice temperature in column to surface air temperature (TEMP_INIT_ARTM)
   ! (3) Set up a linear temperature profile, with T = artm at the surface and T <= Tpmp
@@ -408,15 +405,21 @@ contains
     !WHL - debug
     logical, parameter:: verbose_temp = .false.
     integer :: k
-    integer :: itest = 1, jtest = 1
+    integer :: itest, jtest, rtest
+
+    itest = 1
+    jtest = 1
+    if (this_rank == model%numerics%rdiag_local) then
+       rtest = model%numerics%rdiag_local
+       itest = model%numerics%idiag_local
+       jtest = model%numerics%jdiag_local
+    endif
 
     upn = model%general%upn
 
     select case(whichtemp)
 
     case(TEMP_SURFACE_AIR_TEMP)  ! Set column to surface air temperature ------------------
-
-       ! JEFF - OK for distributed since using air temperature at grid point to initialize.
 
        do ns = 1,model%general%nsn
           do ew = 1,model%general%ewn
@@ -426,14 +429,12 @@ contains
 
     case(TEMP_PROGNOSTIC) ! Local column calculation (with advection done elsewhere)
 
-            ! No horizontal or vertical advection; vertical diffusion and strain heating only.
-            ! Temperatures are vertically staggered relative to velocities.  
-            ! That is, the temperature is defined at the midpoint of each layer 
-            ! (and at the top and bottom surfaces).
-
+       ! No horizontal or vertical advection; vertical diffusion and strain heating only.
+       ! Temperatures are vertically staggered relative to velocities.  
+       ! That is, the temperature is defined at the midpoint of each layer 
+       ! (and at the top and bottom surfaces).
+       
        !TODO - Change Tstagsigma to stagwbndsigma
-       ! Set Tstagsigma (= stagsigma except that it has values at the top and bottom surfaces).
-
        Tstagsigma(0) = 0.d0
        Tstagsigma(1:model%general%upn-1) = model%numerics%stagsigma(1:model%general%upn-1)
        Tstagsigma(model%general%upn) = 1.d0
@@ -451,7 +452,7 @@ contains
                                model%geomderv%dusrfdns,    &
                                model%temper%flwa)
 
-       ! Calculate heating from basal friction -----------------------------------
+       ! Calculate heating from basal friction (if not already computed by the Glissade velocity solver)
 
        call glissade_calcbfric( model,                        &
                                 model%options%whichdycore,    &
@@ -469,7 +470,7 @@ contains
 
           if(model%geometry%thck(ew,ns) > model%numerics%thklim_temp) then
 
-             if (verbose_temp .and. ew==itest .and. ns==jtest) then
+             if (verbose_temp .and. this_rank==rtest .and. ew==itest .and. ns==jtest) then
                 print*, ' '
                 print*, 'Before prognostic temp, i, j =', ew, ns
                 print*, 'thck =', model%geometry%thck(ew,ns)*thk0
@@ -494,7 +495,7 @@ contains
                                      subd,  diag, supd, rhsd,     &            
                                      GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
                 
-             if (verbose_temp .and. ew==itest .and. ns==jtest) then
+             if (verbose_temp .and. this_rank==rtest .and. ew==itest .and. ns==jtest) then
                 print*, 'After glissade_findvtri, i, j =', ew,ns
                 print*, 'k, subd, diag, supd, rhsd:'
                 do k = 1, upn+1
@@ -517,7 +518,7 @@ contains
                           model%temper%temp(0:model%general%upn,ew,ns), &
                           rhsd(1:model%general%upn+1))
 
-             if (verbose_temp .and. ew==itest .and. ns==jtest) then
+             if (verbose_temp .and. this_rank==rtest .and. ew==itest .and. ns==jtest) then
                 print*, ' '
                 print*, 'After prognostic temp, i, j =', ew, ns
                 print*, 'Temp:'
@@ -629,7 +630,7 @@ contains
 !             !   model%temper%temp(:,ew,ns) = 0.0d0
 !             end if
 
-             !WHL - Changed threshold to thklim_temp, set at the top of this module
+             !WHL - Changed threshold from thklim to thklim_temp
               if (model%geometry%thck(ew,ns) <= model%numerics%thklim_temp) then
                  model%temper%temp(:,ew,ns) = min(0.d0, model%climate%artm(ew,ns))
               endif
@@ -667,10 +668,6 @@ contains
                                GLIDE_IS_FLOAT(model%geometry%thkmask))
 
        ! Interpolate basal temperature and pressure melting point onto velocity grid
-       !WHL - I replaced calls to stagvarb (an old Glide routine) with calls to glissade_stagger.
-       !       stagger_margin_in = 1 implies that ice-free cells (where the basal temperature has
-       !       no physical meaning) are not included in the average.
-       !      With stagvarb, values in ice-free cells are (erroneously) included.
 
        call glissade_get_masks(model%general%ewn,    model%general%nsn,           &
                                model%geometry%thck,  model%geometry%topg,         &
@@ -708,7 +705,6 @@ contains
       !TODO - If I'm using TEMP_ENTHALPY, should I make a call to glissade_init_enthalpy here?
 
       !TODO - Change Tstagsigma to stagwbndsigma
-
       Tstagsigma(0) = 0.d0
       Tstagsigma(1:model%general%upn-1) = model%numerics%stagsigma(1:model%general%upn-1)
       Tstagsigma(model%general%upn) = 1.d0
@@ -786,7 +782,7 @@ contains
             !   model%temper%temp(:,ew,ns) = 0.0d0
             end if
 
-            !WHL - Changed threshold to thklim_temp, set at the top of this module
+            !WHL - Changed threshold to thklim_temp
             if (model%geometry%thck(ew,ns) <= model%numerics%thklim_temp) then
                model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
             endif
@@ -941,10 +937,10 @@ contains
     ! for grounded ice, a heat flux is applied
     ! for floating ice, the basal temperature is held constant
 
-!WHL - This lower BC is different from the one in standard glide_temp.
-!      If T(upn) < T_pmp, then require dT/dsigma = H/k * (G + taub*ubas)
-!       That is, net heat flux at lower boundary must equal zero.
-!      If T(upn) >= Tpmp, then set T(upn) = Tpmp
+    !NOTE: This lower BC is different from the one in glide_temp.
+    !      If T(upn) < T_pmp, then require dT/dsigma = H/k * (G + taub*ubas)
+    !       That is, net heat flux at lower boundary must equal zero.
+    !      If T(upn) >= Tpmp, then set T(upn) = Tpmp
 
     if (float) then
 
@@ -1074,9 +1070,9 @@ contains
                 do nsp = ns-1,ns
                 do ewp = ew-1,ew
 
-!SCALING - WHL: Multiplied ubas by vel0/vel_scale so we get the same result in these two cases:
-!           (1) Old Glimmer with scaling:         vel0 = vel_scale = 500/scyr, and ubas is non-dimensional
-!           (2) New CISM without scaling: vel0 = 1, vel_scale = 500/scyr, and ubas is in m/s.
+                   !SCALING - WHL: Multiplied ubas by vel0/vel_scale so we get the same result in these two cases:
+                   !           (1) With scaling:     vel0 = vel_scale = 500/scyr, and ubas is non-dimensional
+                   !           (2) Without scaling:  vel0 = 1, vel_scale = 500/scyr, and ubas is in m/s.
 
 !!!                   if (abs(model%velocity%ubas(ewp,nsp)) > 1.0d-6 .or.   &
 !!!                       abs(model%velocity%vbas(ewp,nsp)) > 1.0d-6) then
@@ -1226,7 +1222,7 @@ contains
     ! Note also that dissip and flwa must have the same vertical dimension 
     !  (1:upn on an unstaggered vertical grid, or 1:upn-1 on a staggered vertical grid).
     
-    use glimmer_physcon, only : gn
+    use glimmer_physcon, only : gn   ! Glen's n
 
     type(glide_global_type) :: model
     real(dp), dimension(:,:), intent(in) :: thck, stagthck, dusrfdew, dusrfdns
@@ -1249,8 +1245,8 @@ contains
 
     case(HO_DISP_SIA)   ! required for whichapprox = HO_APPROX_LOCAL_SIA
 
-    !*sfp* 0-order SIA case only 
-    ! two methods of doing this. 
+    !*sfp* 0-order SIA case only
+    ! two methods of doing this: 
     ! 1. find dissipation at u-pts and then average
     ! 2. find dissipation at H-pts by averaging quantities from u-pts
     ! (2) works best for eismint divide (symmetry) but I likely to be better for full expts
@@ -1277,8 +1273,7 @@ contains
     case(HO_DISP_FIRSTORDER)
 
     ! 3D, 1st-order case
-    ! Typically this is used for Blatter-Pattyn, but Glissade computes efvs and tau%scalar
-    !  using only the strain rate terms appropriate for the approximation.
+    ! Note: Glissade computes efvs and tau%scalar using the strain rate terms appropriate for the approximation.
     ! E.g, the SIA quantities are computed based on (du_dz, dv_dz) only, and the SSA quantities
     !  are computed based on (du_dx, du_dy, dv_dx, dv_dy) only.
     ! So this computation should give the appropriate heating for whichapprox = HO_APPROX_SIA,
@@ -1325,7 +1320,7 @@ contains
 
   !-----------------------------------------------------------------------------------
  
-!TODO - Inline these subroutines above?
+  !TODO - Inline glissade_calcpmpt and glissade_calcbpmp above?
 
   subroutine glissade_calcpmpt(pmptemp, thck, stagsigma)
 
@@ -1365,7 +1360,6 @@ contains
 
     do ns = 1, nsn
        do ew = 1, ewn
-          !TODO - Inline this code?
           call glissade_calcpmpt_bed(bpmp(ew,ns),thck(ew,ns))
        end do
     end do
@@ -1390,28 +1384,31 @@ contains
 
   !-------------------------------------------------------------------
 
-  subroutine glissade_calcflwa(stagsigma, thklim, flwa, temp, thck, flow_factor, &
-                               default_flwa_arg, flag, waterfrac)
+  subroutine glissade_calcflwa(stagsigma,   thklim,   &
+                               flwa,        temp,     &
+                               thck,        flow_factor, &
+                               default_flwa_arg,      &
+                               flag,        waterfrac)
 
-    !*FD Calculates Glen's $A$ over the three-dimensional domain,
-    !*FD using one of three possible methods.
-    !*FD
-    !*FD The primary method is to use this equation from \emph{Paterson and Budd} [1982]:
-    !*FD \[
-    !*FD A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
-    !*FD \]
-    !*FD This is equation 9 in {\em Payne and Dongelmans}. $a$ is a constant of proportionality,
-    !*FD $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
-    !*FD The pressure-corrected temperature, $T^{*}$ is given by:
-    !*FD \[
-    !*FD T^{*}=T-T_{\mathrm{pmp}}+T_0
-    !*FD \] 
-    !*FD \[
-    !*FD T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
-    !*FD \]
-    !*FD $T$ is the ice temperature, $T_{\mathrm{pmp}}$ is the pressure melting point 
-    !*FD temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
-    !*FD $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
+    ! Calculates Glen's $A$ over the three-dimensional domain,
+    ! using one of three possible methods.
+    !
+    ! The primary method is to use this equation from \emph{Paterson and Budd} [1982]:
+    ! \[
+    ! A(T^{*})=a \exp \left(\frac{-Q}{RT^{*}}\right)
+    ! \]
+    ! This is equation 9 in {\em Payne and Dongelmans}. $a$ is a constant of proportionality,
+    ! $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
+    ! The pressure-corrected temperature, $T^{*}$ is given by:
+    ! \[
+    ! T^{*}=T-T_{\mathrm{pmp}}+T_0
+    ! \] 
+    ! \[
+    ! T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
+    ! \]
+    ! $T$ is the ice temperature, $T_{\mathrm{pmp}}$ is the pressure melting point 
+    ! temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
+    ! $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
 
     use glimmer_physcon
     use glimmer_paramets, only : thk0, vis0
@@ -1430,16 +1427,16 @@ contains
     real(dp)                                  :: flow_factor ! fudge factor in Arrhenius relationship
     real(dp),                   intent(in)    :: default_flwa_arg ! Glen's A to use in isothermal case 
                                                                   ! Units: Pa^{-n} yr^{-1} 
-    integer,                    intent(in)    :: flag      !*FD Flag to select the method
-                                                           !*FD of calculation
-    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !*FD The calculated values of $A$
+    integer,                    intent(in)    :: flag      !> Flag to select the method
+                                                           !> of calculation
+    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !> The calculated values of $A$
     real(dp),dimension(:,:,:),  intent(in), optional :: waterfrac!internal water content fraction, 0 to 1
 
-    !*FD \begin{description}
-    !*FD \item[0] {\em Paterson and Budd} relationship.
-    !*FD \item[1] {\em Paterson and Budd} relationship, with temperature set to -5$^{\circ}$C.
-    !*FD \item[2] Set to prescribed constant value.
-    !*FD \end{description}
+    !> \begin{description}
+    !> \item[0] {\em Paterson and Budd} relationship.
+    !> \item[1] {\em Paterson and Budd} relationship, with temperature set to -5$^{\circ}$C.
+    !> \item[2] Set to prescribed constant value.
+    !> \end{description}
 
     !------------------------------------------------------------------------------------
     ! Internal variables
@@ -1465,18 +1462,13 @@ contains
     ! Check that the temperature array has the desired vertical dimension
 
     if (size(temp,1) /= size(flwa,1)) then
-! debug
-!       print*, 'upn =', upn
-!       print*, 'size(temp,1) =', size(temp,1)
-!       print*, 'size(flwa,1) =', size(flwa,1)
-       call write_log('glissade_calcflwa: temp and flwa must have the same vertical dimensions', &
-                       GM_FATAL)
+       call write_log('glissade_calcflwa: temp and flwa must have the same vertical dimensions', GM_FATAL)
     endif
 
     ! Scale the default rate factor (default value has units Pa^{-n} yr^{-1}).
     ! Also multiply by fudge factor
 
-    default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
+    default_flwa = flow_factor * default_flwa_arg / (vis0*scyr)
     !write(*,*)"Default flwa = ",default_flwa
 
     select case(flag)

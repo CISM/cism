@@ -50,7 +50,6 @@ module glissade_grid_operators
               glissade_centered_gradient, glissade_upstream_gradient,  &
               glissade_edge_gradient, glissade_vertical_average
 
-!!    logical, parameter :: verbose_gradient = .true.
     logical, parameter :: verbose_gradient = .false.
 
 contains
@@ -746,8 +745,7 @@ contains
        print*, ' '
        print*, 'df_dx:'
        do j = ny-1, 1, -1
-!!          do i = 1, nx-1
-          do i = nx/2, nx-1
+          do i = 1, nx-1
              write(6,'(f8.4)',advance='no') df_dx(i,j)
           enddo
           print*, ' '
@@ -755,8 +753,7 @@ contains
        print*, ' '
        print*, 'df_dy:'
        do j = ny-1, 1, -1
-!!          do i = 1, nx-1
-          do i = nx/2, nx-1
+          do i = 1, nx-1
              write(6,'(f8.4)',advance='no') df_dy(i,j)
           enddo
           print*, ' '

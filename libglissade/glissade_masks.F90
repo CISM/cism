@@ -24,7 +24,6 @@
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-!
 ! This module contains routines for computing various masks used by the Glissade 
 ! velocity solver.
 !
@@ -54,11 +53,11 @@
 
 !****************************************************************************
 
-    subroutine glissade_get_masks(nx,          ny,         &
-                                  thck,        topg,       &
-                                  eus,         thklim,     &
-                                  ice_mask,    floating_mask, &
-                                  ocean_mask,  land_mask)
+  subroutine glissade_get_masks(nx,          ny,         &
+                                thck,        topg,       &
+                                eus,         thklim,     &
+                                ice_mask,    floating_mask, &
+                                ocean_mask,  land_mask)
                                   
 
     !----------------------------------------------------------------
@@ -141,10 +140,10 @@
 
 !****************************************************************************
 
-    subroutine glissade_grounded_fraction(nx,          ny,        &
-                                          thck,        topg,      &
-                                          eus,         ice_mask,  &
-                                          whichground, f_ground)
+  subroutine glissade_grounded_fraction(nx,          ny,        &
+                                        thck,        topg,      &
+                                        eus,         ice_mask,  &
+                                        whichground, f_ground)
 
     !----------------------------------------------------------------
     ! Compute fraction of ice that is grounded.
@@ -158,6 +157,8 @@
     ! (2) HO_GROUND_ALL: f_ground = 1 for all cells with ice
     !----------------------------------------------------------------
     
+    !TODO: Apply this subroutine in MISMIP test cases
+
     !----------------------------------------------------------------
     ! Input-output arguments
     !----------------------------------------------------------------
@@ -227,10 +228,8 @@
     real(dp), parameter :: &
        eps10 = 1.d-10     ! small number
 
-!WHL - debug
+    !WHL - debug
     integer, parameter :: it = 15, jt = 15
-
-!    print*, 'In grounded_fraction, whichground =', whichground
 
     !----------------------------------------------------------------
     ! Compute ice mask at vertices (= 1 if any surrounding cells have ice)
@@ -309,11 +308,6 @@
           enddo
        enddo
 
-!WHL - debug
-       
-!       fpat(it,jt+1) = 1.9999d0; fpat(it+1,jt+1) = 0.d0
-!       fpat(it,jt)   = 0.d0; fpat(it+1,jt) = 2.d0
-
        ! Interpolate Pattyn function to staggered mesh
        ! For stagger_margin_in = 1, only ice-covered cells are included in the interpolation.
        ! Returns stagfpat = 0. in ice-free regions
@@ -334,7 +328,7 @@
           enddo
        enddo
 
-!WHL - debug
+       !WHL - debug
        i = it; j = jt
        print*, 'i, j =', i, j
        print*, 'fpat(i:i+1,j+1):', fpat(i:i+1,j+1)
@@ -362,7 +356,7 @@
                    if (cfloat(i+1,j+1)) nfloat = nfloat + 1
                    if (cfloat(i,j+1))   nfloat = nfloat + 1
 
-!WHL - debug
+                   !WHL - debug
                    if (i==it .and. j==jt) then
                       print*, ' '
                       print*, 'nfloat =', nfloat
@@ -441,7 +435,8 @@
                       b = f2 - f1
                       c = f4 - f1
                       d = f1 + f3 - f2 - f4
-!WHL - debug
+
+                      !WHL - debug
                       if (i==it .and. j==jt) then
                          print*, 'f1, f2, f3, f4 =', f1, f2, f3, f4
                          print*, 'a, b, c, d =', a, b, c, d
@@ -475,7 +470,8 @@
                       else                 ! f_corner is the grounded area
                          f_ground(i,j) = f_corner
                       endif
-!WHL - debug
+
+                      !WHL - debug
                       if (i==it .and. j==jt) then
                          print*, 'f_corner =', f_corner
                          print*, 'f_ground =', f_ground(i,j)
@@ -556,7 +552,8 @@
                       d = f1 + f3 - f2 - f4
 
                       ! Integrate the corner areas
-!WHL - debug
+
+                      !WHL - debug
                       if (i==it .and. j==jt) then
                          print*, 'adjacent =', adjacent
                          print*, 'f1, f2, f3, f4 =', f1, f2, f3, f4
@@ -589,7 +586,7 @@
 
                          f_ground(i,j) = 1.d0 - f_trapezoid
 
-!WHL - debug
+                         !WHL - debug
                          if (i==it .and. j==jt) then
                             print*, 'f_trapezoid =', f_trapezoid
                             print*, 'f_ground =', f_ground(i,j)
@@ -650,7 +647,8 @@
                          else                     ! the central point is grounded; corners are floating
                             f_ground(i,j) = 1.d0 - (f_corner1 + f_corner2)
                          endif
-!WHL - debug
+
+                         !WHL - debug
                          if (i==it .and. j==jt) then
                             print*, 'fpat_v =', fpat_v
                             print*, 'f_corner1 =', f_corner1
