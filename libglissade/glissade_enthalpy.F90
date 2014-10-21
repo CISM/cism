@@ -31,7 +31,7 @@
 #include "glide_mask.inc"
 
 !TODO - The glissade_enthalpy module needs to be tested.
-
+!       Also, we may want to reorganize a bit to reduce the amount of duplicate code.
 module glissade_enthalpy
 
     use glimmer_global, only : dp
@@ -172,7 +172,7 @@ contains
     ! for grounded ice, a heat flux is applied
     ! for floating ice, the basal temperature is held constant
 
-    !WHL - This lower BC is different from the one in standard glide_temp.
+    !NOTE: This lower BC is different from the one in standard glide_temp.
     !      If T(upn) < T_pmp, then require dT/dsigma = H/k * (G + taub*ubas)
     !       That is, net heat flux at lower boundary must equal zero.
     !      If T(upn) >= Tpmp, then set T(upn) = Tpmp
@@ -416,7 +416,7 @@ contains
              !       What should we do if bwat = 0?
 
              bflx = model%temper%bfricflx(ew,ns) + model%temper%lcondflx(ew,ns) - model%temper%bheatflx(ew,ns)
-             bmlt(ew,ns) = bflx * model%tempwk%f(2)   ! f(2) = tim0 / (thk0 * lhci * rhoi)
+             bmlt(ew,ns) = bflx * model%tempwk%f(2) * model%numerics%dttem   ! f(2) = tim0 / (thk0 * lhci * rhoi)
 
              ! Add internal melting associated with waterfrac > waterfrac_max (1%)
              ! Note: glissade_calcpmpt does not compute pmpt at the top surface or the bed.
@@ -439,6 +439,16 @@ contains
              call glissade_calcpmpt_bed(pmptemp(up), thck(ew,ns))
              temp(up,ew,ns) = min (temp(up,ew,ns), pmptemp(up))
 
+             ! If freeze-on was computed above (bmlt < 0) and Tbed = Tpmp but no basal water is present, then set T(upn) < Tpmp.
+             ! Note: In subroutine findvtri, we solve for Tbed (instead of holding it at Tpmp) when Tbed < 0.001.
+             !       With an offset here of 0.01, we will solve for T_bed at the next timestep.
+             ! Note: Energy is not exactly conserved here.
+
+             up = model%general%upn  ! basal level
+             if (bmlt(ew,ns) < 0.d0 .and. model%temper%bwat(ew,ns)==0.d0 .and. temp(up,ew,ns) >= pmptemp(up)) then
+                temp(up,ew,ns) = pmptemp(up) - 0.01d0
+             endif
+
           endif   ! thk > thklim_temp
 
        enddo
@@ -448,6 +458,7 @@ contains
 
 !-----------------------------------------------------------------------------------
 
+  !TODO - Remove or inline these subroutines?  They are copies of subroutines in glissade_temp.F90.
   subroutine glissade_calcpmpt(pmptemp, thck, stagsigma)
 
     ! Compute the pressure melting point temperature in the column
@@ -484,7 +495,7 @@ contains
 
   end subroutine glissade_calcpmpt_bed
 
-  !-------------------------------------------------------------------
+!-------------------------------------------------------------------
 
 end module glissade_enthalpy
 
