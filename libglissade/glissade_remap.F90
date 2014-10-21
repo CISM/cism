@@ -49,302 +49,234 @@
 !  transport using incremental remapping, Mon. Wea. Rev., 132,
 !  1341-1354.
 !
-! This version was created from ice_transport_remap in CICE,
-!  revision 313, 6 Jan. 2011.
+! This version was created from ice_transport_remap in CICE, revision 313, 6 Jan. 2011.
 ! The repository is here: http://oceans11.lanl.gov/svn/CICE
 !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
-      module glissade_remap
-!
-! !USES:
-!
-      use glimmer_global, only: dp
-      use glimmer_log
+module glissade_remap
+
+  use glimmer_global, only: dp
+  use glimmer_log
+  use parallel
+
+  implicit none
+  save
+  private
+  public :: glissade_horizontal_remap, make_remap_mask, puny
+
+  integer, parameter ::     &
+       ngroups  = 6      ,&! number of groups of triangles that
+                           ! contribute transports across each edge
+       nvert = 3           ! number of vertices in a triangle
+
+  real(dp), parameter ::   &
+       puny = 1.e-11       ! small number
+
+  !Note: The code will run a bit faster if bugcheck = .false.
+  logical, parameter :: bugcheck = .true.
+
+  !=======================================================================
+  ! Here is some information about how the incremental remapping scheme
+  ! works in CICE and how it can be adapted for use in other models.  
+  !
+  ! The remapping routine is designed to transport a generic mass-like 
+  ! field (in CICE, the ice fractional area) along with an arbitrary number
+  ! of tracers in two dimensions.  The velocity components are assumed 
+  ! to lie at grid cell corners and the transported scalars at cell centers. 
+  ! Incremental remapping has the following desirable properties: 
+  ! 
+  ! (1) Tracer monotonicity is preserved.  That is, no new local 
+  !     extrema are produced in fields like ice thickness or internal 
+  !     energy. 
+  ! (2) The reconstructed mass and tracer fields vary linearly in x and y. 
+  !     This means that remapping is second-order accurate in space, 
+  !     except where horizontal gradients are limited to preserve 
+  !     monotonicity. 
+  ! (3) There are economies of scale.  Transporting a single field 
+  !     is rather expensive, but additional fields have a relatively 
+  !     low marginal cost. 
+  ! 
+  ! The following generic conservation equations may be solved: 
+  ! 
+  !            dm/dt = del*(u*m)             (0) 
+  !       d(m*T1)/dt = del*(u*m*T1)          (1) 
+  !    d(m*T1*T2)/dt = del*(u*m*T1*T2)       (2) 
+  !
+  ! where d is a partial derivative, del is the 2D divergence operator,
+  ! u is the horizontal velocity, m is the mass density field, and
+  ! T1, T2, and T3 are tracers.
+  !
+  ! In CICE, these equations have the form
+  ! 
+  !               da/dt = del*(u*a)          (3)
+  ! dv/dt =   d(a*h)/dt = del*(u*a*h)        (4)
+  ! de/dt = d(a*h*q)/dt = del*(u*a*h*q)      (5)
+  ! 
+  ! where a = fractional ice area, v = ice/snow volume, h = v/a = thickness, 
+  ! e = ice/snow internal energy (J/m^2), q = e/v = internal energy per 
+  ! unit volume (J/m^3), and T is a tracer.  These equations express 
+  ! conservation of ice area, volume, internal energy, and area-weighted
+  ! tracer, respectively. 
+  !
+  ! (Note: In CICE, a, v and e are prognostic quantities from which
+  !  h and q are diagnosed.  The remapping routine works with tracers,
+  !  which means that h and q must be derived from a, v, and e before
+  !  calling the remapping routine.)  
+  !
+  ! Tracers satisfying equations of the form (1) are called "type 1." 
+  ! In CICE the paradigmatic type 1 tracers are hi and hs (ice/snow thickness). 
+  ! 
+  ! Tracers satisfying equations of the form (2) are called "type 2". 
+  ! The paradigmatic type 2 tracers are qi and qs (ice/snow enthalpy).
+  ! 
+  ! The fields a, T1, and T2 are reconstructed in each grid cell with 
+  ! 2nd-order accuracy.
+  ! 
+  ! The mass-like field lives in the array "mass" and the tracers fields 
+  ! in the array "trcr". 
+  ! In order to transport tracers correctly, the remapping routine 
+  ! needs to know the tracers types and relationships.  This is done 
+  ! as follows: 
+  ! 
+  ! Each field in the "trcr" array is assigned an index, 1:max_ntrace. 
+  ! (Note: max_ntrace is not the same as max_ntrcr, the number of tracers 
+  ! in the trcrn state variable array.  For remapping purposes we 
+  ! have additional tracers hi, hs, qi and qs.) 
+  ! For CICE with ntrcr = 1, nilyr = 4, and nslyr = 1, the 
+  ! indexing is as follows: 
+  ! 1   = hi 
+  ! 2   = hs 
+  ! 3   = Ts 
+  ! 4-7 = qi 
+  ! 8   = qs 
+  ! 
+  ! The tracer types (1,2) are contained in the "tracer_type" array. 
+  ! For standard CICE: 
+  ! 
+  !     tracer_type = (1 1 1 2 2 2 2 2) 
+  ! 
+  ! Type 2 tracers are said to depend on type 1 tracers. 
+  ! For instance, qi depends on hi, which is to say that 
+  ! there is a conservation equation of the form (2) or (5). 
+  ! Thus we define a "depend" array.  For standard CICE: 
+  ! 
+  !          depend = (0 0 0 1 1 1 1 2) 
+  ! 
+  ! which implies that elements 1-3 (hi, hs, Ts) are type 1, 
+  ! elements 4-7 (qi) depend on element 1 (hi), and element 8 (qs) 
+  ! depends on element 2 (hs). 
+  !
+  ! We also define a logical array "has_dependents".  In standard CICE: 
+  ! 
+  !  has_dependents = (T T F F F F F F), 
+  ! 
+  ! which means that only elements 1 and 2 (hi and hs) have dependent tracers. 
+  ! 
+  ! Tracers added to the ntrcr array are handled automatically 
+  ! by the remapping with little extra coding.  It is necessary 
+  ! only to provide the correct type and dependency information. 
+  !
+  ! When using this routine in other models (e.g., CISM), the tracer dependency
+  ! apparatus may be irrelevant.  In a layered ocean model, for example,
+  ! the transported fields are the layer thickness h (the mass density
+  ! field) and two or more tracers (T, S, and various trace species).
+  ! Suppose there are just two tracers, T and S.  Then the tracer arrays
+  ! have the values:
+  !
+  !    tracer_type = (1 1)
+  !         depend = (0 0)
+  ! has_dependents = (F F)
+  !
+  ! which is to say that all tracer transport equations are of the form (1).
+  !
+  ! The tracer dependency arrays are optional input arguments for the
+  ! main remapping subroutine.  If these arrays are not passed in, they
+  ! take on the default values tracer_type(:) = 1, depend(:) = 0, and
+  ! has_dependents(:) = F, which are appropriate for most purposes.
+  !
+  ! Another optional argument is integral_order.  If integral_order = 1,
+  ! then the triangle integrals are exact for linear functions of x and y.
+  ! If integral_order = 2, these integrals are exact for both linear and
+  ! quadratic functions.  If integral_order = 3, integrals are exact for
+  ! cubic functions as well.  If all tracers are of type 1, then the
+  ! integrals of mass*tracer are quadratic, and integral_order = 2 is
+  ! sufficient.  In CICE, where there are type 2 tracers, we integrate
+  ! functions of the form mass*tracer1*tracer2.  Thus integral_order = 3
+  ! is required for exactness, though integral_order = 2 may be good enough
+  ! in practice.
+  !
+  ! Finally, a few words about the edgearea fields:
+  !
+  ! In earlier versions of this scheme, the divergence of the velocity
+  ! field implied by the remapping was, in general, different from the
+  ! value of del*u computed in the dynamics.  For energetic consistency
+  ! (in CICE as well as in layered ocean models such as HYPOP),
+  ! these two values should agree.  This can be ensured by setting
+  ! prescribed_area = T and specifying the area transported across each grid
+  ! cell edge in the arrays edgearea_e and edgearea_n.  The departure
+  ! regions are then tweaked, following an idea by Mats Bentsen, such
+  ! that they have the desired area.  If prescribed_area = F, these regions
+  ! are not tweaked, and the edgearea arrays are output variables.
+  !   
+  ! Notes on the adaptation to CISM:
+  !
+  ! We assume that all tracers are type 1, so the above arrays,
+  ! if defined, would have the following values: 
+  !
+  !    tracer_type = (1 1 ...)
+  !         depend = (0 0 ...)
+  ! has_dependents = (F F ...)
+  !
+  ! But to simplify the code, these arrays have been removed throughout.
+  !
+  ! Also, CISM assumes that the U grid (for velocity) is smaller than the
+  ! T grid (for scalars).  If the T grid has dimensions (nx,ny), then the
+  ! U grid has dimensions (nx-1,ny-1).  
+  !
+  ! For nghost = 2, the U grid has two halo rows to the south and west, but 
+  ! only one halo row to the north and east.
+  !
+  ! For both the T and U grids, the local cells have dimensions (ilo:ihi,jlo:jhi),
+  ! where ilo = 1+nhalo, ihi = nx-nhalo
+  !       jlo = 1+nhalo, jhi = ny-nhalo
+  !
+  !=======================================================================
+
+  contains
+
+  !=======================================================================
+
+    subroutine glissade_horizontal_remap (dt,                               &
+                                          dx,                dy,            &
+                                          nx_block,          ny_block,      &
+                                          ntracer,           nghost,        &
+                                          mmask,             icells,        &
+                                          indxi,             indxj,         &
+                                          uvel,              vvel,          &
+                                          mass,              trcr,          &
+                                          edgearea_e,        edgearea_n,    &
+                                          prescribed_area_in,               &
+                                          integral_order_in, dp_midpt_in)
+      
+      ! Solve the transport equations for one timestep using the incremental
+      ! remapping scheme developed by John Dukowicz and John Baumgardner (DB)
+      ! and modified for sea ice by William Lipscomb and Elizabeth Hunke.
+      !
+      ! This scheme preserves monotonicity of mass and tracers.  That is,
+      ! it does not produce new extrema.  It is second-order accurate in space,
+      ! except where gradients are limited to preserve monotonicity. 
+      !
+      ! This version of the remapping allows the user to specify the areal
+      ! flux across each edge, based on an idea developed by Mats Bentsen.
+      !
+
       use parallel
-!
-!EOP
-!
-      implicit none
-      save
-!!      private
-      public :: glissade_horizontal_remap, make_remap_mask
 
-      integer, parameter ::     &
-         ngroups  = 6      ,&! number of groups of triangles that
-                             ! contribute transports across each edge
-         nvert = 3           ! number of vertices in a triangle
+      ! INPUT/OUTPUT PARAMETERS:
 
-      real(dp), parameter ::   &
-         puny = 1.e-11       ! small number
-
-      !TODO - Test with bugcheck = true, but set to false for greater efficiency
-      logical, parameter :: bugcheck = .true.
-
-!TODO - Remove comments that are not relevant for CISM?
-!=======================================================================
-! Here is some information about how the incremental remapping scheme
-! works in CICE and how it can be adapted for use in other models.  
-!
-! The remapping routine is designed to transport a generic mass-like 
-! field (in CICE, the ice fractional area) along with an arbitrary number
-! of tracers in two dimensions.  The velocity components are assumed 
-! to lie at grid cell corners and the transported scalars at cell centers. 
-! Incremental remapping has the following desirable properties: 
-! 
-! (1) Tracer monotonicity is preserved.  That is, no new local 
-!     extrema are produced in fields like ice thickness or internal 
-!     energy. 
-! (2) The reconstucted mass and tracer fields vary linearly in x and y. 
-!     This means that remapping is 2nd-order accurate in space, 
-!     except where horizontal gradients are limited to preserve 
-!     monotonicity. 
-! (3) There are economies of scale.  Transporting a single field 
-!     is rather expensive, but additional fields have a relatively 
-!     low marginal cost. 
-! 
-! The following generic conservation equations may be solved: 
-! 
-!            dm/dt = del*(u*m)             (0) 
-!       d(m*T1)/dt = del*(u*m*T1)          (1) 
-!    d(m*T1*T2)/dt = del*(u*m*T1*T2)       (2) 
-! d(m*T1*T2*T3)/dt = del*(u*m*T1*T2*T3)    (3) 
-!
-! where d is a partial derivative, del is the 2D divergence operator,
-! u is the horizontal velocity, m is the mass density field, and
-! T1, T2, and T3 are tracers.
-!
-! In CICE, these equations have the form
-! 
-!               da/dt = del*(u*a)          (4)
-! dv/dt =   d(a*h)/dt = del*(u*a*h)        (5)
-! de/dt = d(a*h*q)/dt = del*(u*a*h*q)      (6)
-!            d(aT)/dt = del*(u*a*t)        (7)
-! 
-! where a = fractional ice area, v = ice/snow volume, h = v/a = thickness, 
-! e = ice/snow internal energy (J/m^2), q = e/v = internal energy per 
-! unit volume (J/m^3), and T is a tracer.  These equations express 
-! conservation of ice area, volume, internal energy, and area-weighted
-! tracer, respectively. 
-!
-! (Note: In CICE, a, v and e are prognostic quantities from which
-!  h and q are diagnosed.  The remapping routine works with tracers,
-!  which means that h and q must be derived from a, v, and e before
-!  calling the remapping routine.)  
-!
-! Earlier versions of CICE assumed fixed ice and snow density. 
-! Beginning with CICE 4.0, the ice and snow density can be variable. 
-! In this case, equations (5) and (6) are replaced by 
-! 
-! dv/dt =        d(a*h)/dt = del*(u*a*h)          (8)  
-! dm/dt =    d(a*h*rho)/dt = del*(u*a*h*rho)      (9)
-! de/dt = d(a*h*rho*qm)/dt = del*(u*a*h*rho*qm)   (10)
-! 
-! where rho = density and qm = internal energy per unit mass (J/kg). 
-! Eq. (9) expresses mass conservation, which in the variable-density 
-! case is no longer equivalent to volume conservation (8). 
-!
-! Tracers satisfying equations of the form (1) are called "type 1." 
-! In CICE the paradigmatic type 1 tracers are hi and hs. 
-! 
-! Tracers satisfying equations of the form (2) are called "type 2". 
-! The paradigmatic type 2 tracers are qi and qs (or rhoi and rhos 
-!  in the variable-density case). 
-! 
-! Tracers satisfying equations of the form (3) are called "type 3."
-! The paradigmatic type 3 tracers are qmi and qms in the variable-density
-! case.  There are no such tracers in the constant-density case. 
-! 
-! The fields a, T1, and T2 are reconstructed in each grid cell with 
-! 2nd-order accuracy.  T3 is reconstructed with 1st-order accuracy 
-! (i.e., it is transported in upwind fashion) in order to avoid 
-! additional mathematical complexity. 
-! 
-! The mass-like field lives in the array "mass" and the tracers fields 
-! in the array "trcr". 
-! In order to transport tracers correctly, the remapping routine 
-! needs to know the tracers types and relationships.  This is done 
-! as follows: 
-! 
-! Each field in the "trcr" array is assigned an index, 1:max_ntrace. 
-! (Note: max_ntrace is not the same as max_ntrcr, the number of tracers 
-! in the trcrn state variable array.  For remapping purposes we 
-! have additional tracers hi, hs, qi and qs.) 
-! For CICE with ntrcr = 1, nilyr = 4, and nslyr = 1, the 
-! indexing is as follows: 
-! 1   = hi 
-! 2   = hs 
-! 3   = Ts 
-! 4-7 = qi 
-! 8   = qs 
-! 
-! The tracer types (1,2,3) are contained in the "tracer_type" array. 
-! For standard CICE: 
-! 
-!     tracer_type = (1 1 1 2 2 2 2 2) 
-! 
-! Type 2 and type 3 tracers are said to depend on type 1 tracers. 
-! For instance, qi depends on hi, which is to say that 
-! there is a conservation equation of the form (2) or (6). 
-! Thus we define a "depend" array.  For standard CICE: 
-! 
-!          depend = (0 0 0 1 1 1 1 2) 
-! 
-! which implies that elements 1-3 (hi, hs, Ts) are type 1, 
-! elements 4-7 (qi) depend on element 1 (hi), and element 8 (qs) 
-! depends on element 2 (hs). 
-!
-! We also define a logical array "has_dependents".  In standard CICE: 
-! 
-!  has_dependents = (T T F F F F F F), 
-! 
-! which means that only elements 1 and 2 (hi and hs) have dependent 
-! tracers. 
-! 
-! For the variable-density case, things are a bit more complicated. 
-! Suppose we have 4 variable-density ice layers and one variable- 
-! density snow layer.  Then the indexing is as follows: 
-! 1    = hi 
-! 2    = hs 
-! 3    = Ts 
-! 4-7  = rhoi 
-! 8    = rhos 
-! 9-12 = qmi 
-! 13   = qms 
-! 
-! The key arrays are: 
-! 
-!    tracer_type = (1 1 1 2 2 2 2 2 3 3 3 3 3) 
-! 
-!         depend = (0 0 0 1 1 1 1 2 4 5 6 7 8) 
-! 
-! has_dependents = (T T F T T T T T F F F F F) 
-! 
-! which imply that hi and hs are type 1 with dependents rhoi and rhos, 
-! while rhoi and rhos are type 2 with dependents qmi and qms. 
-! 
-! Tracers added to the ntrcr array are handled automatically 
-! by the remapping with little extra coding.  It is necessary 
-! only to provide the correct type and dependency information. 
-!
-! When using this routine in other models, most of the tracer dependency
-! apparatus may be irrelevant.  In a layered ocean model, for example,
-! the transported fields are the layer thickness h (the mass density
-! field) and two or more tracers (T, S, and various trace species).
-! Suppose there are just two tracers, T and S.  Then the tracer arrays
-! have the values:
-!
-!    tracer_type = (1 1)
-!         depend = (0 0)
-! has_dependents = (F F)
-!
-! which is to say that all tracer transport equations are of the form (1).
-!
-! The tracer dependency arrays are optional input arguments for the
-! main remapping subroutine.  If these arrays are not passed in, they
-! take on the default values tracer_type(:) = 1, depend(:) = 0, and
-! has_dependents(:) = F, which are appropriate for most purposes.
-!
-! Another optional argument is integral_order.  If integral_order = 1,
-! then the triangle integrals are exact for linear functions of x and y.
-! If integral_order = 2, these integrals are exact for both linear and
-! quadratic functions.  If integral_order = 3, integrals are exact for
-! cubic functions as well.  If all tracers are of type 1, then the
-! integrals of mass*tracer are quadratic, and integral_order = 2 is
-! sufficient.  In CICE, where there are type 2 tracers, we integrate
-! functions of the form mass*tracer1*tracer2.  Thus integral_order = 3
-! is required for exactness, though integral_order = 2 may be good enough
-! in practice.
-!
-! Finally, a few words about the edgearea fields:
-!
-! In earlier versions of this scheme, the divergence of the velocity
-! field implied by the remapping was, in general, different from the
-! value of del*u computed in the dynamics.  For energetic consistency
-! (in CICE as well as in layered ocean models such as HYPOP),
-! these two values should agree.  This can be ensured by setting
-! prescribed_area = T and specifying the area transported across each grid
-! cell edge in the arrays edgearea_e and edgearea_n.  The departure
-! regions are then tweaked, following an idea by Mats Bentsen, such
-! that they have the desired area.  If prescribed_area = F, these regions
-! are not tweaked, and the edgearea arrays are output variables.
-!   
-! Notes on the adaptation to CISM:
-!
-! Here we assume that all tracers are type 1, so the above arrays,
-! if defined, would have the following values: 
-!
-!    tracer_type = (1 1 ...)
-!         depend = (0 0 ...)
-! has_dependents = (F F ...)
-!
-! But to simplify the code, these arrays have been removed throughout.
-!
-! Also, CISM assumes that the U grid (for velocity) is smaller than the
-! T grid (for scalars).  If the T grid has dimensions (nx,ny), then the
-! U grid has dimensions (nx-1,ny-1).  
-!
-! If nghost = 1, then there is one halo row to the south and west, but 
-! there are no halo rows to the north and east.
-!
-! If nghost = 2, then there are two halo rows to the south and west, but 
-! only one halo row to the north and east.
-!
-! For both the T and U grids, the local cells have dimensions (ilo:ihi,jlo:jhi),
-! where ilo = 1+nghost, ihi = nx-nghost
-!       jlo = 1+nghost, jhi = ny-nghost
-!
-!=======================================================================
-
-      contains
-
-!=======================================================================
-!BOP
-!
-! !IROUTINE: glissade_horizontal_remap - incremental remapping transport scheme
-!
-! !INTERFACE:
-!
-      subroutine glissade_horizontal_remap (dt,                               &
-                                            dx,                dy,            &
-                                            nx_block,          ny_block,      &
-                                            ntracer,           nghost,        &
-                                            mmask,             icells,        &
-                                            indxi,             indxj,         &
-                                            uvel,              vvel,          &
-                                            mass,              trcr,          &
-                                            edgearea_e,        edgearea_n,    &
-                                            prescribed_area_in,               &
-                                            integral_order_in, dp_midpt_in)
-!
-! !DESCRIPTION:
-
-! Solve the transport equations for one timestep using the incremental
-! remapping scheme developed by John Dukowicz and John Baumgardner (DB)
-! and modified for sea ice by William Lipscomb and Elizabeth Hunke.
-!
-! This scheme preserves monotonicity of mass and tracers.  That is,
-! it does not produce new extrema.  It is second-order accurate in space,
-! except where gradients are limited to preserve monotonicity. 
-!
-! This version of the remapping allows the user to specify the areal
-! flux across each edge, based on an idea developed by Mats Bentsen.
-!
-! !REVISION HISTORY:
-!
-! author William H. Lipscomb, LANL
-!       
-! !USES:
-!
-      use parallel
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
       real(dp), intent(in) ::     &
          dt           ! time step
-
-      !TODO - Pass in dx and dy as 3D fields to allow for spatially varying
-      !       cell dimensions as in POP/CICE?
 
       real(dp), intent(in) ::    &   
          dx, dy       ! x and y gridcell dimensions
@@ -353,7 +285,7 @@
          nx_block   ,&! number of cells in x direction
          ny_block   ,&! number of cells in y direction
          ntracer    ,&! number of tracers to be transported
-         nghost     ,&! number of ghost rows/columns 
+         nghost     ,&! number of ghost rows/columns (= nhalo)
          icells       ! number of cells with nonzero mass
 
       integer, intent(in), dimension(nx_block*ny_block) ::     &
@@ -396,9 +328,7 @@
       logical, intent(in), optional ::     &
          dp_midpt_in            ! if true, find departure points using
                                 ! corrected midpoint velocity
-!
-!EOP
-!
+
       ! local variables
 
       logical ::     &
@@ -440,8 +370,7 @@
       integer, dimension(ngroups) ::       &
          icellsng         ! number of cells with contribution from a given group
 
-      integer,     &
-         dimension(nx_block*ny_block,ngroups) ::     &
+      integer, dimension(nx_block*ny_block,ngroups) ::     &
          indxing, indxjng ! compressed i/j indices
 
       logical ::     &
@@ -451,10 +380,10 @@
          edge             ! 'north' or 'east'
 
       real(dp), dimension(nx_block,ny_block) ::   &
-          worka, workb, workc, workd
+         worka, workb, workc, workd
 
-!TODO - Could save computations by passing in the following or assuming they are
-!       the same for all grid cells
+      !Note - Could save some computations by passing in the following or assuming they are
+      !       the same for all grid cells
 
       real(dp), dimension (nx_block,ny_block) ::   &
          domain_mask    ,&! domain mask, = 1 wherever ice is allowed to be present
@@ -476,9 +405,9 @@
 
       character(len=200) :: message
 
-    !------------------------------------------------------------------- 
-    ! Initialize various grid quantities and code options
-    !------------------------------------------------------------------- 
+      !------------------------------------------------------------------- 
+      ! Initialize various grid quantities and code options
+      !------------------------------------------------------------------- 
 
       ! Assume that ice can exist everywhere on the domain
       ! May need to pass this in as an argument if parts of the domain are masked out,
@@ -488,8 +417,6 @@
 
       ! Assume gridcells are rectangular, in which case dxt = dxu = htn
       !  and dyt = dyu = hte.
-      !TODO - Pass in dx and dy as 3D fields to allow for spatially varying
-      !       cell dimensions as in POP/CICE?
 
       dxt(:,:) = dx
       dxu(:,:) = dx
@@ -524,7 +451,6 @@
       if (present(dp_midpt_in)) then
          dp_midpt = dp_midpt_in
       else
-         !WHL - Set to true for slightly better accuracy
          dp_midpt = .true.
       endif
 
@@ -547,9 +473,6 @@
       ihi = nx_block - nghost
       jlo = 1 + nghost
       jhi = ny_block - nghost
-
-!      print*, 'ilo, ihi =', ilo, ihi
-!      print*, 'jlo, jhi =', jlo, jhi
 
     !-------------------------------------------------------------------
     ! Construct linear fields, limiting gradients to preserve monotonicity.
@@ -592,7 +515,7 @@
       if (l_stop) then
          write(message,*) 'Aborting (task = ',this_rank,')'
          call write_log(message)
-         write(message,*) 'Incremental remapping advection scheme failed. A CFL violation has likely occurred. If so, the log file will contain more information.'
+         write(message,*) 'Incremental remapping scheme failed. A CFL violation has likely occurred. See the log file for more information.'
          call write_log(message,GM_FATAL)
       endif
 
@@ -717,39 +640,27 @@
          call write_log(message,GM_FATAL)
       endif
 
-      end subroutine glissade_horizontal_remap
+    end subroutine glissade_horizontal_remap
 
 !=======================================================================
 !
-!BOP
-!
-! !IROUTINE: make_remap_mask - make ice mask
-!
-! !INTERFACE:
-!
-      subroutine make_remap_mask (nx_block, ny_block,           &
-                                  ilo, ihi, jlo, jhi,           &
-                                  nghost,   icells,             &
-                                  indxi,    indxj,              &
-                                  mass,     mmask)
-!
-! !DESCRIPTION:
-!
-! Make ice mask; identify cells where ice is present.
-!
-! If a gridcell is massless (mass < puny), then the values of tracers
-!  in that grid cell are assumed to have no physical meaning.
-!WHL - Changed this condition from 'mass < puny' to 'mass < 0.d0'
-!      to preserve monotonicity in grid cells with very small thickness
-!
-! !REVISION HISTORY:
-!
-! author William H. Lipscomb, LANL
-!
-! !USES:
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
+    subroutine make_remap_mask (nx_block, ny_block,           &
+                                ilo, ihi, jlo, jhi,           &
+                                nghost,   icells,             &
+                                indxi,    indxj,              &
+                                mass,     mmask)
+      !
+      ! Make ice mask; identify cells where ice is present.
+      !
+      ! If a gridcell is massless (mass < puny), then the values of tracers
+      !  in that grid cell are assumed to have no physical meaning.
+      !WHL - Changed this condition from 'mass < puny' to 'mass < 0.d0'
+      !      to preserve monotonicity in grid cells with very small thickness
+      !
+      ! author William H. Lipscomb, LANL
+      !
+      ! !INPUT/OUTPUT PARAMETERS:
+      !
       integer, intent(in) ::     &
            nx_block, ny_block  ,&! block dimensions
            ilo,ihi,jlo,jhi     ,&! beginning and end of physical domain
@@ -770,8 +681,6 @@
            intent(out) ::     &
            mmask         ! = 1. if ice is present, else = 0.
 !
-!EOP
-!
       integer ::     &
            i, j, ij      ! indices
 
@@ -779,8 +688,8 @@
     ! ice mask
     !-------------------------------------------------------------------
 
-!WHL - Changed this condition from 'mass(i,j) < puny' to 'mass(i,j) < 0.d0'
-!      to preserve monotonicity in grid cells with very small thickness
+      !WHL - Changed this condition from 'mass(i,j) < puny' to 'mass(i,j) < 0.d0'
+      !      to preserve monotonicity in grid cells with very small thickness
       do j = 1, ny_block
       do i = 1, nx_block
 !!         if (mass(i,j) > puny) then
@@ -806,8 +715,8 @@
 
       do j = jlo-nghost+1, jhi+nghost-1
       do i = ilo-nghost+1, ihi+nghost-1
-!WHL - Changed this condition from 'mass(i,j) > puny' to 'mass(i,j) > 0.d0'
-!      to preserve monotonicity in grid cells with very small thickness
+         !WHL - Changed this condition from 'mass(i,j) > puny' to 'mass(i,j) > 0.d0'
+         !      to preserve monotonicity in grid cells with very small thickness
 !!         if (mass(i,j) > puny) then
          if (mass(i,j) > 0.d0) then
             icells = icells + 1
@@ -818,45 +727,33 @@
       enddo
       enddo
 
-      end subroutine make_remap_mask
+    end subroutine make_remap_mask
 
 !=======================================================================
 !
-!BOP
-!
-! !IROUTINE: construct_fields - construct fields of ice area and tracers
-!
-! !INTERFACE:
-!
-      subroutine construct_fields (nx_block,       ny_block,   &
-                                   ilo, ihi,       jlo, jhi,   &
-                                   nghost,         ntracer,    &
-                                   icells,                     &
-                                   indxi,          indxj,      &
-                                   htn,            hte,        &
-                                   hm,             xav,        &
-                                   yav,            xxav,       &
-                                   xyav,           yyav,       &
-                                   dxt,            dyt,        &
-                                   mass,           mc,         &
-                                   mx,             my,         &
-                                   mmask,                      &
-                                   trcr,           tc,         &
-                                   tx,             ty)
-!
-! !DESCRIPTION:
-!
-! Construct fields of ice mass and tracers.
-!
-! !REVISION HISTORY:
-!
-! authors William H. Lipscomb, LANL
-!         John R. Baumgardner, LANL
-!
-! !USES:
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
+    subroutine construct_fields (nx_block,       ny_block,   &
+                                 ilo, ihi,       jlo, jhi,   &
+                                 nghost,         ntracer,    &
+                                 icells,                     &
+                                 indxi,          indxj,      &
+                                 htn,            hte,        &
+                                 hm,             xav,        &
+                                 yav,            xxav,       &
+                                 xyav,           yyav,       &
+                                 dxt,            dyt,        &
+                                 mass,           mc,         &
+                                 mx,             my,         &
+                                 mmask,                      &
+                                 trcr,           tc,         &
+                                 tx,             ty)
+
+      ! Construct fields of ice mass and tracers.
+      !
+      ! authors William H. Lipscomb, LANL
+      !         John R. Baumgardner, LANL
+      !
+      ! !INPUT/OUTPUT PARAMETERS:
+      !
       integer, intent(in) ::   &
          nx_block, ny_block  ,&! block dimensions
          ilo,ihi,jlo,jhi     ,&! beginning and end of physical domain
@@ -893,9 +790,7 @@
          intent(out), optional ::   &
          tc             ,&! tracer at geometric center of cell
          tx, ty           ! limited derivative of tracer wrt x and y
-!
-!EOP
-!
+
       integer ::   &
          i, j,           &! horizontal indices
          nt,             &! tracer index
@@ -905,48 +800,48 @@
          mxav           ,&! x coordinate of center of mass
          myav             ! y coordinate of center of mass
 
-    !-------------------------------------------------------------------
-    ! Compute field values at the geometric center of each grid cell,
-    ! and compute limited gradients in the x and y directions.
-    !
-    ! For second order accuracy, each state variable is approximated as
-    ! a field varying linearly over x and y within each cell.  For each
-    ! category, the integrated value of m(x,y) over the cell must
-    ! equal mass(i,j,n)*tarea(i,j), where tarea(i,j) is the cell area.
-    ! Similarly, the integrated value of m(x,y)*t(x,y) must equal
-    ! the total mass*tracer, mass(i,j,n)*trcr(i,j,n)*tarea(i,j).
-    !
-    ! These integral conditions are satisfied for linear fields if we
-    ! stipulate the following:
-    ! (1) The mean mass is equal to the mass at the cell centroid.
-    ! (2) The mean value trcr1 of type 1 tracers is equal to the value
-    !     at the center of mass.
-    ! (3) The mean value trcr2 of type 2 tracers is equal to the value
-    !     at the center of mass*trcr1, where trcr2 depends on trcr1.
-    !     (See comments at the top of the module.)
-    !
-    ! We want to find the value of each state variable at a standard
-    ! reference point, which we choose to be the geometric center of
-    ! the cell.  The geometric center is located at the intersection
-    ! of the line joining the midpoints of the north and south edges
-    ! with the line joining the midpoints of the east and west edges.
-    ! To find the value at the geometric center, we must know the
-    ! location of the cell centroid/center of mass, along with the
-    ! mean value and the gradients with respect to x and y.
-    !
-    ! The cell gradients are first computed from the difference between
-    ! values in the neighboring cells, then limited by requiring that
-    ! no new extrema are created within the cell.
-    !
-    ! For rectangular coordinates the centroid and the geometric
-    ! center coincide, which means that some of the equations in this
-    ! subroutine could be simplified.  However, the full equations
-    ! are retained for generality.
-    !-------------------------------------------------------------------
-
-    !-------------------------------------------------------------------
-    ! Initialize
-    !-------------------------------------------------------------------
+      !-------------------------------------------------------------------
+      ! Compute field values at the geometric center of each grid cell,
+      ! and compute limited gradients in the x and y directions.
+      !
+      ! For second order accuracy, each state variable is approximated as
+      ! a field varying linearly over x and y within each cell.  For each
+      ! category, the integrated value of m(x,y) over the cell must
+      ! equal mass(i,j,n)*tarea(i,j), where tarea(i,j) is the cell area.
+      ! Similarly, the integrated value of m(x,y)*t(x,y) must equal
+      ! the total mass*tracer, mass(i,j,n)*trcr(i,j,n)*tarea(i,j).
+      !
+      ! These integral conditions are satisfied for linear fields if we
+      ! stipulate the following:
+      ! (1) The mean mass is equal to the mass at the cell centroid.
+      ! (2) The mean value trcr1 of type 1 tracers is equal to the value
+      !     at the center of mass.
+      ! (3) The mean value trcr2 of type 2 tracers is equal to the value
+      !     at the center of mass*trcr1, where trcr2 depends on trcr1.
+      !     (See comments at the top of the module.)
+      !
+      ! We want to find the value of each state variable at a standard
+      ! reference point, which we choose to be the geometric center of
+      ! the cell.  The geometric center is located at the intersection
+      ! of the line joining the midpoints of the north and south edges
+      ! with the line joining the midpoints of the east and west edges.
+      ! To find the value at the geometric center, we must know the
+      ! location of the cell centroid/center of mass, along with the
+      ! mean value and the gradients with respect to x and y.
+      !
+      ! The cell gradients are first computed from the difference between
+      ! values in the neighboring cells, then limited by requiring that
+      ! no new extrema are created within the cell.
+      !
+      ! For rectangular coordinates the centroid and the geometric
+      ! center coincide, which means that some of the equations in this
+      ! subroutine could be simplified.  However, the full equations
+      ! are retained for generality.
+      !-------------------------------------------------------------------
+      
+      !-------------------------------------------------------------------
+      ! Initialize
+      !-------------------------------------------------------------------
 
       do j = 1, ny_block
       do i = 1, nx_block
@@ -1034,42 +929,31 @@
 
      endif                     ! present (trcr)
 
-      end subroutine construct_fields
+   end subroutine construct_fields
 
 !=======================================================================
-!
-!BOP
-!
-! !IROUTINE: limited_gradient - limited gradient of a scalar field
-!
-! !INTERFACE:
-!
-      subroutine limited_gradient (nx_block, ny_block,   &
-                                   ilo, ihi, jlo, jhi,   &
-                                   nghost,               &
-                                   phi,      phimask,    &
-                                   cnx,      cny,        &
-                                   htn,      hte,        &
-                                   dxt,      dyt,        &
-                                   gx,       gy)
-!
-! !DESCRIPTION:
-!
-! Compute a limited gradient of the scalar field phi in scaled coordinates.
-! "Limited" means that we do not create new extrema in phi.  For
-! instance, field values at the cell corners can neither exceed the
-! maximum of phi(i,j) in the cell and its eight neighbors, nor fall
-! below the minimum.
-!
-! !REVISION HISTORY:
-!
-! authors William H. Lipscomb, LANL
-!         John R. Baumgardner, LANL
-!
-! !USES:
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
+
+   subroutine limited_gradient (nx_block, ny_block,   &
+                                ilo, ihi, jlo, jhi,   &
+                                nghost,               &
+                                phi,      phimask,    &
+                                cnx,      cny,        &
+                                htn,      hte,        &
+                                dxt,      dyt,        &
+                                gx,       gy)
+
+     ! Compute a limited gradient of the scalar field phi in scaled coordinates.
+     ! "Limited" means that we do not create new extrema in phi.  For
+     ! instance, field values at the cell corners can neither exceed the
+     ! maximum of phi(i,j) in the cell and its eight neighbors, nor fall
+     ! below the minimum.
+     !
+     !
+     ! authors William H. Lipscomb, LANL
+     !         John R. Baumgardner, LANL
+     !
+     ! !INPUT/OUTPUT PARAMETERS:
+     !
       integer, intent(in) ::   &
           nx_block, ny_block,&! block dimensions
           ilo,ihi,jlo,jhi ,&! beginning and end of physical domain
@@ -1093,9 +977,7 @@
           intent(out) ::   &
           gx     ,&! limited x-direction gradient
           gy       ! limited y-direction gradient
-!
-!EOP
-!
+
       integer ::   &
           i, j, ij        ,&! standard indices
           icells            ! number of cells to limit
@@ -1208,37 +1090,26 @@
 
       enddo                     ! ij
 
-      end subroutine limited_gradient
+    end subroutine limited_gradient
 
 !=======================================================================
-!BOP
 !
-! !IROUTINE: departure_points - compute departure points of trajectories
-!
-! !INTERFACE:
-!
-      subroutine departure_points (nx_block,   ny_block,   &
-                                   ilo, ihi,   jlo, jhi,   &
-                                   nghost,     dt,   &
-                                   uvel,       vvel,    &
-                                   dxu,        dyu,     &
-                                   htn,        hte,     &
-                                   dpx,        dpy,     &
-                                   dp_midpt,   l_stop)
-!
-! !DESCRIPTION:
-!
-! Given velocity fields on cell corners, compute departure points
-! of back trajectories in nondimensional coordinates.
-!
-! !REVISION HISTORY:
-!
-! author William H. Lipscomb, LANL
-!
-! !USES:
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
+    subroutine departure_points (nx_block,   ny_block,   &
+                                 ilo, ihi,   jlo, jhi,   &
+                                 nghost,     dt,   &
+                                 uvel,       vvel,    &
+                                 dxu,        dyu,     &
+                                 htn,        hte,     &
+                                 dpx,        dpy,     &
+                                 dp_midpt,   l_stop)
+      !
+      ! Given velocity fields on cell corners, compute departure points
+      ! of back trajectories in nondimensional coordinates.
+      !
+      ! author William H. Lipscomb, LANL
+      !
+      ! !INPUT/OUTPUT PARAMETERS:
+
       integer, intent(in) ::   &
          nx_block, ny_block,&! block dimensions
          ilo,ihi,jlo,jhi,   &! beginning and end of physical domain
@@ -1267,9 +1138,9 @@
 
       logical, intent(inout) ::   &
          l_stop       ! if true, abort on return
-!
-!EOP
-!
+
+      ! local variables
+
       integer ::   &
          i, j, i2, j2     ! horizontal indices
 
@@ -1310,7 +1181,7 @@
          if (dpx(i,j) < -htn(i,j) .or. dpx(i,j) > htn(i+1,j) .or.   &
              dpy(i,j) < -hte(i,j) .or. dpy(i,j) > hte(i,j+1)) then
 
-!WHL - debug
+            !WHL - debug
 !             print*, ' '
 !             print*, 'dt =', dt
 !             print*, 'i, j =', i, j
@@ -1326,9 +1197,9 @@
       enddo
       enddo
 
-!TODO - Write error message cleanly to the log file.
-!       I think this will require broadcasting istop and jstop to main_task.
-!       For now, just print an error message locally.
+      !TODO - Write error message to the log file.
+      !       I think this will require broadcasting istop and jstop to main_task.
+      !       For now, just print an error message locally.
 
       if (l_stop) then
          i = istop
@@ -1354,8 +1225,8 @@
          return
       endif
 
-!Note: Need nghost >= 2 to do this correction, which requires velocities
-!      for vertices with indices (ilo-2) and (jlo-2).
+      !Note: Need nghost >= 2 to do this correction, which requires velocities
+      !      for vertices with indices (ilo-2) and (jlo-2).
  
       if (dp_midpt .and. nghost>= 2) then   ! find dep pts using corrected midpt velocity 
 
@@ -1438,43 +1309,29 @@
  
       endif                  ! dp_midpt
 
-      end subroutine departure_points
+    end subroutine departure_points
 
 !=======================================================================
 !
-!BOP
-!
-! !IROUTINE: locate_triangles - triangle info for cell edges
-!
-! !INTERFACE:
-!
-      subroutine locate_triangles (nx_block,        ny_block,   &
-                                   ilo, ihi,        jlo, jhi,   &
-                                   edge,            icells,     &
-                                   indxi,           indxj,      &
-                                   dpx,             dpy,        &
-                                   dxu,             dyu,        &
-                                   xp,              yp,         &
-                                   iflux,           jflux,      &
-                                   triarea,                  &
-                                   prescribed_area, edgearea)
-!
+    subroutine locate_triangles (nx_block,        ny_block,   &
+                                 ilo, ihi,        jlo, jhi,   &
+                                 edge,            icells,     &
+                                 indxi,           indxj,      &
+                                 dpx,             dpy,        &
+                                 dxu,             dyu,        &
+                                 xp,              yp,         &
+                                 iflux,           jflux,      &
+                                 triarea,                  &
+                                 prescribed_area, edgearea)
+      !
+      ! Compute areas and vertices of transport triangles for north or
+      !  east cell edges.
+      !
+      ! authors William H. Lipscomb, LANL
+      !         John R. Baumgardner, LANL
+      !
+      ! !INPUT/OUTPUT PARAMETERS:
 
-! !DESCRIPTION:
-!
-! Compute areas and vertices of transport triangles for north or
-!  east cell edges.
-!
-! !REVISION HISTORY:
-!
-! authors William H. Lipscomb, LANL
-!         John R. Baumgardner, LANL
-!
-! !USES:
-!
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
       integer, intent(in) ::   &
          nx_block, ny_block,&! block dimensions
          ilo,ihi,jlo,jhi     ! beginning and end of physical domain
@@ -1519,9 +1376,9 @@
       real(dp), dimension(nx_block,ny_block), intent(inout) ::   &
          edgearea         ! area of departure region for each edge
                           ! edgearea > 0 for eastward/northward flow
-!
-!EOP
-!
+
+      ! local variables
+
       integer ::   &
          i, j, ij, ic   ,&! horizontal indices
          ib, ie, jb, je ,&! limits for loops over edges
@@ -1625,9 +1482,9 @@
     !  and the righthand corner CR = (0.5, 0).
     !-------------------------------------------------------------------
   
-    !-------------------------------------------------------------------
-    ! Initialize
-    !-------------------------------------------------------------------
+      !-------------------------------------------------------------------
+      ! Initialize
+      !-------------------------------------------------------------------
 
       dx(:,:) = 0.d0
       dy(:,:) = 0.d0
@@ -1845,10 +1702,10 @@
          xicr = xic
          yicr = yic
 
-    !-------------------------------------------------------------------
-    ! Locate triangles in TL cell (NW for north edge, NE for east edge)
-    ! and BL cell (W for north edge, N for east edge).
-    !-------------------------------------------------------------------
+         !-------------------------------------------------------------------
+         ! Locate triangles in TL cell (NW for north edge, NE for east edge)
+         ! and BL cell (W for north edge, N for east edge).
+         !-------------------------------------------------------------------
 
          if (yil > 0.d0 .and. xdl < xcl .and. ydl >= 0.d0) then
 
@@ -1938,10 +1795,10 @@
 
          endif                  ! TL and BL triangles
 
-    !-------------------------------------------------------------------
-    ! Locate triangles in TR cell (NE for north edge, SE for east edge)
-    ! and in BR cell (E for north edge, S for east edge).
-    !-------------------------------------------------------------------
+         !-------------------------------------------------------------------
+         ! Locate triangles in TR cell (NE for north edge, SE for east edge)
+         ! and in BR cell (E for north edge, S for east edge).
+         !-------------------------------------------------------------------
 
          if (yir > 0.d0 .and. xdr >= xcr .and. ydr >= 0.d0) then
 
@@ -2031,9 +1888,9 @@
 
          endif                  ! TR and BR triangles
 
-    !-------------------------------------------------------------------
-    ! Redefine departure points if not located in central cells (TC or BC)
-    !-------------------------------------------------------------------
+         !-------------------------------------------------------------------
+         ! Redefine departure points if not located in central cells (TC or BC)
+         !-------------------------------------------------------------------
 
          if (xdl < xcl) then
             xdl = xil
@@ -2045,10 +1902,10 @@
             ydr = yir
          endif
 
-    !-------------------------------------------------------------------
-    ! For prescribed_area = T, shift the midpoint so that the departure
-    ! region has the prescribed area
-    !-------------------------------------------------------------------
+         !-------------------------------------------------------------------
+         ! For prescribed_area = T, shift the midpoint so that the departure
+         ! region has the prescribed area
+         !-------------------------------------------------------------------
 
          if (prescribed_area) then
 
@@ -2183,12 +2040,12 @@
 
          endif  ! prescribed_area
 
-    !-------------------------------------------------------------------
-    ! Locate triangles in BC cell (H for both north and east edges) 
-    ! and TC cell (N for north edge and E for east edge).
-    !-------------------------------------------------------------------
+         !-------------------------------------------------------------------
+         ! Locate triangles in BC cell (H for both north and east edges) 
+         ! and TC cell (N for north edge and E for east edge).
+         !-------------------------------------------------------------------
 
-    ! Start with cases where both DPs lie in the same grid cell
+         ! Start with cases where both DPs lie in the same grid cell
 
          if (ydl >= 0.d0 .and. ydr >= 0.d0 .and. ydm >= 0.d0) then
 
@@ -2353,9 +2210,9 @@
             jflux   (i,j,ng) = j + jshift_tc
             areafact(i,j,ng) = -areafac_c(i,j)
 
-    ! Now consider cases where the two DPs lie in different grid cells
-    ! For these cases, one triangle is given the area factor associated
-    !  with the adjacent corner, to avoid rare negative masses on curved grids.
+         ! Now consider cases where the two DPs lie in different grid cells.
+         ! For these cases, one triangle is given the area factor associated
+         !  with the adjacent corner, to avoid rare negative masses on curved grids.
 
          elseif (ydl >= 0.d0 .and. ydr < 0.d0 .and. xic >= 0.d0  &
                                           .and. ydm >= 0.d0) then
@@ -2697,26 +2554,26 @@
 
       enddo                     ! ij
 
-    !-------------------------------------------------------------------
-    ! Compute triangle areas with appropriate sign.
-    ! These are found by computing the area in scaled coordinates and
-    !  multiplying by a scale factor (areafact).
-    ! Note that the scale factor is positive for fluxes out of the cell 
-    !  and negative for fluxes into the cell.
-    !
-    ! Note: The triangle area formula below gives A >=0 iff the triangle
-    !        points x1, x2, and x3 are taken in counterclockwise order.
-    !       These points are defined above in such a way that the
-    !        order is nearly always CCW.
-    !       In rare cases, we may compute A < 0.  In this case,
-    !        the quadrilateral departure area is equal to the 
-    !        difference of two triangle areas instead of the sum.
-    !        The fluxes work out correctly in the end.
-    !
-    ! Also compute the cumulative area transported across each edge.
-    ! If prescribed_area = T, this area is compared to edgearea as a bug check.
-    ! If prescribed_area = F, this area is passed as an output array.
-    !-------------------------------------------------------------------
+      !-------------------------------------------------------------------
+      ! Compute triangle areas with appropriate sign.
+      ! These are found by computing the area in scaled coordinates and
+      !  multiplying by a scale factor (areafact).
+      ! Note that the scale factor is positive for fluxes out of the cell 
+      !  and negative for fluxes into the cell.
+      !
+      ! Note: The triangle area formula below gives A >=0 iff the triangle
+      !        points x1, x2, and x3 are taken in counterclockwise order.
+      !       These points are defined above in such a way that the
+      !        order is nearly always CCW.
+      !       In rare cases, we may compute A < 0.  In this case,
+      !        the quadrilateral departure area is equal to the 
+      !        difference of two triangle areas instead of the sum.
+      !        The fluxes work out correctly in the end.
+      !
+      ! Also compute the cumulative area transported across each edge.
+      ! If prescribed_area = T, this area is compared to edgearea as a bug check.
+      ! If prescribed_area = F, this area is passed as an output array.
+      !-------------------------------------------------------------------
 
       areasum(:,:) = 0.d0
 
@@ -2778,10 +2635,10 @@
          enddo
       endif     ! prescribed_area
 
-    !-------------------------------------------------------------------
-    ! Transform triangle vertices to a scaled coordinate system centered
-    !  in the cell containing the triangle.
-    !-------------------------------------------------------------------
+      !-------------------------------------------------------------------
+      ! Transform triangle vertices to a scaled coordinate system centered
+      !  in the cell containing the triangle.
+      !-------------------------------------------------------------------
 
       if (trim(edge) == 'north') then
          do ng = 1, ngroups
@@ -2840,56 +2697,47 @@
          enddo
       endif  ! bugcheck
 
-      end subroutine locate_triangles
+    end subroutine locate_triangles
 
 !=======================================================================
 !
-!BOP
-! !IROUTINE: triangle_coordinates - find coordinates of quadrature points
-!
-! !INTERFACE:
-!
-      subroutine triangle_coordinates (nx_block,       ny_block,  &
-                                       icells,                    &
-                                       indxi,          indxj,     &
-                                       xp,             yp,        &
-                                       integral_order)
-!
-! !DESCRIPTION:
-!
-! For each triangle, find the coordinates of the quadrature points needed
-!  to compute integrals of linear, quadratic, or cubic polynomials,
-!  using formulas from A.H. Stroud, Approximate Calculation of Multiple
-!  Integrals, Prentice-Hall, 1971.  (Section 8.8, formula 3.1.)
-! Linear functions can be integrated exactly by evaluating the function 
-!  at just one point (the midpoint).  Quadratic functions require
-!  3 points, and cubics require 4 points.
-! The default is cubic, but the code can be sped up slightly using 
-!  linear or quadratic integrals, usually with little loss of accuracy.
-!
-! The formulas are as follows:
-!
-! I1 = integral of f(x,y)*dA
-!    = A * f(x0,y0)
-! where A is the traingle area and (x0,y0) is the midpoint.
-!
-! I2 = A * (f(x1,y1) + f(x2,y2) + f(x3,y3))
-! where these three points are located halfway between the midpoint
-! and the three vertics of the triangle.
-!
-! I3 = A * [ -9/16 *  f(x0,y0)
-!           + 25/48 * (f(x1,y1) + f(x2,y2) + f(x3,y3))]
-! where (x0,y0) is the midpoint, and the other three points are
-! located 2/5 of the way from the midpoint to the three vertices.
-!
-! !REVISION HISTORY:
-!
-! author William H. Lipscomb, LANL
-!
-! !USES:
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
+    subroutine triangle_coordinates (nx_block,       ny_block,  &
+                                     icells,                    &
+                                     indxi,          indxj,     &
+                                     xp,             yp,        &
+                                     integral_order)
+      !
+      ! For each triangle, find the coordinates of the quadrature points needed
+      !  to compute integrals of linear, quadratic, or cubic polynomials,
+      !  using formulas from A.H. Stroud, Approximate Calculation of Multiple
+      !  Integrals, Prentice-Hall, 1971.  (Section 8.8, formula 3.1.)
+      ! Linear functions can be integrated exactly by evaluating the function 
+      !  at just one point (the midpoint).  Quadratic functions require
+      !  3 points, and cubics require 4 points.
+      ! The default is cubic, but the code can be sped up slightly using 
+      !  linear or quadratic integrals, usually with little loss of accuracy.
+      !
+      ! The formulas are as follows:
+      !
+      ! I1 = integral of f(x,y)*dA
+      !    = A * f(x0,y0)
+      ! where A is the traingle area and (x0,y0) is the midpoint.
+      !
+      ! I2 = A * (f(x1,y1) + f(x2,y2) + f(x3,y3))
+      ! where these three points are located halfway between the midpoint
+      ! and the three vertics of the triangle.
+      !
+      ! I3 = A * [ -9/16 *  f(x0,y0)
+      !           + 25/48 * (f(x1,y1) + f(x2,y2) + f(x3,y3))]
+      ! where (x0,y0) is the midpoint, and the other three points are
+      ! located 2/5 of the way from the midpoint to the three vertices.
+      !
+      !
+      ! author William H. Lipscomb, LANL
+      !
+      !
+      ! !INPUT/OUTPUT PARAMETERS:
+
       integer, intent(in) ::   &
            nx_block, ny_block  ! block dimensions
 
@@ -2907,9 +2755,9 @@
 
       integer, intent(in) ::   &
            integral_order  ! 1 = linear, 2 = quadratic
-!
-!EOP
-!
+
+      ! local variables
+
       integer ::   &
            i, j, ij          ,&! horizontal indices
            ng                  ! triangle index
@@ -2955,43 +2803,32 @@
 
       endif
 
-      end subroutine triangle_coordinates
+    end subroutine triangle_coordinates
 
 !=======================================================================
 !
-!BOP
-!
-! !IROUTINE: transport_integrals - compute transports across each edge
-!
-! !INTERFACE:
-!
-      subroutine transport_integrals (nx_block,       ny_block,       &
-                                      ntracer,        icells,         &
-                                      indxi,          indxj,          &
-                                      triarea,        integral_order, &
-                                      iflux,          jflux,          &
-                                      xp,             yp,             &
-                                      mc,             mx,             &
-                                      my,             mflx,           &
-                                      tc,             tx,             &
-                                      ty,             mtflx)
-!
-! !DESCRIPTION:
-!
-! Compute the transports across each edge by integrating the mass
-! and tracers over each departure triangle.
-! Input variables have the same meanings as in the main subroutine.
-! Repeated use of certain sums makes the calculation more efficient.
-! Integral formulas are described in triangle_coordinates subroutine.
-!
-! !REVISION HISTORY:
-!
-! author William H. Lipscomb, LANL
-!
-! !USES:
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
+    subroutine transport_integrals (nx_block,       ny_block,       &
+                                    ntracer,        icells,         &
+                                    indxi,          indxj,          &
+                                    triarea,        integral_order, &
+                                    iflux,          jflux,          &
+                                    xp,             yp,             &
+                                    mc,             mx,             &
+                                    my,             mflx,           &
+                                    tc,             tx,             &
+                                    ty,             mtflx)
+
+      ! Compute the transports across each edge by integrating the mass
+      ! and tracers over each departure triangle.
+      ! Input variables have the same meanings as in the main subroutine.
+      ! Repeated use of certain sums makes the calculation more efficient.
+      ! Integral formulas are described in triangle_coordinates subroutine.
+      !
+      ! author William H. Lipscomb, LANL
+      !
+      !
+      ! !INPUT/OUTPUT PARAMETERS:
+
       integer, intent(in) ::   &
            nx_block, ny_block  ,&! block dimensions
            ntracer               ! number of tracers in use
@@ -3035,9 +2872,9 @@
       real(dp), intent(out),   &
            dimension (nx_block, ny_block, ntracer), optional ::   &
            mtflx
-!
-!EOP
-!
+
+      ! local variables
+
       integer ::   &
            i, j, ij      ,&! horizontal indices of edge
            i2, j2        ,&! horizontal indices of cell contributing transport
@@ -3169,37 +3006,25 @@
         endif                   ! present(mtflx)
       enddo                     ! ng
 
-      end subroutine transport_integrals
+    end subroutine transport_integrals
 
 !=======================================================================
 !
-!BOP
-!
-! !IROUTINE: update_fields - compute new area and tracers
-!
-! !INTERFACE:
-!
-      subroutine update_fields (nx_block,    ny_block,   &
-                                ilo, ihi,    jlo, jhi,   &
-                                ntracer,                 &
-                                tarear,      l_stop,     &
-                                mflxe,       mflxn,      &
-                                mass,                    &
-                                mtflxe,      mtflxn,     &
-                                trcr)
-!
-! !DESCRIPTION:
-!
-! Given transports through cell edges, compute new area and tracers.
-!
-! !REVISION HISTORY:
-!
-! author William H. Lipscomb, LANL
-!
-! !USES:
-!
-! !INPUT/OUTPUT PARAMETERS:
-!
+    subroutine update_fields (nx_block,    ny_block,   &
+                              ilo, ihi,    jlo, jhi,   &
+                              ntracer,                 &
+                              tarear,      l_stop,     &
+                              mflxe,       mflxn,      &
+                              mass,                    &
+                              mtflxe,      mtflxn,     &
+                              trcr)
+
+      ! Given transports through cell edges, compute new area and tracers.
+      !
+      ! author William H. Lipscomb, LANL
+      !
+      ! !INPUT/OUTPUT PARAMETERS:
+
       integer, intent(in) ::   &
          nx_block, ny_block,&! block dimensions
          ilo,ihi,jlo,jhi   ,&! beginning and end of physical domain
@@ -3225,9 +3050,9 @@
 
       logical, intent(inout) ::   &
          l_stop           ! if true, abort on return
-!
-!EOP
-!
+
+      ! local variables
+
       integer ::   &
          i, j           ,&! horizontal indices
          nt               ! tracer index
@@ -3287,8 +3112,7 @@
       enddo
       enddo
 
-      !WHL - Test the diagnostics
-      !TODO - Write error message cleanly to log file.
+      !TODO - Write error message to log file.
       !       For now, just print out an error message.
 
       if (l_stop) then
