@@ -1264,21 +1264,15 @@
 
     if (whichgradient == HO_GRADIENT_CENTERED) then     ! 2nd order centered
 
-       !TODO - The default is 2 for now, but should be set to 1.
-       !       This will be answer-changing. 
-
-          call glissade_centered_gradient(nx,               ny,         &
-                                          dx,               dy,         &
-                                          usrf,                         &
-                                          dusrf_dx,         dusrf_dy,   &
-                                          ice_mask,                     &
-                                          gradient_margin_in = whichgradient_margin, &
-                                          land_mask = land_mask)
+       call glissade_centered_gradient(nx,               ny,         &
+                                       dx,               dy,         &
+                                       usrf,                         &
+                                       dusrf_dx,         dusrf_dy,   &
+                                       ice_mask,                     &
+                                       gradient_margin_in = whichgradient_margin, &
+                                       land_mask = land_mask)
 
     else          ! 2nd order upstream
-
-       !TODO - This is hardwired to 0 for now, but should be set to the default value.
-       !       This will be answer-changing. 
 
        call glissade_upstream_gradient(nx,             ny,         &
                                        dx,             dy,         &
@@ -1286,8 +1280,7 @@
                                        dusrf_dx,       dusrf_dy,   &
                                        ice_mask,                   &
                                        accuracy_flag_in = 2,       &
-                                       gradient_margin_in = HO_GRADIENT_MARGIN_ALL, &
-!!                                       gradient_margin_in = whichgradient_margin, &
+                                       gradient_margin_in = whichgradient_margin, &
                                        land_mask = land_mask)
 
     endif   ! whichgradient
@@ -4563,7 +4556,6 @@
        flwa,           &  ! temperature-based flow factor A, Pa^{-n} yr^{-1}
        efvs               ! effective viscosity, Pa yr
 
-    !NOTE: Currently this option is overridden, and the value is set to 1.
     integer, intent(in) ::  &
        whichgradient_margin     ! option for computing gradient at ice margin
                                 ! 0 = include all neighbor cells in gradient calculation
@@ -4896,7 +4888,6 @@
                                    usrf,                                &
                                    dusrf_dx_edge,    dusrf_dy_edge,     &
                                    gradient_margin_in = whichgradient_margin, &
-!!                                   gradient_margin_in = HO_GRADIENT_MARGIN_ICE_LAND, &
                                    ice_mask = ice_mask,                 &
                                    land_mask = land_mask)
     endif

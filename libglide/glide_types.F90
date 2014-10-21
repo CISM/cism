@@ -529,8 +529,7 @@ module glide_types
     !> \item[0] Centered gradient
     !> \item[1] Upstream gradient
 
-    !TODO - Change default which_ho_gradient_margin to 1
-    integer :: which_ho_gradient_margin = 2
+    integer :: which_ho_gradient_margin = 1
     !> Flag that indicates how to compute the gradient at the ice margin in the glissade dycore.
     !> Not valid for other dycores
     !> \begin{description}
