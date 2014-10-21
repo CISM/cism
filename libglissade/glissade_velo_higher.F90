@@ -5960,12 +5960,7 @@
        !                 = -2/3 for n=3
        ! Thus efvs has units Pa yr
  
-       effstrain = sqrt(effstrainsq)
-       efvs = flwafact * effstrain**p_effstr
-
-       !TODO - The following line, replacing the previous two lines, makes the code slightly faster
-       !       (and changes the answers at roundoff level)
-!       efvs = flwafact * effstrainsq**(0.5d0*p_effstr)
+       efvs = flwafact * effstrainsq**(0.5d0*p_effstr)
 
        if (verbose_efvs .and. this_rank==rtest .and. i==itest .and. j==jtest .and. k==ktest .and. p==ptest) then
           print*, ' '
