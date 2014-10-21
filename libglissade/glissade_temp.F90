@@ -1308,9 +1308,6 @@ contains
                 ! (i.e. on staggered vertical grid).  No vertical averaging is needed, since
                 ! temp and dissip are colocated with eff stress and eff viscosity.
 
-!                 c5(1:model%general%upn-1) = c5(1:model%general%upn-1)                      &
-!                                            +  model%stress%tau%scalar(:,ew,ns)**2 /  &
-!                                                efvs(1:model%general%upn-1,ew,ns)
                  c5(:) = model%stress%tau%scalar(:,ew,ns)**2 / efvs(:,ew,ns)
              endif
 

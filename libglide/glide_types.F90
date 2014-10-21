@@ -429,14 +429,13 @@ module glide_types
     !> \item[1] multiple of flow factor
     !> \item[2] compute from effective strain rate
 
-    !TODO - Change default which_ho_disp to 1
-    integer :: which_ho_disp = 0
+    integer :: which_ho_disp = 1
 
     !> Flag that indicates method for computing the dissipation during the temperature calc.
     !> \begin{description}
     !> \item[-1] for no dissipation
     !> \item[0] for 0-order SIA approx
-    !> \item[1] for first-order solution (Blatter-Pattyn)
+    !> \item[1] for first-order dissipation (Blatter-Pattyn)
     !>      
     !> \end{description}
 
