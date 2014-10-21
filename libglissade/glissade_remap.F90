@@ -524,12 +524,8 @@
       if (present(dp_midpt_in)) then
          dp_midpt = dp_midpt_in
       else
-!WHL - Set to true for increased accuracy
-!    - Set to false for closer agreement with the old remapping code
-!!!         dp_midpt = .true.
-!pw++
-         dp_midpt = .false.
-!pw--
+         !WHL - Set to true for slightly better accuracy
+         dp_midpt = .true.
       endif
 
       if (present(prescribed_area_in)) then
