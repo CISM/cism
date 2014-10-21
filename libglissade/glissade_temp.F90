@@ -462,12 +462,6 @@ contains
                                 GLIDE_IS_FLOAT(model%geometry%thkmask), &
                                 model%temper%bfricflx )
 
-       !WHL - debug
-       ew = model%numerics%idiag_local
-       ns = model%numerics%jdiag_local
-!!       print*, ' '
-!!       print*, 'ew, ns, bfricflx:', ew, ns, model%temper%bfricflx(ew,ns)
-
        ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
 
        do ns = 2,model%general%nsn-1
@@ -1054,15 +1048,12 @@ contains
     integer :: ewp, nsp, ew, ns
     integer :: slide_count   ! number of neighbor cells with nonzero sliding
 
-!WHL TODO - Use Glam heat flux for now (to avoid answer changes), but switch soon.
-!           Note: Glissade does not compute btraction, so bfricflx = 0 if using Glam logic
-
-!!    if (whichdycore == DYCORE_GLISSADE) then
+    if (whichdycore == DYCORE_GLISSADE) then
 
        ! basal friction heat flux (model%temper%bfricflx) already computed in velocity solver
        ! do nothing and return
 
-!!    else   ! Glam dycore
+    else   ! Glam dycore
 
        ! compute heat source due to basal friction
        ! Note: slterm and bfricflx are defined to be >= 0
@@ -1116,7 +1107,7 @@ contains
        enddo    ! ns
        enddo    ! ew
 
-!!    endif       ! whichdycore
+    endif       ! whichdycore
 
   end subroutine glissade_calcbfric
 
