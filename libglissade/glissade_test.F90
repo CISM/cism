@@ -56,6 +56,9 @@ contains
 
     ! various tests of parallel halo updates
 
+    ! print statements are formatted for a 30x30 global array of scalars
+    ! (34x34 with nhalo = 2), as for the standard dome problem
+
     type(glide_global_type), intent(inout) :: model      ! model instance
 
     integer, dimension (:,:), allocatable    ::  pgID       ! unique global ID for parallel runs  
@@ -125,7 +128,7 @@ contains
        write(6,*) ' '
        print*, 'logvar: this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(35l3)') logvar(:,j)
+          write(6,'(34l3)') logvar(:,j)
        enddo
     endif
 
@@ -135,7 +138,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After parallel_halo_update, this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(35l3)') logvar(:,j)
+          write(6,'(34l3)') logvar(:,j)
        enddo
     endif
 
@@ -155,7 +158,7 @@ contains
        write(6,*) ' '
        print*, 'Parallel global ID (integer), this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(35i5)') pgID(:,j)
+          write(6,'(34i5)') pgID(:,j)
        enddo
     endif
 
@@ -165,7 +168,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After parallel_halo_update, this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(35i5)') pgID(:,j)
+          write(6,'(34i5)') pgID(:,j)
        enddo
     endif
 
@@ -183,7 +186,7 @@ contains
        write(6,*) ' '
        print*, 'Parallel global ID (r4 2D), this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(35f6.0)') pgIDr4(:,j)
+          write(6,'(34f6.0)') pgIDr4(:,j)
        enddo
     endif
 
@@ -193,7 +196,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After parallel_halo_update, this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(35f6.0)') pgIDr4(:,j)
+          write(6,'(34f6.0)') pgIDr4(:,j)
        enddo
     endif
 
@@ -211,7 +214,7 @@ contains
        write(6,*) ' '
        print*, 'Parallel global ID (r8 2D), this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(35f6.0)') pgIDr8(:,j)
+          write(6,'(34f6.0)') pgIDr8(:,j)
        enddo
     endif
 
@@ -221,7 +224,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After parallel_halo_update, this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(35f6.0)') pgIDr8(:,j)
+          write(6,'(34f6.0)') pgIDr8(:,j)
        enddo
     endif
 
@@ -243,7 +246,7 @@ contains
        write(6,*) ' '
        print*, 'Parallel global ID (real 3D), this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(35f6.0)') pgIDr8_3d(k,:,j)
+          write(6,'(34f6.0)') pgIDr8_3d(k,:,j)
        enddo
     endif
 
@@ -253,7 +256,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After parallel_halo_update, this_rank =', this_rank
        do j = ny, 1, -1
-          write(6,'(35f6.0)') pgIDr8_3d(k,:,j)
+          write(6,'(34f6.0)') pgIDr8_3d(k,:,j)
        enddo
     endif
 
@@ -274,7 +277,7 @@ contains
        write(6,*) ' '
        write(6,*) 'Staggered parallel global ID (integer), this_rank =', this_rank
        do j = ny-1, 1, -1
-          write(6,'(34i5)') pgIDstagi(:,j)
+          write(6,'(33i5)') pgIDstagi(:,j)
        enddo
     endif
 
@@ -284,7 +287,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After staggered_parallel_halo_update, this_rank =', this_rank
        do j = ny-1, 1, -1
-          write(6,'(34i5)') pgIDstagi(:,j)
+          write(6,'(33i5)') pgIDstagi(:,j)
        enddo
     endif
 
@@ -303,7 +306,7 @@ contains
        write(6,*) ' '
        write(6,*) 'Staggered parallel global ID (real 2D), this_rank =', this_rank
        do j = ny-1, 1, -1
-          write(6,'(34f6.0)') pgIDstagr(:,j)
+          write(6,'(33f6.0)') pgIDstagr(:,j)
        enddo
     endif
 
@@ -313,7 +316,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After staggered_parallel_halo_update, this_rank =', this_rank
        do j = ny-1, 1, -1
-          write(6,'(34f6.0)') pgIDstagr(:,j)
+          write(6,'(33f6.0)') pgIDstagr(:,j)
        enddo
     endif
 
@@ -335,7 +338,7 @@ contains
        write(6,*) ' '
        write(6,*) 'Staggered parallel global ID (real 3D), k, this_rank =', k, this_rank
        do j = ny-1, 1, -1
-          write(6,'(34f6.0)') pgIDstagr3(k,:,j)
+          write(6,'(33f6.0)') pgIDstagr3(k,:,j)
        enddo
     endif
 
@@ -345,7 +348,7 @@ contains
        write(6,*) ' '
        write(6,*) 'After staggered_parallel_halo_update, this_rank =', this_rank
        do j = ny-1, 1, -1
-          write(6,'(34f6.0)') pgIDstagr3(k,:,j)
+          write(6,'(33f6.0)') pgIDstagr3(k,:,j)
        enddo
     endif
 
@@ -559,7 +562,7 @@ contains
     deallocate(uvel)
     deallocate(vvel)
 
-    end subroutine glissade_test_transport
+  end subroutine glissade_test_transport
 
 !=======================================================================
 

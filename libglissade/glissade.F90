@@ -61,6 +61,7 @@ module glissade
   use glide_io
   use glide_lithot
   use glimmer_config
+  use glissade_test, only: glissade_test_halo, glissade_test_transport
 
   implicit none
 
@@ -68,7 +69,7 @@ module glissade
 
   logical, parameter :: verbose_glissade = .false.
 
-  ! Change one of the following to true to carry out simple tests
+  ! Change either of the following logical parameters to true to carry out simple tests
   logical, parameter :: test_transport = .false.   ! if true, call test_transport subroutine
   real(dp), parameter :: thk_init = 500.d0         ! initial thickness (m) for test_transport
   logical, parameter :: test_halo = .false.        ! if true, call test_halo subroutine
@@ -105,7 +106,6 @@ contains
     use felix_dycore_interface, only: felix_velo_init
     use glide_bwater
     use glimmer_paramets, only: thk0
-    use glissade_test, only: glissade_test_halo, glissade_test_transport
 
     implicit none
 
@@ -365,7 +365,6 @@ contains
     logical :: do_upwind_transport  ! logical for whether transport code should do upwind transport or incremental remapping
                                     ! set to true for EVOL_UPWIND, else = false
 
-!WHL - debug
     integer :: i, j, k
     integer :: nx, ny
 
