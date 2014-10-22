@@ -834,16 +834,15 @@
        Afill_2d           ! true wherever the matrix value is potentially nonzero
                           ! 2D Trilinos only
 
-!WHL - debug
     real(dp) :: maxbeta, minbeta
-    integer :: i, j, k, m, r
+    integer :: i, j, k, m, n, r
     integer :: iA, jA, kA
     real(dp) :: maxthck, maxusrf
     logical, parameter :: test_matrix = .false.
 !    logical, parameter :: test_matrix = .true.
     integer, parameter :: test_order = 4
 
-    ! debug - for trilinos test problem
+    ! for trilinos test problem
     logical, parameter :: test_trilinos = .false.
 !    logical, parameter :: test_trilinos = .true.
 
@@ -1374,17 +1373,6 @@
                                      active_owned_unknown_map)
           call t_stopf('glissade_trilinos_glbid')
 
-          !TODO - Initialize velocityResult with the current uvel/vvel
-          print*, 'Initialize velocity'
-
-          velocityResult(:) = 0.d0
-
-          call trilinos_init_velocity_3d(nx,           ny,                       &
-                                         nz,           nNodesSolve,              &
-                                         iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                                         uvel,         vvel,                     &
-                                         velocityResult)
-
           !----------------------------------------------------------------
           ! Send this information to Trilinos (trilinosGlissadeSolver.cpp)
           !----------------------------------------------------------------
@@ -1406,6 +1394,18 @@
                                         indxA_2d,      Afill_2d)
           call t_stopf('glissade_trilinos_fill_pattern')
 
+          !----------------------------------------------------------------
+          ! Initialize the solution vector from uvel/vvel.
+          ! TODO: Check whether Trilinos is zeroing out the velocityResult vector.
+          !       Results and timing are nearly identical whether we set velocityResult to uvel/vvel or to zero.
+          !----------------------------------------------------------------
+
+          call trilinos_init_velocity_2d(nx,           ny,           &
+                                         nVerticesSolve,             &
+                                         iNodeIndex,   jNodeIndex,   &
+                                         uvel_2d,      vvel_2d,      &
+                                         velocityResult)
+
        else   ! 3D solve
 
           allocate(active_owned_unknown_map(2*nNodesSolve))
@@ -1423,15 +1423,6 @@
                                      global_node_id,               &
                                      active_owned_unknown_map)
           call t_stopf('glissade_trilinos_glbid')
-
-          !TODO - Initialize velocityResult with the current uvel/vvel
-          velocityResult(:) = 0.d0
-
-          call trilinos_init_velocity_2d(nx,           ny,          &
-                                         nVerticesSolve,            &
-                                         iNodeIndex,   jNodeIndex,  &
-                                         uvel,         vvel,        &
-                                         velocityResult)
 
           !----------------------------------------------------------------
           ! Send this information to Trilinos (trilinosGlissadeSolver.cpp)
@@ -1454,6 +1445,18 @@
                                         indxA_3d,      Afill)
                                      
           call t_stopf('glissade_trilinos_fill_pattern')
+
+          !----------------------------------------------------------------
+          ! Initialize the solution vector from uvel/vvel.
+          ! TODO: Check whether Trilinos is zeroing out the velocityResult vector.
+          !       Results and timing are nearly identical whether we set velocityResult to uvel/vvel or to zero.
+          !----------------------------------------------------------------
+
+          call trilinos_init_velocity_3d(nx,           ny,                       &
+                                         nz,           nNodesSolve,              &
+                                         iNodeIndex,   jNodeIndex,  kNodeIndex,  &
+                                         uvel,         vvel,                     &
+                                         velocityResult)
 
        endif   ! whichapprox
     endif      ! whichsparse

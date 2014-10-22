@@ -50,7 +50,7 @@ contains
 
 !=======================================================================
 
-    subroutine glissade_test_halo(model)
+  subroutine glissade_test_halo(model)
 
     use parallel
 
@@ -365,11 +365,11 @@ contains
     deallocate(pgIDstagr)
     deallocate(pgIDstagr3)
 
-    end subroutine glissade_test_halo
+  end subroutine glissade_test_halo
 
 !=======================================================================
 
-    subroutine glissade_test_transport(model)
+  subroutine glissade_test_transport(model)
 
     use parallel
     use glissade_transport, only: glissade_transport_driver, ntracer
