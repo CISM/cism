@@ -79,10 +79,11 @@
 
 #ifdef TRILINOS
     use glissade_velo_higher_trilinos, only: &
-         trilinos_fill_pattern_3d, trilinos_fill_pattern_2d, &
-         trilinos_global_id_3d,    trilinos_global_id_2d,    &
-         trilinos_assemble_3d,     trilinos_assemble_2d,     &
-         trilinos_postprocess_3d,  trilinos_postprocess_2d,  &
+         trilinos_fill_pattern_3d,     trilinos_fill_pattern_2d,     &
+         trilinos_global_id_3d,        trilinos_global_id_2d,        &
+         trilinos_assemble_3d,         trilinos_assemble_2d,         &
+         trilinos_init_velocity_3d,    trilinos_init_velocity_2d,    &
+         trilinos_extract_velocity_3d, trilinos_extract_velocity_2d, &
          trilinos_test
 #endif
 
@@ -1374,7 +1375,15 @@
           call t_stopf('glissade_trilinos_glbid')
 
           !TODO - Initialize velocityResult with the current uvel/vvel
+          print*, 'Initialize velocity'
+
           velocityResult(:) = 0.d0
+
+          call trilinos_init_velocity_3d(nx,           ny,                       &
+                                         nz,           nNodesSolve,              &
+                                         iNodeIndex,   jNodeIndex,  kNodeIndex,  &
+                                         uvel,         vvel,                     &
+                                         velocityResult)
 
           !----------------------------------------------------------------
           ! Send this information to Trilinos (trilinosGlissadeSolver.cpp)
@@ -1417,6 +1426,12 @@
 
           !TODO - Initialize velocityResult with the current uvel/vvel
           velocityResult(:) = 0.d0
+
+          call trilinos_init_velocity_2d(nx,           ny,          &
+                                         nVerticesSolve,            &
+                                         iNodeIndex,   jNodeIndex,  &
+                                         uvel,         vvel,        &
+                                         velocityResult)
 
           !----------------------------------------------------------------
           ! Send this information to Trilinos (trilinosGlissadeSolver.cpp)
@@ -2270,11 +2285,11 @@
              !------------------------------------------------------------------------
 
              call t_startf('glissade_trilinos_post')
-             call trilinos_postprocess_2d(nx,            ny,           &
-                                          nVerticesSolve,              &
-                                          iVertexIndex,  jVertexIndex, &
-                                          velocityResult,              &
-                                          uvel_2d,       vvel_2d)
+             call trilinos_extract_velocity_2d(nx,            ny,           &
+                                               nVerticesSolve,              &
+                                               iVertexIndex,  jVertexIndex, &
+                                               velocityResult,              &
+                                               uvel_2d,       vvel_2d)
              call t_stopf('glissade_trilinos_post')
 
           else   ! 3D solve
@@ -2328,11 +2343,11 @@
              !------------------------------------------------------------------------
 
              call t_startf('glissade_trilinos_post')
-             call trilinos_postprocess_3d(nx,          ny,         nz,  &
-                                          nNodesSolve,                  &
-                                          iNodeIndex,  jNodeIndex, kNodeIndex, &
-                                          velocityResult,               &
-                                          uvel,        vvel)
+             call trilinos_extract_velocity_3d(nx,          ny,         nz,  &
+                                               nNodesSolve,                  &
+                                               iNodeIndex,  jNodeIndex, kNodeIndex, &
+                                               velocityResult,               &
+                                               uvel,        vvel)
              call t_stopf('glissade_trilinos_post')
 
           endif  ! whichapprox
@@ -2964,7 +2979,6 @@
 
     ! Identify the active cells.
     ! Include all cells that border locally owned vertices and contain ice.
-    !TODO - Use ice_mask instead of thklim?
 
     active_cell(:,:) = .false.
 
@@ -3707,10 +3721,7 @@
 
     logical, parameter ::   &
        check_symmetry_element = .true.  ! if true, then check symmetry of element matrix
-                                        !TODO - set to false for production
-
-    logical, parameter ::   &
-       efvs_element_avg = .false.   ! if true, then average efvs over quad pts
+                                        !Note: Can speed up assembly a bit by setting to false for production
 
     integer :: i, j, k, n, p
     integer :: iNode, jNode, kNode
@@ -4847,17 +4858,16 @@
     dphi_dy_3d(:) = 0.d0
     dphi_dz_3d(:) = 0.d0
 
-    !TODO - Don't need first term on RHS since it's always zero?
     do n = 1, nNodesPerElement_3d
-       dphi_dx_3d(n) = dphi_dx_3d(n) + Jinv(1,1)*dphi_dxr_3d(n)  &
-                                     + Jinv(1,2)*dphi_dyr_3d(n)  &
-                                     + Jinv(1,3)*dphi_dzr_3d(n)
-       dphi_dy_3d(n) = dphi_dy_3d(n) + Jinv(2,1)*dphi_dxr_3d(n)  &
-                                     + Jinv(2,2)*dphi_dyr_3d(n)  &
-                                     + Jinv(2,3)*dphi_dzr_3d(n)
-       dphi_dz_3d(n) = dphi_dz_3d(n) + Jinv(3,1)*dphi_dxr_3d(n)  &
-                                     + Jinv(3,2)*dphi_dyr_3d(n)  &
-                                     + Jinv(3,3)*dphi_dzr_3d(n)
+       dphi_dx_3d(n) = Jinv(1,1)*dphi_dxr_3d(n)  &
+                     + Jinv(1,2)*dphi_dyr_3d(n)  &
+                     + Jinv(1,3)*dphi_dzr_3d(n)
+       dphi_dy_3d(n) = Jinv(2,1)*dphi_dxr_3d(n)  &
+                     + Jinv(2,2)*dphi_dyr_3d(n)  &
+                     + Jinv(2,3)*dphi_dzr_3d(n)
+       dphi_dz_3d(n) = Jinv(3,1)*dphi_dxr_3d(n)  &
+                     + Jinv(3,2)*dphi_dyr_3d(n)  &
+                     + Jinv(3,3)*dphi_dzr_3d(n)
     enddo
 
     if (Jac_bug_check) then
@@ -5522,7 +5532,7 @@
        !                 = -2/3 for n=3
        ! Thus efvs has units Pa yr
  
-       !TODO - Test this option and make sure the units and scales are OK
+       !TODO - Test HO_EFVS_FLOWFACT option and make sure the units and scales are OK
 
        effstrain = vel_scale/len_scale * scyr  ! typical strain rate, yr^{-1}
        efvs = flwafact * effstrain**p_effstr  
@@ -5818,7 +5828,7 @@
           tau_perp = rhoi*grav*depth*grads
           a = tau_perp**2
           b = -effstrain / flwa(k)
-          c = sqrt(b**2/4.d0 + a**3/27.d0)   !TODO - Check b^2/4 + a^3/27 > 0
+          c = sqrt(b**2/4.d0 + a**3/27.d0)
           rootA = (-b/2.d0 + c)**(1.d0/3.d0)
           if (a**3/(27.d0) > 1.d-6 * (b**2/4.d0)) then
              rootB = -(b/2.d0 + c)**(1.d0/3.d0)
@@ -6176,7 +6186,6 @@
 
        if (active_cell(i,j)) then   ! ice is present
 
-          !TODO - Can this be done using the ishift approach, looping over vertices
           ! Set x and y for each node
 
           !     4-----3       y
@@ -6901,7 +6910,6 @@
        nhalo,           & ! number of layers of halo cells
        whichresid         ! option for method to use when calculating residual
 
-    !TODO - Specify dimensions?
     real(dp), dimension(:,:,:), intent(in) ::  &
        uvel, vvel,      & ! current guess for velocity
        usav, vsav         ! previous guess for velocity
@@ -7473,7 +7481,7 @@
                          else
                             print*, 'WARNING: Avv is not symmetric: i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Avv(row,col), Avv(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
-!!                            stop  !TODO
+!!                            stop
                          endif
 
                       endif   ! val2 /= val1
@@ -7497,7 +7505,7 @@
                          else
                             print*, 'WARNING: Avu is not equal to (Auv)^T, i, j, k, iA, jA, kA =', i, j, k, iA, jA, kA
                             print*, 'Avu(row,col), Auv(col,row), diff/diag:', val1, val2, (val2 - val1)/diag_entry
-!!                            stop  !TODO
+!!                            stop
                          endif
 
                       endif  ! val2 /= val1

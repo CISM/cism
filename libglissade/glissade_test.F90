@@ -78,8 +78,6 @@ contains
 
     integer, parameter :: rdiag = 0         ! rank for diagnostic prints 
 
-!    real(dp) :: global_row, global_col, global_ID
-
     print*, ' '
     print*, 'In glissade_test_halo, this_rank =', this_rank
 
@@ -420,15 +418,13 @@ contains
 
     integer, parameter :: rdiag = 0         ! rank for diagnostic prints 
 
-!    real(dp), parameter :: umag = 100.     ! uniform speed (m/yr)
-    real(dp), parameter :: umag = 1000.     ! uniform speed (m/yr)
+    real(dp), parameter :: umag = 100.     ! uniform speed (m/yr)
 
     ! Set angle of motion
-    !WHL - Tested all three of these angles (eastward, northward, and northeastward)
-!    real(dp), parameter :: theta = 0.d0      ! eastward
-!     real(dp), parameter :: theta = pi/4.d0   ! northeastward
+    !WHL - Tested all of these angles (eastward, northward, and northeastward)
+    real(dp), parameter :: theta = 0.d0      ! eastward
 !    real(dp), parameter :: theta = pi/2.d0   ! northward
-    real(dp), parameter :: theta = pi         ! westward
+!    real(dp), parameter :: theta = pi/4.d0   ! northeastward
 
     real(dp), parameter :: thk = 500.d0
 
@@ -508,11 +504,6 @@ contains
        do j = ny, 1, -1
           write(6,'(19f7.2)') model%geometry%thck(1:19,j) * thk0
        enddo
-!          write(6,*) ' '
-!          write(6,*) 'New layer 1 temp, n =', n
-!          do j = ny, 1, -1
-!             write(6,'(19f7.2)') model%temper%temp(1,1:19,j)
-!          enddo
     endif
 
     ! Set uniform ice speed everywhere
@@ -559,11 +550,6 @@ contains
           do j = ny, 1, -1
              write(6,'(19f7.2)') model%geometry%thck(1:19,j) * thk0
           enddo
-!          write(6,*) ' '
-!          write(6,*) 'New layer 1 temp, n =', n
-!          do j = ny, 1, -1
-!             write(6,'(19f7.2)') model%temper%temp(1,1:19,j)
-!          enddo
        endif
 
     enddo  ! ntstep

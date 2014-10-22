@@ -40,7 +40,6 @@
 
     use glimmer_global, only: dp
 !    use glimmer_log, only: write_log
-!    use glide_types
     use parallel
 
     implicit none
@@ -48,31 +47,12 @@
 
 #ifdef TRILINOS
 
-    public :: trilinos_global_id_3d,    trilinos_global_id_2d,     &
-              trilinos_fill_pattern_3d, trilinos_fill_pattern_2d,  &
-              trilinos_assemble_3d,     trilinos_assemble_2d,      &
-              trilinos_postprocess_3d,  trilinos_postprocess_2d,  &
+    public :: trilinos_global_id_3d,        trilinos_global_id_2d,         &
+              trilinos_fill_pattern_3d,     trilinos_fill_pattern_2d,      &
+              trilinos_assemble_3d,         trilinos_assemble_2d,          &
+              trilinos_init_velocity_3d,    trilinos_init_velocity_2d,     &
+              trilinos_extract_velocity_3d, trilinos_extract_velocity_2d,  &
               trilinos_test
-
-!    interface trilinos_global_id
-!       module procedure trilinos_global_id_3d
-!       module procedure trilinos_global_id_2d
-!    end interface
-
-!    interface trilinos_fill_pattern
-!       module procedure trilinos_fill_pattern_3d
-!       module procedure trilinos_fill_pattern_2d
-!    end interface
-
-!    interface trilinos_assemble
-!       module procedure trilinos_assemble_3d
-!       module procedure trilinos_assemble_2d
-!    end interface
-
-!    interface trilinos_postprocess
-!       module procedure trilinos_postprocess_3d
-!       module procedure trilinos_postprocess_2d
-!    end interface
 
   contains
 
@@ -727,13 +707,107 @@
 
 !****************************************************************************
 
-  subroutine trilinos_postprocess_3d(nx,           ny,                       &
-                                     nz,           nNodesSolve,              &
-                                     iNodeIndex,   jNodeIndex,  kNodeIndex,  &
-                                     velocityResult,                         &
-                                     uvel,         vvel)
+  subroutine trilinos_init_velocity_3d(nx,           ny,                       &
+                                       nz,           nNodesSolve,              &
+                                       iNodeIndex,   jNodeIndex,  kNodeIndex,  &
+                                       uvel,         vvel,                     &
+                                       velocityResult)
 
-  ! Extract the velocities from the Trilinos solution vector.
+    ! Copy the initial velocities into the Trilinos solution vector.
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::   &
+       nx, ny,             &  ! number of grid cells in each direction
+       nz                     ! number of vertical levels where velocity is computed
+
+    integer, intent(in) ::             &
+       nNodesSolve            ! number of nodes where we solve for velocity
+
+    integer, dimension((nx-1)*(ny-1)*nz), intent(in) ::   &
+       iNodeIndex, jNodeIndex, kNodeIndex   ! i, j and k indices of nodes
+
+    real(dp), dimension(nz,nx-1,ny-1), intent(in) ::   &
+       uvel, vvel             ! u and v components of velocity
+
+    real(dp), dimension(2*nNodesSolve), intent(out) :: &
+       velocityResult         ! initial velocity solution vector for Trilinos
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    integer :: i, j, k, n
+
+    velocityResult(:) = 0.d0
+
+    do n = 1, nNodesSolve
+       i = iNodeIndex(n)
+       j = jNodeIndex(n)
+       k = kNodeIndex(n)
+       velocityResult(2*n-1) = uvel(k,i,j) 
+       velocityResult(2*n)   = vvel(k,i,j)
+    enddo
+
+  end subroutine trilinos_init_velocity_3d
+
+!****************************************************************************
+
+  subroutine trilinos_init_velocity_2d(nx,             ny,           &
+                                       nVerticesSolve,               &
+                                       iVertexIndex,   jVertexIndex, &
+                                       uvel,           vvel,         &
+                                       velocityResult)
+
+    ! Copy the initial velocities into the Trilinos solution vector.
+
+    !----------------------------------------------------------------
+    ! Input-output arguments
+    !----------------------------------------------------------------
+
+    integer, intent(in) ::   &
+       nx, ny                 ! number of grid cells in each direction
+
+    integer, intent(in) ::             &
+       nVerticesSolve         ! number of vertices where we solve for velocity
+
+    integer, dimension((nx-1)*(ny-1)), intent(in) ::   &
+       iVertexIndex, jVertexIndex   ! i and j indices of vertices
+
+    real(dp), dimension(nx-1,ny-1), intent(in) ::   &
+       uvel, vvel             ! u and v components of velocity
+
+    real(dp), dimension(2*nVerticesSolve), intent(out) :: &
+       velocityResult         ! initial velocity solution vector for Trilinos
+
+    !----------------------------------------------------------------
+    ! Local variables
+    !----------------------------------------------------------------
+
+    integer :: i, j, n
+
+    velocityResult(:) = 0.d0
+
+    do n = 1, nVerticesSolve
+       i = iVertexIndex(n)
+       j = jVertexIndex(n)
+       velocityResult(2*n-1) = uvel(i,j) 
+       velocityResult(2*n)   = vvel(i,j)
+    enddo
+
+  end subroutine trilinos_init_velocity_2d
+
+!****************************************************************************
+
+  subroutine trilinos_extract_velocity_3d(nx,           ny,                       &
+                                          nz,           nNodesSolve,              &
+                                          iNodeIndex,   jNodeIndex,  kNodeIndex,  &
+                                          velocityResult,                         &
+                                          uvel,         vvel)
+
+    ! Extract the velocities from the Trilinos solution vector.
 
     !----------------------------------------------------------------
     ! Input-output arguments
@@ -772,15 +846,15 @@
        vvel(k,i,j) = velocityResult(2*n)
     enddo
 
-  end subroutine trilinos_postprocess_3d
+  end subroutine trilinos_extract_velocity_3d
 
 !****************************************************************************
 
-  subroutine trilinos_postprocess_2d(nx,             ny,            &
-                                     nVerticesSolve,                &
-                                     iVertexIndex,   jVertexIndex,  &
-                                     velocityResult,                &
-                                     uvel,           vvel)
+  subroutine trilinos_extract_velocity_2d(nx,             ny,            &
+                                          nVerticesSolve,                &
+                                          iVertexIndex,   jVertexIndex,  &
+                                          velocityResult,                &
+                                          uvel,           vvel)
 
     ! Extract the velocities from the Trilinos solution vector.
 
@@ -819,7 +893,7 @@
        vvel(i,j) = velocityResult(2*n)
     enddo
 
-  end subroutine trilinos_postprocess_2d
+  end subroutine trilinos_extract_velocity_2d
 
 !****************************************************************************
 

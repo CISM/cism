@@ -65,7 +65,6 @@
   use glide_types
   use parallel,         only : staggered_parallel_halo  
   use glissade_grid_operators
-  !use glide_mask
 
   implicit none
 
@@ -86,7 +85,6 @@ contains
 
   ! subroutine to calculate map of beta sliding parameter, based on 
   ! user input ("whichbabc" flag, from config file as "which_ho_babc").
-
    
   ! NOTE: Previously, the input arguments were assumed to be dimensionless
   ! and were rescaled in this routine.  Now the input arguments are
@@ -257,18 +255,6 @@ contains
           enddo
        enddo
 
-       !WHL - debug
-!       print*, ' '
-!       print*, 'In calcbeta, ISHOM C: beta, Pa/(m/yr):'
-!       print*, 'ilo, ihi =', ilo, ihi
-!       print*, 'jlo, jhi =', jlo, jhi
-!       do j = nsn-1, 1, -1
-!          do i = 1, ewn-1
-!             write(6,'(f8.0)',advance='no') beta(i,j)
-!          enddo
-!          print*, ' '
-!       enddo
-
     case(HO_BABC_EXTERNAL_BETA)   ! use value passed in externally from CISM
 
       ! scale CISM input value to dimensional units of (Pa yr/m)
@@ -337,13 +323,12 @@ contains
               beta = 1.0d8
       end where
 
-
     case default
-
+       ! do nothing
 
    end select
 
-   ! check for areas where ice is floating and make sure beta in these regions is 0  
+   ! check for areas where ice is floating and make sure beta in these regions is 0 
    do ns=1, nsn-1
      do ew=1, ewn-1 
        if( GLIDE_IS_FLOAT( mask(ew,ns) ) )then

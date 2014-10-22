@@ -69,7 +69,6 @@
     private
     public :: glissade_velo_sia_solve
 
-!WHL - debug
     logical, parameter :: verbose = .false.
     logical, parameter :: verbose_geom = .false.
     logical, parameter :: verbose_bed = .false.
@@ -176,16 +175,13 @@
        ice_mask,            & ! = 1 where ice is present, else = 0
        land_mask              ! = 1 for cells where topography is above sea level
 
-    integer :: k
-
-!WHL - debug
-    integer :: i, j
+    integer :: i, j, k
 
     !--------------------------------------------------------
     ! Assign local pointers and variables to derived type components
     !--------------------------------------------------------
 
-!    nx = model%general%ewn
+!    nx = model%general%ewn   ! passed in
 !    ny = model%general%nsn
 !    nz = model%general%upn
 
@@ -212,7 +208,6 @@
      uvel     => model%velocity%uvel(:,:,:)
      vvel     => model%velocity%vvel(:,:,:)
 
-!WHL - debug
      rtest = -999
      itest = 1
      jtest = 1
@@ -227,7 +222,6 @@
        print*, 'rank, itest, jtest =', rtest, itest, jtest
     endif
 
-
     !--------------------------------------------------------
     ! Convert input variables to appropriate units for this solver.
     ! (Mainly SI, except that time units in flwa, velocities,
@@ -241,7 +235,6 @@
                                        flwa,                  &
                                        bwat,   btrc_const,    &
                                        uvel,   vvel)
-
 
     !------------------------------------------------------------------------------
     ! Compute masks: 
@@ -327,7 +320,6 @@
                                     gradient_margin_in = whichgradient_margin, &
                                     land_mask = land_mask)
 
-!WHL - debug
     if (verbose .and. main_task) then
        print*, ' '
        print*, 'In glissade_velo_sia_solve'
@@ -455,15 +447,13 @@
 
        print*, ' '
        print*, 'stagthck:'
-!       do i = 1, nx-1
-       do i = nx/2, nx-1
+       do i = 1, nx-1
           write(6,'(i8)',advance='no') i
        enddo
        print*, ' '
        do j = ny-1, 1, -1
           write(6,'(i4)',advance='no') j
-!          do i = 1, nx-1
-          do i = nx/2, nx-1
+          do i = 1, nx-1
              write(6,'(f8.2)',advance='no') stagthck(i,j)
           enddo
           print*, ' '
@@ -472,15 +462,13 @@
        k = 1
        print*, ' '
        print*, 'uvel, k = 1:'
-!       do i = 1, nx-1
-       do i = nx/2, nx-1
+       do i = 1, nx-1
           write(6,'(i8)',advance='no') i
        enddo
        print*, ' '
        do j = ny-1, 1, -1
           write(6,'(i4)',advance='no') j
-!          do i = 1, nx-1
-          do i = nx/2, nx-1
+          do i = 1, nx-1
              write(6,'(f8.0)',advance='no') uvel(k,i,j)
           enddo
           print*, ' '
@@ -488,21 +476,18 @@
 
        print*, ' '
        print*, 'vvel, k = 1:'
-!       do i = 1, nx-1
-       do i = nx/2, nx-1
+       do i = 1, nx-1
           write(6,'(i8)',advance='no') i
        enddo
        print*, ' '
        do j = ny-1, 1, -1
           write(6,'(i4)',advance='no') j
-!          do i = 1, nx-1
-          do i = nx/2, nx-1
+          do i = 1, nx-1
              write(6,'(f8.0)',advance='no') vvel(k,i,j)
           enddo
           print*, ' '
        enddo
 
-       !WHL - debug                                                                                                                                                              
        print*, 'Computed new velocity'
        i = itest
        j = jtest
@@ -642,7 +627,7 @@
     uvel = uvel / (vel0*scyr)
     vvel = vvel / (vel0*scyr)
 
-    end subroutine glissade_velo_sia_scale_output
+  end subroutine glissade_velo_sia_scale_output
 
 !*********************************************************************
 
@@ -837,7 +822,6 @@
        dusrf_dx_edge,         &  ! upper surface elevation gradient at cell edges (m/m)
        dusrf_dy_edge
 
-    !WHL - debug
     real(dp), dimension(nx-1,ny-1) :: diffu
 
     ! Initialize
@@ -878,7 +862,6 @@
        enddo      ! i
     enddo         ! j
 
-!WHL - debug
     if (verbose_interior .and. this_rank==rtest) then
        i = itest
        j = jtest
@@ -890,7 +873,7 @@
        enddo
     endif
 
-    !WHL - debug - Compute diffusivitity (as defined by Glide) at vertex(i,j)
+    ! Optionally, compute diffusivitity (as defined by Glide) at vertex(i,j)
     if (verbose_interior .and. main_task) then
        do j = 1, ny-1
           do i = 1, nx-1
@@ -943,7 +926,7 @@
           enddo     ! i
        enddo        ! j
        
-          ! halo update not needed provided nhalo >= 2
+       ! halo update not needed provided nhalo >= 2
 !       call parallel_halo(uedge)
 !       call parallel_halo(vedge)
 
@@ -961,9 +944,7 @@
     call staggered_parallel_halo(uvel)
     call staggered_parallel_halo(vvel)
 
-!WHL - debug
-!!    if (verbose_interior .and. main_task) then
-    if (verbose_interior .and. main_task .and. 0==1) then
+    if (verbose_interior .and. main_task) then
        print*, ' '
        print*, 'diffu (m^2/yr):'
        do i = 1, nx-1
@@ -1044,7 +1025,6 @@
        enddo   ! i
     enddo      ! j
 
-!WHL - debug
     if (verbose_bfric .and. this_rank==rtest) then
        i = itest
        j = jtest
@@ -1072,7 +1052,6 @@
 
     call parallel_halo(bfricflx)
 
-!WHL - debug
     if (verbose_bfric .and. this_rank==rtest) then
        i = itest
        j = jtest
