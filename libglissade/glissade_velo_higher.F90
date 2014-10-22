@@ -1396,8 +1396,6 @@
 
           !----------------------------------------------------------------
           ! Initialize the solution vector from uvel/vvel.
-          ! NOTE: Results and timing are nearly identical whether we set velocityResult to uvel/vvel or to zero.
-          ! TODO: Check how Trilinos is handling the velocityResult vector.
           !----------------------------------------------------------------
 
           call trilinos_init_velocity_2d(nx,           ny,           &
@@ -1448,8 +1446,6 @@
 
           !----------------------------------------------------------------
           ! Initialize the solution vector from uvel/vvel.
-          ! NOTE: Results and timing are nearly identical whether we set velocityResult to uvel/vvel or to zero.
-          ! TODO: Check how Trilinos is handling the velocityResult vector.
           !----------------------------------------------------------------
 
           call trilinos_init_velocity_3d(nx,           ny,                       &
