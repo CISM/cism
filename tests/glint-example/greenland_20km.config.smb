@@ -54,15 +54,15 @@ basal_tract_const = 1.e-3   # (m/yr)/Pa
 [CF default]
 title: GLINT example test run
 #institution: My Institution
-comment: results from a Greenland 20-km test run
+comment: results from a Greenland 20-km test run with SMB forcing
 
 [CF output]
-name:      greenland_20km.nc
+name:      greenland_20km.smb.nc
 frequency: 10
 variables: thk usurf topg temp uvel vvel velnorm acab artm bmlt bwat
 
 [CF output]
-name:      greenland_20km.hot.nc
+name:      greenland_20km.smb.hot.nc
 frequency: 1000
 variables: hot
 

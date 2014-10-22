@@ -1,9 +1,9 @@
 [grid]
-ewn = 301
-nsn = 561
+ewn = 76 
+nsn = 141
 upn = 11
-dew = 5000.
-dns = 5000.
+dew = 20000.
+dns = 20000.
 
 [GLINT climate]
 precip_mode = 1   # 1 = use precip as is  
@@ -33,10 +33,10 @@ sigma = 0                # 0 = compute, 2 = read from config file
 restart = 0              # 0 = initial run, 1 = restart
  
 [time]
-dt = 0.1
+dt = 1.
 dt_diag = 1.
-idiag = 76
-jdiag = 228
+idiag = 34
+jdiag = 29
 
 [parameters]
 log_level = 6
@@ -54,23 +54,22 @@ basal_tract_const = 1.e-3   # (m/yr)/Pa
 [CF default]
 title: GLINT example test run
 #institution: My Institution
-comment: results from a Greenland 5-km test run
+comment: results from a Greenland 20-km test run with PDD forcing
 
 [CF output]
-name:      greenland_5km.nc
+name:      greenland_20km.pdd.nc
 frequency: 10
-variables: thk usurf topg temp uvel vvel velnorm acab artm bmlt bwat  
+variables: thk usurf topg temp uvel vvel velnorm acab artm bmlt bwat
 
 [GLINT output]
-name: greenland_5km.glint.nc
+name: greenland_20km.pdd.glint.nc
 frequency: 10
 variables: instant_prcp instant_acab instant_ablt instant_artm
 
 [CF output]
-name:      greenland_5km.hot.nc
+name:      greenland_20km.pdd.hot.nc
 frequency: 1000
 variables: hot
 
 [CF input]
-name: Greenland_5km_v1.1.nc
-
+name: gland20.input.nc

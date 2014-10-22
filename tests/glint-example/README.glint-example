@@ -41,9 +41,9 @@ glint_example is run using the cism_driver executable with two input arguments, 
 First, copy or link the executable to this test directory.
 (E.g., ln -s ../../builds/mac-gnu/cism_driver/cism_driver .)
 
-As of August 2014, the repo contains three Greenland config files:
-(1) greenland_20km.config
-(2) greenland_5km.config
+As of October 2014, the repo contains three Greenland config files:
+(1) greenland_20km.config.pdd
+(2) greenland_5km.config.pdd
 (3) greenland_20km.config.smb
 
 These files have settings that are physically reasonable but not scientifically validated.
@@ -60,7 +60,7 @@ the input temperature and precip fields.  This allows us to test the Glint inter
 that would be called by a climate model, without actually coupling to a climate model.
 
 There are two glint_example config files in the repo:
-(1) glint_example.config
+(1) glint_example.config.pdd
 (2) glint_example.config.smb
 
 These files are set up to use the global NCEP climatological data for downscaling to
@@ -70,14 +70,14 @@ PDD scheme and file (2) with the SMB scheme.
 
 The three standard diagnostic tests in this directory can be launched as follows:
 
-> ./cism_driver greenland_20km.config glint_example.config
-> ./cism_driver greenland_5km.config glint_example.config 
+> ./cism_driver greenland_20km.config.pdd glint_example.config.pdd
+> ./cism_driver greenland_5km.config.pdd glint_example.config.pdd 
 > ./cism_driver greenland_20km.config.smb glint_example.config.smb
 
 These are currently the only standard tests that exercise the Glint part of the code,
 which is required for coupling to a climate model.
 
-Diagnostic output is written to a file called greenland_20km.config.log
+Diagnostic output is written to a file called greenland_20km.config.smb.log
 or something similar.  NetCDF output is written to various files at a frequency
 set in the Greenland config file.
 
