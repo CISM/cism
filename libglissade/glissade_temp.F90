@@ -72,6 +72,9 @@ module glissade_temp
        maxtemp_threshold = 1.d11,   &
        mintemp_threshold = -100.d0
 
+    !WHL - debug
+    integer :: itest, jtest, rtest
+
 contains
 
 !****************************************************    
@@ -402,10 +405,8 @@ contains
     integer, dimension(model%general%ewn,model%general%nsn) ::  &
          ice_mask   ! = 1 where thck > thklim_temp, else = 0
 
-    !WHL - debug
     logical, parameter:: verbose_temp = .false.
     integer :: k
-    integer :: itest, jtest, rtest
 
     itest = 1
     jtest = 1
@@ -1125,6 +1126,7 @@ contains
     !       and should be revisited.
 
     use glimmer_physcon, only: shci, rhoi, lhci
+    use glimmer_paramets, only : thk0, tim0
 
     type(glide_global_type) :: model
 
@@ -1137,8 +1139,11 @@ contains
 
     real(dp), dimension(size(stagsigma))    :: pmptemp   ! pressure melting point temperature
     real(dp) :: bflx    ! heat flux available for basal melting (W/m^2)
-    real(dp) :: hmlt    ! scaled depth of internal melting (m/thk0)
     integer :: up, ew, ns
+
+    real(dp) :: layer_thck    ! layer thickness (m)
+    real(dp) :: melt_energy   ! energy available for internal melting (J/m^2)
+    real(dp) :: internal_melt_rate   ! internal melt rate, transferred to bed (m/s)
 
     bmlt(:,:) = 0.0d0
 
@@ -1161,8 +1166,8 @@ contains
              !       But freeze-on requires a local water supply, bwat > 0.
              !       What should we do if bwat = 0?
 
-             bflx = model%temper%bfricflx(ew,ns) + model%temper%lcondflx(ew,ns) - model%temper%bheatflx(ew,ns)
-             bmlt(ew,ns) = bflx * model%tempwk%f(2) * model%numerics%dttem  ! f(2) = tim0 / (thk0 * lhci * rhoi)
+             bflx = model%temper%bfricflx(ew,ns) + model%temper%lcondflx(ew,ns) - model%temper%bheatflx(ew,ns)  ! W/m^2
+             bmlt(ew,ns) = bflx * model%tempwk%f(2)   ! f(2) = tim0 / (thk0 * lhci * rhoi)
 
             ! Add internal melting associated with temp > pmptemp
             ! Note: glissade_calcpmpt does not compute pmpt at the top surface or the bed.
@@ -1172,12 +1177,14 @@ contains
 
              do up = 1, model%general%upn-1
                  if (temp(up,ew,ns) > pmptemp(up)) then
-                    hmlt = (shci * thck(ew,ns) * (temp(up,ew,ns) - pmptemp(up))) / (rhoi * lhci) 
-                    !BDM adding in what I think should be correct hmlt and bmlt for temp. based
-                    !hmlt = (rhoi * shci * (model%numerics%sigma(up+1) - model%numerics%sigma(up))&
-                    !       * (temp(up,ew,ns) - pmptemp(up))) / (rhow * lhci * thk0)
-                    bmlt(ew,ns) = bmlt(ew,ns) + hmlt / model%numerics%dttem 
-                    !bmlt(ew,ns) = bmlt(ew,ns) + hmlt * tim0 / (model%numerics%dttem)
+                    ! compute excess energy available for melting
+                    layer_thck = thck(ew,ns) * (model%numerics%sigma(up+1) - model%numerics%sigma(up)) * thk0  ! m
+                    melt_energy = rhoi * shci * (temp(up,ew,ns) - pmptemp(up)) * layer_thck         ! J/m^2
+                    ! compute melt rate 
+                    internal_melt_rate = melt_energy / (rhoi * lhci * model%numerics%dttem * tim0)  ! m/s
+                    ! transfer internal melting to the bed
+                    bmlt(ew,ns) = bmlt(ew,ns) + internal_melt_rate * tim0/thk0  ! m/s * tim0/thk0
+                    ! reset T to Tpmp
                     temp(up,ew,ns) = pmptemp(up)
                  endif
              enddo
