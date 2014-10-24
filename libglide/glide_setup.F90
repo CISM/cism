@@ -1686,7 +1686,7 @@ contains
         ! beta - b.c. needed for runs with sliding - could add logic to only include in that case
         ! flwa is not needed for glissade.
         ! TODO not sure if thkmask is needed for HO
-        call glide_add_to_restart_variable_list('uvel vvel thkmask')
+        call glide_add_to_restart_variable_list('uvel vvel thkmask bfricflx')
 
     end select
 

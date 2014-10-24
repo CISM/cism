@@ -384,6 +384,15 @@ load:          1
 coordinates:   lon lat
 #average:       1
 
+[bfricflx]
+dimensions:    time, y1, x1
+units:         watt/meter2
+long_name:     basal friction heat flux
+data:          data%temper%bfricflx
+factor:        1.0
+load:          1
+coordinates:   lon lat
+
 [bwat]
 dimensions:    time, y1, x1
 units:         meter
