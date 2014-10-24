@@ -943,6 +943,14 @@ contains
     write(message,*) 'basal_water             : ',model%options%whichbwat,basal_water(model%options%whichbwat)
     call write_log(message)
 
+    ! unsupported basal_water options
+    if (model%options%whichbwat == BWATER_FLUX) then
+      call write_log('Steady state routing basal_water option is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+    endif
+    if (model%options%whichbwat == BWATER_OCEAN_PENETRATION) then
+      call write_log('Ocean penetration basal_water option is not currently scientifically supported.  USE AT YOUR OWN RISK.', GM_WARNING)
+    endif
+
     if (model%options%whichmarn < 0 .or. model%options%whichmarn >= size(marine_margin)) then
        call write_log('Error, marine_margin out of range',GM_FATAL)
     end if
