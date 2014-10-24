@@ -4366,7 +4366,7 @@ contains
     integer :: ierror
     ! begin
     if (main_task) write(0,*) "PARALLEL STOP in ",file," at line ",line
-    call mpi_finalize(ierror)
+    call mpi_abort(MPI_COMM_WORLD, 1001, ierror)
     stop "PARALLEL STOP"
   end subroutine parallel_stop
 

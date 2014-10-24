@@ -175,7 +175,7 @@ contains
     if (local_type == GM_FATAL) then
        if (main_task) write(*,*) "Fatal error encountered, exiting..."
        call close_log
-       stop
+       call parallel_stop(__FILE__, __LINE__)
     end if
   end subroutine write_log
 
