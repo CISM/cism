@@ -56,7 +56,7 @@ module glint_type
 !  integer, parameter :: MASS_BALANCE_PDD = 1       ! compute mass balance using positive-degree-day scheme
 !  integer, parameter :: MASS_BALANCE_ACCUM = 2     ! accumulation only 
 !  integer, parameter :: MASS_BALANCE_EBM = 3       ! compute mass balance using energy-balance model
-!  integer, parameter :: MASS_BALANCE_DAILY_PDD = 4 ! compute mass balance using energy-balance model
+!  integer, parameter :: MASS_BALANCE_DAILY_PDD = 4 ! compute mass balance using daily PDD model
 !  Note: Option 3 is not presently supported.
     
   integer, parameter :: PRECIP_STANDARD = 1    ! use large-scale precip field as is
