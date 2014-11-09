@@ -71,9 +71,7 @@
                                          uvel,     vvel,       &
                                          thck,                 &
                                          acab,     bmlt,       &
-                                         temp,                 &
-                                         age,                  & 
-                                         waterfrac,            &
+                                         temp,     age,        &
                                          upwind_transport_in)
 
 
@@ -121,17 +119,17 @@
                                 ! positive for melting, negative for freeze-on
                                 ! (defined at horiz cell centers)
 
-      ! Note vertical dimension of temperature
+      !NOTE: For the enthalpy scheme, the variable called temp is really the enthalpy.
+      ! Note vertical dimension; includes surface and bed.
+      ! (Surface and bed values are not transported.)
       real(dp), intent(inout), dimension(0:nlyr+1,nx,ny), optional :: &
-         temp                   ! ice temperature
+         temp                   ! ice temperature (or enthalpy)
                                 ! (defined at horiz cell centers, vertical layer midpts)
+                                
 
       !TODO - Compute the ice age tracer; currently ice age = 0
       real(dp), intent(inout), dimension(nlyr,nx,ny), optional :: &
          age                    ! ice age
-
-      real(dp), intent(inout), dimension(nlyr,nx,ny), optional :: &
-         waterfrac              ! internal water content fraction, 0 to 1
 
       logical, intent(in), optional ::  &
          upwind_transport_in    ! if true, do first-order upwind transport
@@ -258,12 +256,6 @@
 
          if (present(age) .and. ntracer >= 2) then
             tracer(:,:,2,k) = age(k,:,:)
-         elseif (ntracer >= 2) then !BDM means we have waterfrac but no iceage
-            tracer(:,:,2,k) = 0.0d0   ! dummy array
-         endif
-
-         if (present(waterfrac)) then
-            tracer(:,:,3,k) = waterfrac(k,:,:)
          endif
 
          ! Other tracer fields could be added here
@@ -272,6 +264,7 @@
 
     !-------------------------------------------------------------------
     ! Set surface and basal temperatures.
+    ! Note: If the enthalpy is passed in, then tsfc and tbed are enthalpy values.
     !-------------------------------------------------------------------
 
       if (present(temp)) then
@@ -606,7 +599,6 @@
 
          if (present(temp)) temp(k,:,:) = tracer(:,:,1,k)
          if (present(age) .and. ntracer >= 2) age(k,:,:) = tracer(:,:,2,k)
-         if (present(waterfrac)) waterfrac(k,:,:) = tracer(:,:,3,k)
 
          ! Could add more tracer fields here
 
@@ -1005,9 +997,6 @@
       real(dp), intent(in), dimension(nx,ny) :: &
          acab                   ! surface mass balance (m/s)
 
-      real(dp), intent(in), dimension(nx,ny), optional :: &
-         tsfc                   ! surface temperature (deg C)
-
       real(dp), intent(in), dimension(nx,ny) :: &
          bmlt                   ! basal melt rate (m/s)
                                 ! > 0 for melting, < 0 for freeze-on
@@ -1016,7 +1005,12 @@
          melt_potential   ! total thickness (m) of additional ice that could be melted
                           ! by available acab/bmlt in columns that are completely melted
 
-      real(dp), intent(in), dimension(nx,ny), optional :: &
+      ! Note: If enthalpy is passed in, then tsfc and tbed are enthalpies.
+
+      real(dp), intent(in), dimension(nx,ny) :: &
+         tsfc                   ! surface temperature (deg C)
+
+      real(dp), intent(in), dimension(nx,ny) :: &
          tbed                   ! basal temperature (deg C)
 
       ! Local variables

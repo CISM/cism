@@ -104,7 +104,8 @@ contains
     allocate(model%tempwk%initadvt(model%general%upn,model%general%ewn,model%general%nsn))
 
     allocate(model%tempwk%inittemp(model%general%upn,model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%dissip(model%general%upn,model%general%ewn,model%general%nsn))
+      !WHL - Moved dissip to model%temper and allocated in glide_types.
+!!    allocate(model%tempwk%dissip(model%general%upn,model%general%ewn,model%general%nsn))
     allocate(model%tempwk%compheat(model%general%upn,model%general%ewn,model%general%nsn))
     model%tempwk%compheat = 0.0d0
     allocate(model%tempwk%dups(model%general%upn,3))
@@ -367,7 +368,7 @@ contains
     !> of several alternative methods.
 
     use glimmer_utils, only: tridiag
-    use glimmer_paramets, only : thk0, GLC_DEBUG
+    use glimmer_paramets, only : thk0, tim0, GLC_DEBUG
     use glide_grid_operators, only: stagvarb
 
     !------------------------------------------------------------------------------------
@@ -417,7 +418,7 @@ contains
 
        model%tempwk%inittemp = 0.0d0
        model%tempwk%initadvt = 0.0d0
-       !*MH model%tempwk%dissip   = 0.0d0  is also set to zero in finddisp
+       !*MH model%temper%dissip   = 0.0d0  is also set to zero in finddisp
 
        ! ----------------------------------------------------------------------------------
 
@@ -643,6 +644,10 @@ contains
 
     end select   ! whichtemp
 
+    ! Rescale dissipation term to deg C/s (instead of deg C)
+    !WHL - Treat dissip above as a rate (deg C/s) instead of deg 
+    model%temper%dissip(:,:,:) =  model%temper%dissip(:,:,:) /  (model%numerics%dttem*tim0)
+
     ! Calculate Glen's A --------------------------------------------------------
 
     call glide_calcflwa(model%numerics%sigma,        &
@@ -838,7 +843,7 @@ contains
          - temp(1:model%general%upn-2) * subd(2:model%general%upn-1) &
          - temp(3:model%general%upn) * supd(2:model%general%upn-1) & 
          - model%tempwk%initadvt(2:model%general%upn-1,ew,ns) &
-         + model%tempwk%dissip(2:model%general%upn-1,ew,ns)
+         + model%temper%dissip(2:model%general%upn-1,ew,ns)
     
     if (float) then
        model%tempwk%inittemp(model%general%upn,ew,ns) = temp(model%general%upn) 
@@ -884,7 +889,7 @@ contains
             - model%tempwk%cons(4) * model%temper%bheatflx(ew,ns) * weff(model%general%upn) &        ! geothermal heat flux (adv)
             - model%tempwk%slide_f(2)*thck*slterm* weff(model%general%upn) &                         ! sliding heat flux    (adv)
             - model%tempwk%initadvt(model%general%upn,ew,ns)  &
-            + model%tempwk%dissip(model%general%upn,ew,ns)
+            + model%temper%dissip(model%general%upn,ew,ns)
     end if
 
   end subroutine findvtri_init
@@ -965,18 +970,18 @@ contains
                 ! OLD version
 !                newmlt = model%tempwk%f(4) * slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns) + model%tempwk%f(3) * &
 !                     model%tempwk%dupc(model%general%upn) * &
-!                     thck(ew,ns) * model%tempwk%dissip(model%general%upn,ew,ns)
+!                     thck(ew,ns) * model%temper%dissip(model%general%upn,ew,ns)
 
                 ! NEW version (sfp)
                 newmlt = slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns)   &
                         + model%tempwk%f(3) * model%tempwk%dupc(model%general%upn) * &
-                          thck(ew,ns) * model%tempwk%dissip(model%general%upn,ew,ns)
+                          thck(ew,ns) * model%temper%dissip(model%general%upn,ew,ns)
 
                 up = model%general%upn - 1
 
                 do while (abs(temp(up,ew,ns)-pmptemp(up)) < 1.d-3 .and. up >= 3)
                    bmlt(ew,ns) = bmlt(ew,ns) + newmlt
-                   newmlt = model%tempwk%f(3) * model%tempwk%dupc(up) * thck(ew,ns) * model%tempwk%dissip(up,ew,ns)
+                   newmlt = model%tempwk%f(3) * model%tempwk%dupc(up) * thck(ew,ns) * model%temper%dissip(up,ew,ns)
                    up = up - 1
                 end do
 
@@ -1053,7 +1058,7 @@ contains
     ! 2. find dissipation at H-pts by averaging quantities from u-pts
     ! 2. works best for eismint divide (symmetry) but 1 likely to be better for full expts
 
-    model%tempwk%dissip(:,:,:) = 0.0d0
+    model%temper%dissip(:,:,:) = 0.0d0
 
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
@@ -1062,7 +1067,7 @@ contains
              c2 = (0.25*sum(stagthck(ew-1:ew,ns-1:ns)) * dsqrt((0.25*sum(dusrfdew(ew-1:ew,ns-1:ns)))**2 &
                   + (0.25*sum(dusrfdns(ew-1:ew,ns-1:ns)))**2))**p1
              
-             model%tempwk%dissip(:,ew,ns) = c2 * model%tempwk%c1(:) * ( &
+             model%temper%dissip(:,ew,ns) = c2 * model%tempwk%c1(:) * ( &
                   flwa(:,ew-1,ns-1) + flwa(:,ew-1,ns+1) + flwa(:,ew+1,ns+1) + flwa(:,ew+1,ns-1) + &
                   2*(flwa(:,ew-1,ns)+flwa(:,ew+1,ns)+flwa(:,ew,ns-1)+flwa(:,ew,ns+1)) + &
                   4*flwa(:,ew,ns)) 

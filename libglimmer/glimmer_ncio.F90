@@ -613,7 +613,7 @@ contains
             nc%vars = nc%vars(1:i-1) // " tempstag " // nc%vars(i+6:len(nc%vars))
             call write_log('Temperature remapping option uses temperature on a staggered vertical grid.' // &
               '  The netCDF output variable "temp" has been changed to "tempstag".' )
-          endif
+          endif 
           ! Now check if flwa needs to be changed to flwastag
           i = index(nc%vars, " flwa ") ! Look for flwa
           if (i > 0) then
@@ -621,6 +621,14 @@ contains
             nc%vars = nc%vars(1:i-1) // " flwastag " // nc%vars(i+6:len(nc%vars))
             call write_log('Temperature remapping option uses flwa on a staggered vertical grid.' // &
             '  The netCDF output variable "flwa" has been changed to "flwastag".' )
+          endif
+          ! Now check if dissip needs to be changed to dissipstag
+          i = index(nc%vars, " dissip ") ! Look for dissip
+          if (i > 0) then
+            ! dissip was specified - change to dissipstag
+            nc%vars = nc%vars(1:i-1) // " dissipstag " // nc%vars(i+6:len(nc%vars))
+            call write_log('Temperature remapping option uses dissip on a staggered vertical grid.' // &
+            '  The netCDF output variable "dissip" has been changed to "dissipstag".' )
           endif
       else  ! glide dycore
           ! We want tempstag to become temp
@@ -638,6 +646,14 @@ contains
             nc%vars = nc%vars(1:i-1) // " flwa " // nc%vars(i+10:len(nc%vars))
             call write_log('The netCDF output variable "flwastag" should not be used with the Glide dycore.' // &
               '  The netCDF output variable "flwastag" has been changed to "flwa".' )
+          endif
+          ! We want dissipstag to become dissip
+          i = index(nc%vars, " dissipstag ")
+          if (i > 0) then
+            !Change dissipstag to dissip
+            nc%vars = nc%vars(1:i-1) // " dissip " // nc%vars(i+10:len(nc%vars))
+            call write_log('The netCDF output variable "dissipstag" should not be used with the Glide dycore.' // &
+              '  The netCDF output variable "dissipstag" has been changed to "dissip".' )
           endif
       endif  ! whichdycore
 

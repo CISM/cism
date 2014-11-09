@@ -98,9 +98,11 @@ contains
 
     ! Note vertical dimensions here.  Dissipation is computed for each of (upn-1) layers.
     ! Temperature is defined at midpoint of each layer, plus upper and lower surfaces.
+    !TODO - Allocate dissip in glide_types?
     allocate(model%tempwk%dups(model%general%upn+1,2))
     allocate(model%tempwk%inittemp(model%general%upn+1,model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%dissip  (model%general%upn-1,model%general%ewn,model%general%nsn))
+    !WHL - Moved dissip to model%temper and allocated in glide_types
+!!    allocate(model%tempwk%dissip  (model%general%upn-1,model%general%ewn,model%general%nsn))
     allocate(model%tempwk%compheat(model%general%upn-1,model%general%ewn,model%general%nsn))
     model%tempwk%compheat = 0.0d0
 
@@ -398,9 +400,14 @@ contains
     real(dp),dimension(0:model%general%upn) :: Tstagsigma, prevtemp_stag, enthalpy
 
     ! for energy conservation check
-    real(dp) :: einit, efinal, delta_e, dTtop, dTbot
+    real(dp) :: einit, efinal, delta_e, dTtop, dTbot, denth_top, denth_bot
 
     real(dp) :: maxtemp, mintemp   ! max and min temps in column
+
+    real(dp), dimension(0:model%general%upn) :: pmptemp   ! pressure melting pt temperature
+
+    real(dp), dimension(1:model%general%upn) :: alpha_enth   ! diffusivity at interfaces (m2/s) for enthalpy solver
+                                                             ! = coni / (rhoi*shci) for cold ice
 
     integer, dimension(model%general%ewn,model%general%nsn) ::  &
          ice_mask   ! = 1 where thck > thklim_temp, else = 0
@@ -436,6 +443,7 @@ contains
        ! (and at the top and bottom surfaces).
        
        !TODO - Change Tstagsigma to stagwbndsigma
+       !       Change model%general%upn to upn
        Tstagsigma(0) = 0.d0
        Tstagsigma(1:model%general%upn-1) = model%numerics%stagsigma(1:model%general%upn-1)
        Tstagsigma(model%general%upn) = 1.d0
@@ -563,12 +571,12 @@ contains
              model%temper%lcondflx(ew,ns) = (-coni / (model%geometry%thck(ew,ns)*thk0) )         &
                                            * dTbot / (Tstagsigma(upn) - Tstagsigma(upn-1))
 
-             ! total dissipation in column
+             ! total dissipation in column (W/m^2)
 
              model%temper%dissipcol(ew,ns) = 0.0d0
              do up = 1, upn-1
                 model%temper%dissipcol(ew,ns) = model%temper%dissipcol(ew,ns) + &
-                                              model%tempwk%dissip(up,ew,ns)  &
+                                              model%temper%dissip(up,ew,ns)  &
                                            * (model%numerics%sigma(up+1) - model%numerics%sigma(up))  
              enddo 
              model%temper%dissipcol(ew,ns) = model%temper%dissipcol(ew, ns)     &
@@ -691,8 +699,11 @@ contains
 
    case(TEMP_ENTHALPY)! BDM Local column calculation (with advection done elsewhere)
 
-      !TODO - Modify enthalpy code to use a Crank-Nicolson timestep.
-      !       With a fully explicit timestep, the ice in thin cells can become excessively cold, and the code aborts.
+      !WHL - debug
+      print*, 'Starting enthalpy calculation'
+
+      !TODO - Modify enthalpy code to use a backward Euler timestep.
+      !       With a Crank-Nicolson timestep, the ice in thin cells can become excessively cold, and the code aborts.
       !       To allow the code to keep running, set thklim_temp to a larger value (e.g., 100 m)
       !TODO - Rearrange prognostic/enthalpy code to avoid duplication of many calls.
 
@@ -738,10 +749,43 @@ contains
          do ew = 2,model%general%ewn-1
             if (model%geometry%thck(ew,ns) > model%numerics%thklim_temp) then
 
+               ! Convert model%temper%temp and model%temper%waterfrac to enthalpy (dimension 0:upn).
+               ! For interior and boundary nodes; assume waterfrac = 0 at boundaries.
+               ! BDM enthalpy will be size 0:upn                                                                                                                                
+               call temp2enth(model%temper%enthalpy(0:model%general%upn,ew,ns),    &
+                              model%temper%temp(0:model%general%upn,ew,ns),        &
+                              model%temper%waterfrac(1:model%general%upn-1,ew,ns), &
+                              model%geometry%thck(ew,ns),                          &
+                              model%numerics%stagsigma(1:model%general%upn-1))
+
+               if (verbose_temp .and. this_rank==rtest .and. ew==itest .and. ns==jtest) then
+                  print*, ' '
+                  print*, 'Before prognostic enthalpy, i, j =', ew, ns
+                  print*, 'thck =', model%geometry%thck(ew,ns)*thk0
+                  print*, 'Temp, waterfrac, enthalpy:'
+                  k = 0
+                  print*, model%temper%temp(k,ew,ns), 0.d0, model%temper%enthalpy(k,ew,ns)
+                  do k = 1, upn-1
+                     print*, k, model%temper%temp(k,ew,ns), model%temper%waterfrac(k,ew,ns), model%temper%enthalpy(k,ew,ns)
+                  enddo
+                  k = upn
+                  print*, model%temper%temp(k,ew,ns), 0.d0, model%temper%enthalpy(k,ew,ns)
+               endif
+
+               ! compute initial internal energy in column (for energy conservation check)
+               einit = 0.0d0
+               do up = 1, upn-1
+                  einit = einit + model%temper%enthalpy(up,ew,ns) *  &
+                                  (model%numerics%sigma(up+1) - model%numerics%sigma(up) )
+               enddo
+               einit = einit * model%geometry%thck(ew,ns)*thk0
+
                ! BDM compute matrix elements using Enthalpy Gradient Method
 
-               call glissade_enthalpy_findvtri(model, ew, ns, subd, diag, supd, rhsd, &
-                                               GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)))
+               call glissade_enthalpy_findvtri(model, ew,   ns,         &
+                                               subd,  diag, supd, rhsd, &
+                                               GLIDE_IS_FLOAT(model%geometry%thkmask(ew,ns)),  &
+                                               alpha_enth)
 					
                ! BDM leave as prevtemp because it's only used for dT/dsigma at top and bottom boundaries,
                ! we don't want this as enthalpy
@@ -753,18 +797,144 @@ contains
                ! However, the matrix elements are indexed 1 to upn+1, with the first row
                ! corresponding to the surface temperature, temp(0,:,:).
 
-               call tridiag(subd(1:model%general%upn+1),   &
-                            diag(1:model%general%upn+1),   &
-                            supd(1:model%general%upn+1),   &
-                            enthalpy(0:model%general%upn), &
-                            rhsd(1:model%general%upn+1))
-							  
+               !WHL - debug
+               if (ew==itest .and. ns==jtest) then
+                  print*, ' '
+                  print*, 'After vtri, i, j =', ew, ns
+                  print*, 'k, subd, diag, supd, rhs/(rhoi*ci):'
+                  do k = 1, upn+1
+                     print*, k-1, subd(k), diag(k), supd(k), rhsd(k)/(rhoi*shci)
+                  enddo
+               endif
+
+               call tridiag(subd(1:upn+1),   &
+                            diag(1:upn+1),   &
+                            supd(1:upn+1),   &
+                            enthalpy(0:upn), &
+                            rhsd(1:upn+1))
+               
+               ! Copy the local enthalpy array into the global derived type
+               model%temper%enthalpy(:,ew,ns) = enthalpy(:)
+
                ! BDM convert back to temperature and water content
-               call enth2temp(enthalpy(0:model%general%upn),                       &
-                              model%temper%temp(0:model%general%upn,ew,ns),        &
-                              model%temper%waterfrac(1:model%general%upn-1,ew,ns), &
-                              model%geometry%thck(ew,ns),                          &
-                              model%numerics%stagsigma(1:model%general%upn-1))
+               call enth2temp(model%temper%enthalpy(0:upn,ew,ns),    &
+                              model%temper%temp(0:upn,ew,ns),        &
+                              model%temper%waterfrac(1:upn-1,ew,ns), &
+                              model%geometry%thck(ew,ns),            &
+                              model%numerics%stagsigma(1:upn-1))
+
+               if (verbose_temp .and. this_rank==rtest .and. ew==itest .and. ns==jtest) then
+                  print*, ' '
+                  print*, 'After prognostic enthalpy, i, j =', ew, ns
+                  print*, 'thck =', model%geometry%thck(ew,ns)*thk0
+                  print*, 'Temp, waterfrac, enthalpy:'
+                  k = 0
+                  print*, model%temper%temp(k,ew,ns), 0.d0, model%temper%enthalpy(k,ew,ns)
+                  do k = 1, upn-1
+                     print*, k, model%temper%temp(k,ew,ns), model%temper%waterfrac(k,ew,ns), model%temper%enthalpy(k,ew,ns)
+                  enddo
+                  k = upn
+                  print*, model%temper%temp(k,ew,ns), 0.d0, model%temper%enthalpy(k,ew,ns)
+               endif
+
+               ! Check that the net input of energy to the column is equal to the difference
+               !  between the initial and final internal energy.
+
+               ! compute the final internal energy
+
+               efinal = 0.0d0
+               do up = 1, upn-1
+                  efinal = efinal + model%temper%enthalpy(up,ew,ns) *  &
+                                   (model%numerics%sigma(up+1) - model%numerics%sigma(up) )
+               enddo
+               efinal = efinal * model%geometry%thck(ew,ns)*thk0
+
+               ! compute net heat flux to the column
+
+               ! conductive flux = (alpha/H * denth/dsigma) at upper and lower surfaces; positive down.
+               ! Here alpha = coni / (rhoi*shci) for cold ice, with a smaller value for temperate ice.
+               ! Assume fully implicit backward Euler time step
+
+               denth_top = enthalpy(1) - enthalpy(0)
+               denth_bot = enthalpy(upn) - enthalpy(upn-1)
+
+               model%temper%ucondflx(ew,ns) = -alpha_enth(1) / (model%geometry%thck(ew,ns)*thk0)         &
+                                             * denth_top / (Tstagsigma(1) - Tstagsigma(0))
+
+               model%temper%lcondflx(ew,ns) = -alpha_enth(upn) / (model%geometry%thck(ew,ns)*thk0)         &
+                                             * denth_bot / (Tstagsigma(upn) - Tstagsigma(upn-1))
+
+               !TODO - From here on, the energy conservation check is the same as for temperature.
+               ! total dissipation in column (W/m^2)
+
+               model%temper%dissipcol(ew,ns) = 0.0d0
+               do up = 1, upn-1
+                  model%temper%dissipcol(ew,ns) = model%temper%dissipcol(ew,ns) + &
+                                                  model%temper%dissip(up,ew,ns)  &
+                                               * (model%numerics%sigma(up+1) - model%numerics%sigma(up))  
+               enddo
+               model%temper%dissipcol(ew,ns) = model%temper%dissipcol(ew,ns)     &
+                                             * thk0*model%geometry%thck(ew,ns)*rhoi*shci / (tim0*model%numerics%dttem)  
+
+               ! Verify that the net input of energy into the column is equal to the change in internal energy.  
+
+               delta_e = (model%temper%ucondflx(ew,ns) - model%temper%lcondflx(ew,ns)  &
+                        + model%temper%dissipcol(ew,ns)) * tim0*model%numerics%dttem
+
+               if ( abs((efinal-einit-delta_e)/(tim0*model%numerics%dttem)) > 1.0d-8 ) then
+
+                  if (verbose_temp) then
+                     print*, 'Ice thickness:', thk0*model%geometry%thck(ew,ns)
+                     print*, 'thklim_temp:', thk0*model%numerics%thklim_temp
+                     print*, ' '
+                     print*, 'Interior fluxes:'
+                     print*, 'ftop (pos up)=', -model%temper%ucondflx(ew,ns) 
+                     print*, 'fbot (pos up)=', -model%temper%lcondflx(ew,ns)
+                     print*, 'fdissip =',       model%temper%dissipcol(ew,ns)
+                     print*, 'Net flux =', delta_e/(tim0*model%numerics%dttem)
+                     print*, ' '
+                     print*, 'delta_e =', delta_e
+                     print*, 'einit =',  einit
+                     print*, 'efinal =', efinal
+                     print*, 'einit + delta_e =', einit + delta_e
+                     print*, ' '
+                     print*, 'Energy imbalance =', efinal - einit - delta_e
+                     print*, ' '
+                     print*, 'Basal fluxes:'
+                     print*, 'ffric =', model%temper%bfricflx(ew,ns)
+                     print*, 'fgeo =', -model%temper%bheatflx(ew,ns)
+                     print*, 'flux for bottom melting =', model%temper%bfricflx(ew,ns)   &
+                                                        - model%temper%bheatflx(ew,ns)   &
+                                                        + model%temper%lcondflx(ew,ns)
+                  endif   ! verbose_temp
+                  
+                  write(message,*) 'WARNING: Energy conservation error, ew, ns =', ew, ns
+                  call write_log(message,GM_FATAL)
+               endif
+               
+               !WHL - No call here to corrpmpt.  Temperatures above pmpt are set to pmpt 
+               !      in glissade_calcbmlt (conserving energy).
+
+               !WHL - debug
+               if (ew==itest .and. ns==jtest) then
+                  print*, 'k/(rho*c) =', coni/(rhoi*shci)
+                  print*, 'alpha_enth(upn) =', alpha_enth(upn)
+                  print*, ' '
+                  print*, 'After enthalpy calc, i, j =', ew, ns
+                  print*, 'k, temp, wfrac, enthalpy/(rhoi*ci):'
+                  k = 0
+                  print*, k, model%temper%temp(k,ew,ns), 0.d0, model%temper%enthalpy(k,ew,ns)/(rhoi*shci)
+                  do k = 1, model%general%upn-1
+                     print*, k, model%temper%temp(k,ew,ns), model%temper%waterfrac(k,ew,ns), &
+                                model%temper%enthalpy(k,ew,ns)/(rhoi*shci)
+                  enddo
+                  k = model%general%upn
+                  print*, k, model%temper%temp(k,ew,ns), 0.d0, model%temper%enthalpy(k,ew,ns)/(rhoi*shci)
+                  print*, ' '
+                  print*, 'bheatflx, bfricflx, lcondflx, sum:', &
+                      -model%temper%bheatflx(ew,ns), model%temper%bfricflx(ew,ns), model%temper%lcondflx(ew,ns), &
+                      -model%temper%bheatflx(ew,ns)+ model%temper%bfricflx(ew,ns)+ model%temper%lcondflx(ew,ns)
+               endif
 
             endif  ! thck > thklim_temp
          end do    ! ew
@@ -775,17 +945,24 @@ contains
       do ns = 1, model%general%nsn
          do ew = 1, model%general%ewn
 
-            if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
-               model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
-            else if (model%geometry%thkmask(ew,ns) < 0) then
-               model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
-            !else if (model%geometry%thkmask(ew,ns) < -1) then
-            !   model%temper%temp(:,ew,ns) = 0.0d0
-            end if
+!            if (GLIDE_IS_THIN(model%geometry%thkmask(ew,ns))) then
+!               model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
+!            else if (model%geometry%thkmask(ew,ns) < 0) then
+!               model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
+!            !else if (model%geometry%thkmask(ew,ns) < -1) then
+!            !   model%temper%temp(:,ew,ns) = 0.0d0
+!            end if
 
             !WHL - Changed threshold to thklim_temp
             if (model%geometry%thck(ew,ns) <= model%numerics%thklim_temp) then
-               model%temper%temp(:,ew,ns) = min(0.0d0, dble(model%climate%artm(ew,ns)))
+
+               !WHL - Make sure T <= T_pmp
+               !TODO - Impose this condition for standard temperature calculation too?
+               pmptemp(0) = 0.0d0
+               call glissade_calcpmpt(pmptemp(1:upn-1), model%geometry%thck(ew,ns), &
+                                                        model%numerics%stagsigma(1:upn-1))
+               call glissade_calcpmpt_bed(pmptemp(upn), model%geometry%thck(ew,ns))
+               model%temper%temp(:,ew,ns) = min(pmptemp(:), dble(model%climate%artm(ew,ns)))
             endif
 
             !NOTE - See comments above about setting temperature in thin ice
@@ -802,6 +979,14 @@ contains
                                       model%geometry%thck,       &
                                       model%temper%bmlt,         &
                                       GLIDE_IS_FLOAT(model%geometry%thkmask))
+
+
+      !WHL - debug
+      ew = itest
+      ns = jtest
+      k = model%general%upn
+      print*, ' '
+      print*, 'After calcbmlt, i, j, basal temp =', ew, ns, model%temper%temp(k,ew,ns)
 
       ! Interpolate basal temperature and pressure melting point onto velocity grid
        !WHL - Replaced calls to stagvarb (an old Glide routine) with calls to glissade_stagger.
@@ -826,7 +1011,7 @@ contains
                              ice_mask(:,:),                             &
                              stagger_margin_in = 1)
 
-    end select
+    end select   ! whichtemp
 
     ! Check for temperatures that are physically unrealistic.
     ! Thresholds are set at the top of this module.
@@ -855,6 +1040,10 @@ contains
           
        enddo
     enddo
+
+    ! Rescale dissipation term to deg C/s (instead of deg C)
+    !WHL - Treat dissip above as a rate (deg C/s) instead of deg C
+    model%temper%dissip(:,:,:) =  model%temper%dissip(:,:,:) /  (model%numerics%dttem*tim0)
 
   end subroutine glissade_temp_driver
 
@@ -914,7 +1103,7 @@ contains
                 model%temper%temp(1:model%general%upn-1,ew,ns) * (2.0d0 - diag(2:model%general%upn)) &
               - model%temper%temp(0:model%general%upn-2,ew,ns) * subd(2:model%general%upn) &
               - model%temper%temp(2:model%general%upn,  ew,ns) * supd(2:model%general%upn) & 
-              + model%tempwk%dissip(1:model%general%upn-1,ew,ns)
+              + model%temper%dissip(1:model%general%upn-1,ew,ns)
     
        rhsd(2:model%general%upn) = model%tempwk%inittemp(1:model%general%upn-1,ew,ns)
 
@@ -928,7 +1117,7 @@ contains
        
        model%tempwk%inittemp(1:model%general%upn-1,ew,ns) =   &
                 model%temper%temp(1:model%general%upn-1,ew,ns)  &
-              + model%tempwk%dissip(1:model%general%upn-1,ew,ns)
+              + model%temper%dissip(1:model%general%upn-1,ew,ns)
     
        rhsd(2:model%general%upn) = model%tempwk%inittemp(1:model%general%upn-1,ew,ns)
 
@@ -1242,7 +1431,7 @@ contains
     real(dp) :: c2 
     real(dp), dimension(model%general%upn-1) :: c5     
 
-    model%tempwk%dissip(:,:,:) = 0.0d0
+    model%temper%dissip(:,:,:) = 0.0d0
     
     select case( whichdisp ) 
 
@@ -1268,7 +1457,7 @@ contains
              c2 = (0.25d0*sum(stagthck(ew-1:ew,ns-1:ns)) * dsqrt((0.25d0*sum(dusrfdew(ew-1:ew,ns-1:ns)))**2 &
                                                                + (0.25d0*sum(dusrfdns(ew-1:ew,ns-1:ns)))**2))**p1
              
-             model%tempwk%dissip(:,ew,ns) = c2 * model%tempwk%c1(:) * ( &
+             model%temper%dissip(:,ew,ns) = c2 * model%tempwk%c1(:) * ( &
                   flwa(:,ew-1,ns-1) + flwa(:,ew-1,ns+1) + flwa(:,ew+1,ns+1) + flwa(:,ew+1,ns-1) + &
                   2*(flwa(:,ew-1,ns)+flwa(:,ew+1,ns)+flwa(:,ew,ns-1)+flwa(:,ew,ns+1)) + &
                   4*flwa(:,ew,ns))
@@ -1291,7 +1480,7 @@ contains
     ! re-arrangement of: efvs = 1/2 * ( 1 / A(T) )^(1/n) * eps_eff^((1-n)/n), in which case only the efvs and rate
     ! factor arrays need to be passed in for this calculation.
 
-    if (size(model%tempwk%dissip,1) /= model%general%upn-1) then  ! staggered vertical grid
+    if (size(model%temper%dissip,1) /= model%general%upn-1) then  ! staggered vertical grid
         !TODO - Write an error message and exit gracefully
     endif
 
@@ -1315,7 +1504,7 @@ contains
 
              !Note: model%tempwk%cons(5) = (tau0*vel0/len0) / (rhoi*shci) * (model%numerics%dttem*tim0)
 
-             model%tempwk%dissip(:,ew,ns) = c5(:) * model%tempwk%cons(5)
+             model%temper%dissip(:,ew,ns) = c5(:) * model%tempwk%cons(5)
 
           endif
        enddo
@@ -1434,10 +1623,9 @@ contains
     real(dp)                                  :: flow_factor ! fudge factor in Arrhenius relationship
     real(dp),                   intent(in)    :: default_flwa_arg ! Glen's A to use in isothermal case 
                                                                   ! Units: Pa^{-n} yr^{-1} 
-    integer,                    intent(in)    :: flag      !> Flag to select the method
-                                                           !> of calculation
+    integer,                    intent(in)    :: flag      !> Flag to select the method of calculation
     real(dp),dimension(:,:,:),  intent(out)   :: flwa      !> The calculated values of $A$
-    real(dp),dimension(:,:,:),  intent(in), optional :: waterfrac!internal water content fraction, 0 to 1
+    real(dp),dimension(:,:,:),  intent(in), optional :: waterfrac !> internal water content fraction, 0 to 1
 
     !> \begin{description}
     !> \item[0] {\em Paterson and Budd} relationship.
@@ -1508,11 +1696,13 @@ contains
                   ! BDM added correction for a liquid water fraction 
                   ! Using Greve and Blatter, 2009 formulation for Glen's A flow rate factor:
                   !    A = A(theta_PMP) * (1 + 181.25 * waterfrac)
-                  if (present(waterfrac)) then
-                     if (waterfrac(up,ew,ns) > 0.0d0) then
-                        flwa(up,ew,ns) = flwa(up,ew,ns) * (1.d0 + 181.25d0 * waterfrac(up,ew,ns))      
-                     endif
-                  endif
+		  ! RJH - commenting out waterfrac correction to explore causes of
+		  ! oscillations in thk and vel for EISMINT-2 test cases
+                 ! if (present(waterfrac)) then
+                    ! if (waterfrac(up,ew,ns) > 0.0d0) then
+                       ! flwa(up,ew,ns) = flwa(up,ew,ns) * (1.d0 + 181.25d0 * waterfrac(up,ew,ns))      
+                    ! endif
+                 ! endif
                enddo
 
             else   ! thck < thklim

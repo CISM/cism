@@ -69,6 +69,10 @@ module glissade
 
   logical, parameter :: verbose_glissade = .false.
 
+  !WHL - debug
+  logical, parameter :: verbose_debug = .true.
+  integer :: itest, jtest, rtest
+
   ! Change either of the following logical parameters to true to carry out simple tests
   logical, parameter :: test_transport = .false.   ! if true, call test_transport subroutine
   real(dp), parameter :: thk_init = 500.d0         ! initial thickness (m) for test_transport
@@ -368,6 +372,15 @@ contains
     integer :: i, j, k
     integer :: nx, ny
 
+
+    !WHL - debug
+    real(dp) :: thck_west, thck_east, dthck, u_west, u_east
+    if (this_rank == model%numerics%rdiag_local) then
+       rtest = model%numerics%rdiag_local
+       itest = model%numerics%idiag_local
+       jtest = model%numerics%jdiag_local
+    endif
+
     ! ========================
 
     ! Update internal clock
@@ -541,13 +554,39 @@ contains
              model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
              model%climate%acab(:,:) = acab_unscaled(:,:) / (thk0/tim0)
 
-          elseif (model%options%whichtemp == TEMP_ENTHALPY) then  ! Use IR to transport thickness, temperature,
-                                                                  ! and waterfrac.  Also set ntracer = 3.
+          elseif (model%options%whichtemp == TEMP_ENTHALPY) then  ! Use IR to transport thickness and enthalpy
 
-             ! BDM Set ntracer = 3 since temp and waterfrac need to be passed (and maybe ice age).
-             !     If no ice age is present, a dummy array will be used for tracer = 2
-             ntracer = 3
+             ! Derive enthalpy from temperature and waterfrac
+             do j = 1, model%general%nsn 
+                do i = 1, model%general%ewn
 
+                   call temp2enth (model%temper%enthalpy(:,i,j),                                  &
+                                   model%temper%temp(:,i,j),     model%temper%waterfrac(:,i,j),   &
+                                   model%geometry%thck(i,j),     model%numerics%stagsigma(:) )
+
+                enddo
+             enddo
+
+             !WHL - debug
+             i = itest
+             j = jtest
+             k = 10
+             print*, ' '
+             print*, 'Pre-trans: i, j, k, temp, wfrac, enth:', i, j, k, &
+                      model%temper%temp(k,i,j), model%temper%waterfrac(k,i,j), model%temper%enthalpy(k,i,j)/(rhoi*shci)
+             k = model%general%upn
+             print*, 'basal temp, enth/(rhoi*ci) =', model%temper%temp(k,i,j), model%temper%enthalpy(k,i,j)/(rhoi*shci)
+             print*, 'thck (m) =', thck_unscaled(i-1:i+1,j)
+             thck_east = thck_unscaled(i+1,j)
+             thck_west = thck_unscaled(i,j)
+             u_east = sum(model%velocity%uvel(:,i,j))/model%general%upn * vel0*scyr 
+             u_west = sum(model%velocity%uvel(:,i-1,j))/model%general%upn * vel0*scyr 
+!!             print*, 'uvel (m/yr) =', u_west, u_east
+!!             print*, 'divergence (m) =', (thck_west*u_west - thck_east*u_east) &
+!!                                    * model%numerics%dt_transport*(tim0/scyr) / (model%numerics%dew*len0)
+!!             print*, 'acab (m) =', acab_unscaled(i,j) * model%numerics%dt_transport*tim0
+
+             ! Transport fields, with enthalpy as a tracer instead of temperature
              call glissade_transport_driver(model%numerics%dt_transport * tim0,                   &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
@@ -558,10 +597,15 @@ contains
                                             thck_unscaled(:,:),                                   &
                                             acab_unscaled(:,:),                                   &
                                             bmlt_continuity(:,:),                                 &
-                                            model%temper%temp(:,:,:),                             & 
-                                            waterfrac = model%temper%waterfrac(:,:,:),            &
+                                            model%temper%enthalpy(:,:,:),                         & 
                                             upwind_transport_in = do_upwind_transport )
 
+             !WHL - debug
+             i = itest
+             j = jtest
+             k = 10
+             print*, 'dthck(m) =', thck_unscaled(i,j) - model%geometry%thck(i,j)*thk0
+ 
           else  ! Use IR to transport thickness only
                 ! Note: In glissade_transport_driver, the ice thickness is transported layer by layer,
                 !       which is inefficient if no tracers are being transported.  (It would be more
@@ -610,12 +654,40 @@ contains
          call t_startf('after_remap_haloupds')
 
          call parallel_halo(model%geometry%thck)
-         call parallel_halo(model%temper%temp)
 
-          ! Halo updates of other tracers, if present, need to go here
          if (model%options%whichtemp == TEMP_ENTHALPY) then
-            call parallel_halo(model%temper%waterfrac)
-         endif
+
+             ! Update enthalpy in halo cells
+             call parallel_halo(model%temper%enthalpy)
+
+             !WHL - debug
+             print*, 'After transport, call enth2temp'
+
+             ! Derive new temperature and waterfrac from enthalpy (will be correct in halo cells)
+             do j = 1, model%general%nsn 
+                do i = 1, model%general%ewn 
+                   call enth2temp (model%temper%enthalpy(:,i,j),                                  &
+                                   model%temper%temp(:,i,j),     model%temper%waterfrac(:,i,j),   &
+                                   model%geometry%thck(i,j),     model%numerics%stagsigma(:) )
+                enddo
+             enddo
+
+             !WHL - debug
+             i = itest
+             j = jtest
+             k = 10
+             print*, 'Post-trans: i, j, k, temp, wfrac, enth:', i, j, k, &
+                      model%temper%temp(k,i,j), model%temper%waterfrac(k,i,j), model%temper%enthalpy(k,i,j)/(rhoi*shci)
+             k = model%general%upn
+             print*, 'basal temp, enth/(rhoi*ci) =', model%temper%temp(k,i,j), model%temper%enthalpy(k,i,j)/(rhoi*shci)
+
+         else   ! update temperature in halo cells
+
+            call parallel_halo(model%temper%temp)
+
+         endif    ! TEMP_ENTHALPY
+
+         ! NOTE: Halo updates of other tracers, if present, should go here
 
          call t_stopf('after_remap_haloupds')
 

@@ -647,13 +647,20 @@ factor:        scale_wvel
 coordinates:   lon lat
 load:          1
 
-#[waterfrac]
-#dimensions:    time, level, y1, x1
-#units:         unitless [0,1]
-#long_name:     internal water fraction
-#data:          data%temper%waterfrac(up,:,:)
-#coordinates:   lon lat
-#load:          1
+[waterfrac]
+dimensions:    time, staglevel, y1, x1
+units:         unitless [0,1]
+long_name:     internal water fraction
+data:          data%temper%waterfrac(up,:,:)
+coordinates:   lon lat
+load:          1
+
+[enthalpy]
+dimensions:    time, stagwbndlevel, y1, x1
+units:         J/m^3
+long_name:     specific enthalpy
+data:          data%temper%enthalpy(up,:,:)
+coordinates:   lon lat
 
 [flwa]
 dimensions:    time, level, y1, x1
@@ -804,9 +811,18 @@ standard_name: ice_thermal_conductivity
 
 [dissip]
 dimensions:   time, level, y1, x1
-units:        deg C
-long_name:    dissipation divided by rhoi Ci
-data:         data%tempwk%dissip
+units:        deg C/yr
+long_name:    dissipation rate (W m-3) divided by rhoi Ci
+data:         data%temper%dissip(up,:,:)
+factor:       scyr
+coordinates:  lon lat
+
+[dissipstag]
+dimensions:   time, staglevel, y1, x1
+units:        deg C/yr
+long_name:    dissipation rate (W m-3) divided by rhoi Ci
+data:         data%temper%dissip(up,:,:)
+factor:       scyr
 coordinates:  lon lat
 
 [adv_cfl_dt]
