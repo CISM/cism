@@ -1642,7 +1642,6 @@ contains
     real(dp) :: tempcor
 
     real(dp), parameter :: fact = grav * rhoi * pmlt * thk0
-    real(dp), parameter :: const_temp = -5.0d0
 
     real(dp),dimension(4), parameter ::  &
        arrfact = (/ arrmlh / vis0,      &   ! Value of A when T* is above -263K
@@ -1650,6 +1649,9 @@ contains
                    -actenh / gascon,    &   ! Value of -Q/R when T* is above -263K
                    -actenl / gascon/)       ! Value of -Q/R when T* is below -263K
     
+    real(dp), parameter :: const_temp = -5.0d0
+    real(dp), parameter :: flwa_waterfrac_enhance_factor = 181.25d0
+
     !------------------------------------------------------------------------------------ 
    
     uflwa=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
@@ -1698,12 +1700,13 @@ contains
                   !    A = A(theta_PMP) * (1 + 181.25 * waterfrac)
 		  ! RJH - commenting out waterfrac correction to explore causes of
 		  ! oscillations in thk and vel for EISMINT-2 test cases
-                 ! if (present(waterfrac)) then
-                    ! if (waterfrac(up,ew,ns) > 0.0d0) then
-                       ! flwa(up,ew,ns) = flwa(up,ew,ns) * (1.d0 + 181.25d0 * waterfrac(up,ew,ns))      
-                    ! endif
-                 ! endif
-               enddo
+                  if (present(waterfrac)) then
+                     if (waterfrac(up,ew,ns) > 0.0d0) then
+                        flwa(up,ew,ns) = flwa(up,ew,ns) * (1.d0 + flwa_waterfrac_enhance_factor * waterfrac(up,ew,ns))      
+                     endif
+                  endif
+
+               enddo   ! up
 
             else   ! thck < thklim
 
