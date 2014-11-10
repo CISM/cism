@@ -1755,6 +1755,12 @@ contains
     if (associated(model%stress%btracty)) &
         deallocate(model%stress%btracty)
 
+    ! basal physics arrays
+    if (associated(model%basal_physics%effecpress)) &
+        deallocate(model%basal_physics%effecpress)
+    if (associated(model%basal_physics%effecpress_stag)) &
+        deallocate(model%basal_physics%effecpress_stag)
+
     ! geometry arrays
 
     if (associated(model%geometry%thck)) &
