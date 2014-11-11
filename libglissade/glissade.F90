@@ -78,6 +78,10 @@ module glissade
   real(dp), parameter :: thk_init = 500.d0         ! initial thickness (m) for test_transport
   logical, parameter :: test_halo = .false.        ! if true, call test_halo subroutine
 
+  !WHL - for trying glissade_therm in place of glissade_temp
+!!  logical, parameter :: call_glissade_therm = .false.
+  logical, parameter :: call_glissade_therm = .true.
+
 contains
 
 !=======================================================================
@@ -95,7 +99,9 @@ contains
     use glide_setup
     use glimmer_ncio
     use glide_velo, only: init_velo  !TODO - Remove call to init_velo?
+    !TODO - Replace glissade_temp with glissade_therm
     use glissade_temp, only: glissade_init_temp
+    use glissade_therm, only: glissade_init_therm
     use glimmer_scales
     use glide_mask
     use isostasy
@@ -209,7 +215,14 @@ contains
     !       Most of what's done in init_velo is needed for SIA only, but still need velowk for call to wvelintg
     call init_velo(model)
 
-    call glissade_init_temp(model) 
+    !TODO - Replace temp with therm
+    if (call_glissade_therm) then
+       print*, 'Call glissade_init_therm'
+       call glissade_init_therm(model)
+    else
+       print*, 'Call glissade_init_temp'
+       call glissade_init_temp(model)
+    endif
 
     ! Initialize basal hydrology model, if enabled
     call bwater_init(model)
@@ -332,7 +345,9 @@ contains
     use glimmer_paramets, only: tim0, len0, vel0, thk0
     use glimmer_scales, only: scale_acab
     use glimmer_physcon, only: scyr
+    !TODO - Replace glissade_temp with glissade_therm
     use glissade_temp, only: glissade_temp_driver
+    use glissade_therm, only: glissade_therm_driver
     use glide_mask, only: glide_set_mask, calc_iareaf_iareag
     use glide_ground, only: glide_marinlim
     use glide_grid_operators
@@ -416,7 +431,15 @@ contains
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%dttem*tim0/scyr)) then
 
       call t_startf('glissade_temp_driver')
-      call glissade_temp_driver(model, model%options%whichtemp)
+
+      !TODO - Replace temp with therm
+      if (call_glissade_therm) then
+         print*, 'Call glissade_therm_driver'
+         call glissade_therm_driver (model, model%options%whichtemp)
+      else
+         print*, 'Call glissade_temp_driver'
+         call glissade_temp_driver(model, model%options%whichtemp)
+      endif
       call t_stopf('glissade_temp_driver')
 
       model%temper%newtemps = .true.
