@@ -54,7 +54,7 @@ contains
           estimate = 0.2d0 / model%paramets%hydtim
           !EIB! following not in lanl glide_temp
           call find_dt_wat(model%numerics%dttem,estimate,model%tempwk%dt_wat,model%tempwk%nwat) 
-          
+
           model%tempwk%c = (/ model%tempwk%dt_wat, 1.0d0 - 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, &
                1.0d0 + 0.5d0 * model%tempwk%dt_wat * model%paramets%hydtim, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0 /) 
 
@@ -67,7 +67,7 @@ contains
           model%tempwk%watvel = model%paramets%hydtim * tim0 / (scyr * len0)
           estimate = (0.2d0 * model%tempwk%watvel) / min(model%numerics%dew,model%numerics%dns)
           call find_dt_wat(model%numerics%dttem,estimate,model%tempwk%dt_wat,model%tempwk%nwat) 
-          
+
           !print *, model%numerics%dttem*tim0/scyr, model%tempwk%dt_wat*tim0/scyr, model%tempwk%nwat
 
           model%tempwk%c = (/ rhow * grav, rhoi * grav, 2.0d0 * model%numerics%dew, 2.0d0 * model%numerics%dns, &
@@ -85,7 +85,7 @@ contains
     use parallel
     use glimmer_paramets, only : thk0
     use glide_grid_operators, only: stagvarb
-    use glam_grid_operators, only: stagthickness
+    use glissade_grid_operators, only: glissade_stagger
 
     implicit none
 
@@ -106,7 +106,8 @@ contains
     real(dp), parameter :: const_bwat = 10.d0   ! constant value for basal water depth (m)
 
     ! Variables used by BWATER_OCEAN_PENETRATION
-    real(dp), allocatable, dimension(:,:) :: Haf
+    real(dp), allocatable, dimension(:,:) :: Haf  !< Floatation thickness (m)
+    real(dp), allocatable, dimension(:,:) :: Fp   !< function that controls ocean pressure transition
     real(dp) :: ocean_p
 
     real(dp),  dimension(:,:), allocatable :: N_capped  ! version of effective pressure capped at 0x and 1x overburden
@@ -193,16 +194,21 @@ contains
     case(BWATER_OCEAN_PENETRATION)
 
             allocate(Haf(model%general%ewn,model%general%nsn))
+            allocate(Fp(model%general%ewn,model%general%nsn))
             ocean_p = model%paramets%p_ocean_penetration
-            Haf = max(-f*(topg-model%climate%eus),0.d0) 
-            model%basal_physics%effecpress = rhoi*grav*thck*(1.0d0-thck/Haf)**ocean_p
+            Haf = max(f * (topg*thk0 - model%climate%eus*thk0), 0.0d0)
+            Fp = max( (1.0d0 - Haf / (thck*thk0)), 0.0d0 )**ocean_p
+            model%basal_physics%effecpress = rhoi * grav * thck*thk0 * Fp
             deallocate(Haf)
+            deallocate(Fp)
 
     case default   ! includes BWATER_NONE
 
        bwat(:,:) = 0.0d0
 
     end select
+
+
 
     ! now also calculate basal water in velocity (staggered) coord system
     call stagvarb(model%temper%bwat, &
@@ -224,9 +230,9 @@ contains
         else where
               N_capped = model%basal_physics%effecpress
         end where
-        call stagthickness(N_capped, model%basal_physics%effecpress_stag,           &
-             model%general%ewn, model%general%nsn,                                  &
-             model%geometry%usrf*thk0, model%numerics%thklim, model%geometry%thkmask)
+        call glissade_stagger(model%general%ewn, model%general%nsn,            &
+                              N_capped, model%basal_physics%effecpress_stag,   &
+                              model%geometry%thkmask, stagger_margin_in=1)  ! only use values where there is ice
 
         deallocate(N_capped)
     endif
