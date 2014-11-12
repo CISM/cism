@@ -779,7 +779,7 @@ contains
     use glissade_velo, only: glissade_velo_driver
     use glide_velo, only: wvelintg
 
-    use glam_grid_operators, only: glam_geometry_derivs, stagthickness
+    use glam_grid_operators, only: glam_geometry_derivs
     use felix_dycore_interface, only: felix_velo_driver
 
     implicit none

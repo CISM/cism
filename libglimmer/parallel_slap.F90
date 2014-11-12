@@ -2274,8 +2274,7 @@ contains
     character(len=*) :: file
     ! begin
     write(0,*) "STOP in ",file," at line ",line
-    ! stop
-    write(0,*) "RUNNING in parallel_slap mode, so STOP IGNORED."
+    stop
   end subroutine parallel_stop
 
   function parallel_sync(ncid)
