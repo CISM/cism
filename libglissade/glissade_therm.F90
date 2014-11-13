@@ -59,11 +59,9 @@ module glissade_therm
     implicit none
 
     private
-    public :: glissade_init_therm, glissade_therm_driver, glissade_therm_calcflwa, glissade_therm_calcbpmp, &
+    public :: glissade_init_therm, glissade_therm_driver, glissade_therm_calcflwa, glissade_pressure_melting_point, &
               glissade_enth2temp, glissade_temp2enth
 
-    !WHL - debug
-    integer :: itest, jtest, rtest
 
     ! time stepping scheme
 
@@ -97,18 +95,15 @@ module glissade_therm
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow, trpt
     use glimmer_paramets, only : tim0, thk0, len0, vis0, vel0, tau0
     use parallel, only: lhalo, uhalo
-!!    use glissade_enthalpy, only: glissade_init_enthalpy
 
     type(glide_global_type),intent(inout) :: model       !> Ice model parameters.
 
     integer, parameter :: p1 = gn + 1  
     integer up, ns, ew, upn, nsn, ewn
 
-    upn = model%general%upn
     ewn = model%general%ewn
     nsn = model%general%nsn
-
-    !TODO - Should these allocations be done in glide_allocarr?
+    upn = model%general%upn
 
     ! Note vertical dimensions here.  Dissipation is computed for each of (upn-1) layers.
     ! Temperature is defined at midpoint of each layer, plus upper and lower surfaces.
@@ -119,16 +114,16 @@ module glissade_therm
     up = 1
     dups(up,1) = 1.d0/((model%numerics%sigma(up+1) - model%numerics%sigma(up)) * &
                                     (model%numerics%stagsigma(up) - model%numerics%sigma(up)) )
-    do up = 2, model%general%upn-1
+    do up = 2, upn-1
        dups(up,1) = 1.d0/((model%numerics%sigma(up+1) - model%numerics%sigma(up)) * &
                                        (model%numerics%stagsigma(up) - model%numerics%stagsigma(up-1)) )
     enddo
 
-    do up = 1, model%general%upn-2
+    do up = 1, upn-2
        dups(up,2) = 1.d0/((model%numerics%sigma(up+1) - model%numerics%sigma(up)) * &
                                        (model%numerics%stagsigma(up+1) - model%numerics%stagsigma(up)) )
     end do
-    up = model%general%upn-1
+    up = upn-1
     dups(up,2) = 1.d0/((model%numerics%sigma(up+1) - model%numerics%sigma(up)) * &
                                     (model%numerics%sigma(up+1) - model%numerics%stagsigma(up)) )
 
@@ -161,12 +156,12 @@ module glissade_therm
        call write_log('Initializing ice temperature from the restart file')
 
     elseif ( minval(model%temper%temp(1:model%general%upn, &
-                    1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) > &
+                    1+lhalo:ewn-lhalo, 1+uhalo:nsn-uhalo)) > &
                     (-1.0d0 * trpt) ) then    ! trpt = 273.15 K
                                               ! Default initial temps in glide_types are -999
 
        if ( (maxval(model%temper%temp(model%general%upn+1, &
-                    1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) == &
+                    1+lhalo:ewn-lhalo, 1+uhalo:nsn-uhalo)) == &
                     -999.0d0 ) .and.    &
                     (model%options%whichdycore /= DYCORE_BISICLES) )then
           ! Throw a fatal error if we think the user has supplied temp instead of tempstag
@@ -203,14 +198,15 @@ module glissade_therm
 
           !Note: Old glide sets temp = artm everywhere without regard to whether ice exists in a column.
 
+          !TODO - Remove 'dble'
+
           call write_log('Initializing ice temperature to the surface air temperature')
 
-          do ns = 1, model%general%nsn
-             do ew = 1, model%general%ewn
-
+          do ns = 1, nsn
+             do ew = 1, ewn
                 call glissade_init_temp_column(model%options%temp_init,         &
                                                model%numerics%stagsigma(:),     &
-                                               dble(model%climate%artm(ew,ns)), &
+                                               model%climate%artm(ew,ns),       &
                                                model%geometry%thck(ew,ns),      &
                                                model%temper%temp(:,ew,ns) )
              end do
@@ -224,15 +220,13 @@ module glissade_therm
 
           call write_log('Initializing ice temperature to a linear profile in each column')
 
-          do ns = 1, model%general%nsn
-             do ew = 1, model%general%ewn
-
+          do ns = 1, nsn
+             do ew = 1, ewn
                 call glissade_init_temp_column(model%options%temp_init,         &
                                                model%numerics%stagsigma(:),     &
-                                               dble(model%climate%artm(ew,ns)), &
+                                               model%climate%artm(ew,ns),       &
                                                model%geometry%thck(ew,ns),      &
                                                model%temper%temp(:,ew,ns) )
-
              end do
           end do
 
@@ -267,16 +261,15 @@ module glissade_therm
   real(dp), dimension(:), intent(in)     :: stagsigma  ! staggered vertical coordinate
                                                        ! includes layer midpoints, but not top and bottom surfaces
   real(dp), intent(in)                   :: artm   ! surface air temperature (deg C)
-                                                   ! Note: artm should be passed in as double precision
   real(dp), intent(in)                   :: thck   ! ice thickness
   real(dp), dimension(0:), intent(inout) :: temp   ! ice column temperature (deg C)
                                                    ! Note first index of zero
                                                    
   ! Local variables and parameters
 
-  real(dp) :: pmptb                              ! pressure melting point temp at the bed
-  real(dp), dimension(size(stagsigma)) :: pmpt   ! pressure melting point temp thru the column
-  integer :: upn                                 ! number of vertical levels (deduced from temp array)
+  real(dp) :: pmptemp_bed                           ! pressure melting point temp at the bed
+  real(dp), dimension(size(stagsigma)) :: pmptemp   ! pressure melting point temp thru the column
+  integer :: upn                                    ! number of vertical levels (deduced from temp array)
 
   !TODO - Define pmpt_offset elsewhere?
   real(dp), parameter :: pmpt_offset = 2.d0  ! offset of initial Tbed from pressure melting point temperature (deg C)
@@ -303,20 +296,19 @@ module glissade_therm
 
   case(TEMP_INIT_LINEAR)
 
-     ! Tsfc = artm, Tbed = Tpmp = pmpt_offset, linear profile in between 
+     ! Tsfc = artm, Tbed = Tpmp - pmpt_offset, linear profile in between 
 
      temp(0) = artm
 
-     call glissade_calcpmpt_bed (pmptb, thck)
-     temp(upn) = pmptb - pmpt_offset
+     call glissade_pressure_melting_point(thck, pmptemp_bed)
+     temp(upn) = pmptemp_bed - pmpt_offset
 
      temp(1:upn-1) = temp(0) + (temp(upn) - temp(0))*stagsigma(:)
                                
      ! Make sure T <= Tpmp - pmpt_offset in column interior
-     ! TODO: Change condition to T <= Tpmp?
 
-     call glissade_calcpmpt(pmpt(:), thck, stagsigma(:))
-     temp(1:upn-1) = min(temp(1:upn-1), pmpt(1:upn-1) - pmpt_offset)
+     call glissade_pressure_melting_point_column(thck, stagsigma(1:upn-1), pmptemp(1:upn-1))
+     temp(1:upn-1) = min(temp(1:upn-1), pmptemp(1:upn-1) - pmpt_offset)
 
   end select
 
@@ -332,12 +324,8 @@ module glissade_therm
     use glimmer_paramets, only : thk0, tim0
     use glimmer_physcon, only: shci, coni, rhoi
     use glide_mask
-!!    use glissade_enthalpy
     use glissade_grid_operators, only: glissade_stagger
     use glissade_masks, only: glissade_get_masks
-
-    !TODO - Modify glissade_temp_driver to compute over locally owned cells only?
-    !       This would make the module a bit cheaper but would require halo updates at the end.
 
     !------------------------------------------------------------------------------------
     ! Subroutine arguments
@@ -347,26 +335,71 @@ module glissade_therm
     integer,                intent(in)    :: whichtemp   ! Flag to choose method
 
     !------------------------------------------------------------------------------------
+    ! Local variables and pointers set to components of model derived type
+    !------------------------------------------------------------------------------------
+
+    integer :: ewn, nsn, upn
+    integer :: itest, jtest, rtest
+
+    integer ::   &
+         which_dycore      ! dycore option (e.g., Glam, Glissade)
+
+    real(dp) ::   &
+         dttem,           &! time step for temperature solve
+         thklim,          &! minimum ice thickness for velocity calculation
+         thklim_temp,     &! minimum ice thickness for thickness calculation
+         eus               ! eustatic sea level (m), = 0. by default  
+
+    real(dp), dimension(:), pointer ::   &
+         sigma,           &! vertical temperature coordinate
+                           ! located at layer interfaces
+         stagsigma         ! staggered vertical temperature coordinate
+                           ! located at the center of each layer
+
+    real(dp), dimension(:,:), pointer ::  &
+         thck,            &! ice thickness (model thickness units)
+         topg,            &! basal topography (model thickness units)
+         artm,            &! surface air temperature (deg C)
+         bwat,            &! basal water depth
+         bmlt,            &! basal melt rate
+         bheatflx,        &! geothermal flux (W m-2), positive down
+         bfricflx          ! basal friction heat flux (W m-2), >= 0
+         
+    real(dp), dimension(:,:,:), pointer ::  &
+         waterfrac,       &! internal water fraction (unitless)
+         dissip            ! interior heat dissipation (deg/s)
+
+    real(dp), dimension(:,:,:), pointer ::  &
+         enthalpy          ! specific enthalpy (J m-3)
+
+    !WHL - Tried making temp a pointer but got errors.
+    !      I think these are associated with the vertical range beginning with 0.
+    !      Workaround: Declare temp as a local array and do copies.
+    !      Might want to do the same workaround with enthalpy, but for now it doesn't matter
+    !       because the enthalpy computed here isn't used again.
+!!    real(dp), dimension(:,:,:), pointer ::  &
+!!         temp              ! ice temperature (deg C)
+
+    !------------------------------------------------------------------------------------
     ! Internal variables
     !------------------------------------------------------------------------------------
 
+    ! See comment above
+    real(dp), dimension(0:model%general%upn,model%general%ewn,model%general%nsn)  ::  &
+         temp              ! ice temperature (deg C)
+
     integer :: ew, ns, up
-    integer :: ewn, nsn, upn
     character(len=100) :: message
 
-    ! These arrays have the same size as the vertical dimension of temperature:
-    !  upn+1 on the staggered grid.
-    real(dp), dimension(size(model%temper%temp,1)) :: subd, diag, supd, rhsd
+    real(dp), dimension(model%general%upn+1) :: subd, diag, supd, rhsd
 
     ! These have the same dimensions as staggered temperature
-    real(dp),dimension(0:model%general%upn) :: prevtemp_stag, enthalpy
+    real(dp),dimension(0:model%general%upn) :: prevtemp_stag
 
     ! for energy conservation check
     real(dp) :: einit, efinal, delta_e, dTtop, dTbot, denth_top, denth_bot
 
     real(dp) :: maxtemp, mintemp   ! max and min temps in column
-
-    real(dp), dimension(0:model%general%upn) :: pmptemp   ! pressure melting pt temperature
 
     real(dp), dimension(1:model%general%upn) :: alpha_enth   ! diffusivity at interfaces (m2/s) for enthalpy solver
                                                              ! = coni / (rhoi*shci) for cold ice
@@ -376,9 +409,22 @@ module glissade_therm
          ice_mask_temp, &! = 1 where ice temperature is computed (thck > thklim_temp), else = 0
          floating_mask   ! = 1 where ice is floating, else = 0
 
-    logical, parameter:: verbose_temp = .false.
+    real(dp), dimension(model%general%ewn,model%general%nsn) ::  &
+         ucondflx,     & ! conductive heat flux (W/m^2) at upper sfc (positive down)
+         lcondflx,     & ! conductive heat flux (W/m^2) at lower sfc (positive down)
+         dissipcol       ! total heat dissipation rate (W/m^2) in column (>= 0)
+
+    logical, parameter:: verbose_temp = .true.
     logical :: verbose_column
     integer :: k
+
+    !------------------------------------------------------------------------------------
+    ! Assign local pointers and variables to derived type components
+    !------------------------------------------------------------------------------------
+
+    ewn = model%general%ewn
+    nsn = model%general%nsn
+    upn = model%general%upn
 
     itest = 1
     jtest = 1
@@ -388,17 +434,40 @@ module glissade_therm
        jtest = model%numerics%jdiag_local
     endif
 
-    ewn = model%general%ewn
-    nsn = model%general%nsn
-    upn = model%general%upn
+    which_dycore = model%options%whichdycore
+
+    dttem        = model%numerics%dttem
+    thklim       = model%numerics%thklim
+    thklim_temp  = model%numerics%thklim_temp
+    eus          = model%climate%eus
+
+    sigma       => model%numerics%sigma(:)
+    stagsigma   => model%numerics%stagsigma(:)
+    thck        => model%geometry%thck(:,:)
+    topg        => model%geometry%topg(:,:)
+    artm        => model%climate%artm(:,:)
+    dissip      => model%temper%dissip(:,:,:)
+    bheatflx    => model%temper%bheatflx(:,:)
+    bfricflx    => model%temper%bfricflx(:,:)
+    bwat        => model%temper%bwat(:,:)
+    bmlt        => model%temper%bmlt(:,:)
+    waterfrac   => model%temper%waterfrac(:,:,:)
+    enthalpy    => model%temper%enthalpy(:,:,:)
+
+!    temp        => model%temper%temp(:,:,:)  !WHL: temp is not a pointer; see commment above
+    temp(:,:,:) = model%temper%temp(:,:,:)
+
+    !------------------------------------------------------------------------------------
+    ! Compute the new temperature profile in each column
+    !------------------------------------------------------------------------------------
 
     select case(whichtemp)
 
     case(TEMP_SURFACE_AIR_TEMP)  ! Set column to surface air temperature ------------------
 
-       do ns = 1,model%general%nsn
-          do ew = 1,model%general%ewn
-             model%temper%temp(:,ew,ns) = dmin1(0.0d0,dble(model%climate%artm(ew,ns)))
+       do ns = 1, nsn
+          do ew = 1, ewn
+             temp(:,ew,ns) = min(0.0d0, artm(ew,ns))
           end do
        end do
 
@@ -406,20 +475,18 @@ module glissade_therm
 
     case(TEMP_PROGNOSTIC, TEMP_ENTHALPY)  ! Local column calculation (with advection done elsewhere)
 
-       print*, 'Temp driver, whichtemp =', whichtemp
+       ! Compute masks: ice_mask = 1 where thck > thklim; floating_mask = 1 where ice is floating
 
-       ! Compute masks: ice_mask = 1 where thck > thklim, floating_mask = 1 where ice is floating
-
-       call glissade_get_masks(ewn,                  nsn,                    &
-                               model%geometry%thck,  model%geometry%topg,    &
-                               model%climate%eus,    model%numerics%thklim,  &
-                               ice_mask,             floating_mask)
+       call glissade_get_masks(ewn,          nsn,     &
+                               thck,         topg,    &
+                               eus,          thklim,  &
+                               ice_mask,     floating_mask)
 
        ! Compute ice mask for temperature: ice_mask_temp = 1 where thck > thklim_temp
 
-       call glissade_get_masks(ewn,                  nsn,                         &
-                               model%geometry%thck,  model%geometry%topg,         &
-                               model%climate%eus,    model%numerics%thklim_temp,  &
+       call glissade_get_masks(ewn,          nsn,          &
+                               thck,         topg,         &
+                               eus,          thklim_temp,  &
                                ice_mask_temp)
 
        ! No horizontal or vertical advection; vertical diffusion and strain heating only.
@@ -427,31 +494,33 @@ module glissade_therm
        ! That is, the temperature is defined at the midpoint of each layer 
        ! (and at the top and bottom surfaces).
        
+       !TODO - Move this calculation to velo solver modules?
+
        ! Calculate interior heat dissipation -------------------------------------
 
-       model%temper%dissip(:,:,:) = 0.d0
+       dissip(:,:,:) = 0.d0
 
        if (model%options%which_ho_disp == HO_DISP_SIA) then
 
-          call glissade_interior_dissipation_sia(model%numerics%dttem,       &
+          call glissade_interior_dissipation_sia(dttem,       &
                                                  ewn,          nsn,          &
-                                                 upn,          model%numerics%stagsigma(:), &
+                                                 upn,          stagsigma(:), &
                                                  ice_mask,                   &
                                                  model%geomderv%stagthck,    &
                                                  model%temper%flwa,          &
                                                  model%geomderv%dusrfdew,    &
                                                  model%geomderv%dusrfdns,   &
-                                                 model%temper%dissip)
+                                                 dissip)
 
        else    ! first-order dissipation
 
-          call glissade_interior_dissipation_first_order(model%numerics%dttem,       &
+          call glissade_interior_dissipation_first_order(dttem,       &
                                                          ewn,          nsn,          &
                                                          upn,                        &
                                                          ice_mask,                   &
                                                          model%stress%tau%scalar,    &
                                                          model%stress%efvs,          &
-                                                         model%temper%dissip)
+                                                         dissip)
           
        endif
 
@@ -464,9 +533,10 @@ module glissade_therm
                                        model%velocity%uvel(upn,:,:),    &
                                        model%velocity%vvel(upn,:,:),    &
                                        model%velocity%btraction(:,:,:), &
-                                       model%temper%bfricflx(:,:) )
+                                       bfricflx(:,:) )
        endif
 
+       !TODO: Change to 1, nsn/ewn?
        do ns = 2, nsn-1
        do ew = 2, ewn-1
 
@@ -480,57 +550,54 @@ module glissade_therm
 
              ! Set surface temperature
 
-             model%temper%temp(0,ew,ns) = dble(model%climate%artm(ew,ns))
+             temp(0,ew,ns) = min(0.d0, artm(ew,ns))
 
              if (whichtemp == TEMP_ENTHALPY) then
 
                 ! Given temperature and waterfrac, compute enthalpy (dimension 0:upn).
                 ! Assume waterfrac = 0 at upper and lower surfaces.
 
-                call glissade_temp2enth(model%temper%enthalpy(0:upn,ew,ns),    &
-                                        model%temper%temp(0:upn,ew,ns),        &
-                                        model%temper%waterfrac(1:upn-1,ew,ns), &
-                                        model%geometry%thck(ew,ns),            &
-                                        model%numerics%stagsigma(1:upn-1))
+                call glissade_temp2enth(stagsigma(1:upn-1),                            &
+                                        temp(0:upn,ew,ns),  waterfrac(1:upn-1,ew,ns),  &
+                                        thck(ew,ns),        enthalpy(0:upn,ew,ns))
 
                 if (verbose_column) then
                    print*, ' '
                    print*, 'Before prognostic enthalpy, i, j =', ew, ns
-                   print*, 'thck =', model%geometry%thck(ew,ns)*thk0
-                   print*, 'Temp, waterfrac, enthalpy:'
+                   print*, 'thck =', thck(ew,ns)*thk0
+                   print*, 'Temp, waterfrac, enthalpy/(rhoi*shci):'
                    k = 0
-                   print*, model%temper%temp(k,ew,ns), 0.d0, model%temper%enthalpy(k,ew,ns)
+                   print*, k, temp(k,ew,ns), 0.d0, enthalpy(k,ew,ns)/(rhoi*shci)
                    do k = 1, upn-1
-                      print*, k, model%temper%temp(k,ew,ns), model%temper%waterfrac(k,ew,ns), model%temper%enthalpy(k,ew,ns)
+                      print*, k, temp(k,ew,ns), waterfrac(k,ew,ns), enthalpy(k,ew,ns)/(rhoi*shci)
                    enddo
                    k = upn
-                   print*, model%temper%temp(k,ew,ns), 0.d0, model%temper%enthalpy(k,ew,ns)
+                   print*, k, temp(k,ew,ns), 0.d0, enthalpy(k,ew,ns)/(rhoi*shci)
                 endif
 
                 ! compute initial internal energy in column (for energy conservation check)
                 einit = 0.0d0
                 do up = 1, upn-1
-                   einit = einit + model%temper%enthalpy(up,ew,ns) *  &
-                                  (model%numerics%sigma(up+1) - model%numerics%sigma(up) )
+                   einit = einit + enthalpy(up,ew,ns) * (sigma(up+1) - sigma(up))
                 enddo
-                einit = einit * model%geometry%thck(ew,ns)*thk0
+                einit = einit * thck(ew,ns)*thk0
 
                 ! compute matrix elements using enthalpy gradient method
 
-                call glissade_enthalpy_findvtri(model%numerics%dttem,            &
-                                                upn,                             &
-                                                model%numerics%stagsigma,        &
-                                                subd,  diag, supd, rhsd,         &
-                                                dups(:,:),                       &
-                                                floating_mask(ew,ns),            &
-                                                model%geometry%thck(ew,ns),      &
-                                                model%temper%temp(:,ew,ns),      &
-                                                model%temper%waterfrac(:,ew,ns), &
-                                                model%temper%enthalpy(:,ew,ns),  &
-                                                model%temper%dissip(:,ew,ns),    &
-                                                model%temper%bheatflx(ew,ns),    &
-                                                model%temper%bfricflx(ew,ns),    &
-                                                alpha_enth,                      &
+                call glissade_enthalpy_findvtri(dttem,                     &
+                                                upn,         stagsigma,    &
+                                                subd,        diag,         &
+                                                supd,        rhsd,         &
+                                                dups(:,:),                 &
+                                                floating_mask(ew,ns),      &
+                                                thck(ew,ns),               &
+                                                temp(:,ew,ns),             &
+                                                waterfrac(:,ew,ns),        &
+                                                enthalpy(0:upn,ew,ns),     &
+                                                dissip(:,ew,ns),           &
+                                                bheatflx(ew,ns),           &
+                                                bfricflx(ew,ns),           &
+                                                alpha_enth,                &
                                                 verbose_column)
 
                 !WHL - debug
@@ -552,90 +619,78 @@ module glissade_therm
                 call tridiag(subd(1:upn+1),   &
                              diag(1:upn+1),   &
                              supd(1:upn+1),   &
-                             enthalpy(0:upn), &
+                             enthalpy(0:upn,ew,ns), &
                              rhsd(1:upn+1))
                
-                ! Copy the local enthalpy array into the global derived type
-                model%temper%enthalpy(:,ew,ns) = enthalpy(:)
+                ! Compute conductive fluxes = (alpha/H * denth/dsigma) at upper and lower surfaces; positive down.
+                ! Here alpha = coni / (rhoi*shci) for cold ice, with a smaller value for temperate ice.
+                ! Assume fully implicit backward Euler time step.
+                ! Note: These fluxes should be computed before calling glissade_enth2temp (which might reset the bed enthalpy).
 
-                ! BDM convert back to temperature and water content
-                call glissade_enth2temp(model%temper%enthalpy(0:upn,ew,ns),    &
-                                        model%temper%temp(0:upn,ew,ns),        &
-                                        model%temper%waterfrac(1:upn-1,ew,ns), &
-                                        model%geometry%thck(ew,ns),            &
-                                        model%numerics%stagsigma(1:upn-1))
+                denth_top = enthalpy(1,ew,ns) - enthalpy(0,ew,ns)
+                denth_bot = enthalpy(upn,ew,ns) - enthalpy(upn-1,ew,ns)
+                
+                ucondflx(ew,ns) = -alpha_enth(1) / (thck(ew,ns)*thk0) * denth_top / ( stagsigma(1))
+                lcondflx(ew,ns) = -alpha_enth(upn) / (thck(ew,ns)*thk0) * denth_bot / (1.d0 - stagsigma(upn-1))
+                                              
+                ! convert enthalpy back to temperature and water content
+                call glissade_enth2temp(stagsigma(1:upn-1),                          &
+                                        thck(ew,ns),       enthalpy(0:upn,ew,ns),    &
+                                        temp(0:upn,ew,ns), waterfrac(1:upn-1,ew,ns))
 
                 if (verbose_column) then
                    print*, ' '
                    print*, 'After prognostic enthalpy, i, j =', ew, ns
-                   print*, 'thck =', model%geometry%thck(ew,ns)*thk0
-                   print*, 'Temp, waterfrac, enthalpy:'
+                   print*, 'thck =', thck(ew,ns)*thk0
+                   print*, 'Temp, waterfrac, enthalpy/(rhoi*shci):'
                    k = 0
-                   print*, model%temper%temp(k,ew,ns), 0.d0, model%temper%enthalpy(k,ew,ns)
+                   print*, k, temp(k,ew,ns), 0.d0, enthalpy(k,ew,ns)/(rhoi*shci)
                    do k = 1, upn-1
-                      print*, k, model%temper%temp(k,ew,ns), model%temper%waterfrac(k,ew,ns), model%temper%enthalpy(k,ew,ns)
+                      print*, k, temp(k,ew,ns), waterfrac(k,ew,ns), enthalpy(k,ew,ns)/(rhoi*shci)
                    enddo
                    k = upn
-                   print*, model%temper%temp(k,ew,ns), 0.d0, model%temper%enthalpy(k,ew,ns)
+                   print*, k, temp(k,ew,ns), 0.d0, enthalpy(k,ew,ns)/(rhoi*shci)
                 endif
                 
                 ! compute the final internal energy
 
                 efinal = 0.0d0
                 do up = 1, upn-1
-                   efinal = efinal + model%temper%enthalpy(up,ew,ns) *  &
-                                    (model%numerics%sigma(up+1) - model%numerics%sigma(up) )
+                   efinal = efinal + enthalpy(up,ew,ns) * (sigma(up+1) - sigma(up) )
                 enddo
-                efinal = efinal * model%geometry%thck(ew,ns)*thk0
-
-                ! compute net heat flux to the column
-                
-                ! conductive flux = (alpha/H * denth/dsigma) at upper and lower surfaces; positive down.
-                ! Here alpha = coni / (rhoi*shci) for cold ice, with a smaller value for temperate ice.
-                ! Assume fully implicit backward Euler time step
-                
-                denth_top = enthalpy(1) - enthalpy(0)
-                denth_bot = enthalpy(upn) - enthalpy(upn-1)
-                
-                model%temper%ucondflx(ew,ns) = -alpha_enth(1) / (model%geometry%thck(ew,ns)*thk0)         &
-                                              * denth_top / ( model%numerics%stagsigma(1) )
-
-                model%temper%lcondflx(ew,ns) = -alpha_enth(upn) / (model%geometry%thck(ew,ns)*thk0)         &
-                                              * denth_bot / (1.d0 - model%numerics%stagsigma(upn-1))
+                efinal = efinal * thck(ew,ns)*thk0
 
              else   ! whichtemp = TEMP_PROGNOSTIC
 
                 if (verbose_column) then
                    print*, ' '
                    print*, 'Before prognostic temp, i, j =', ew, ns
-                   print*, 'thck =', model%geometry%thck(ew,ns)*thk0
+                   print*, 'thck =', thck(ew,ns)*thk0
                    print*, 'Temp:'
                    do k = 0, upn
-                      print*, k, model%temper%temp(k,ew,ns)
+                      print*, k, temp(k,ew,ns)
                    enddo
                 endif
                 
                 ! compute initial internal energy in column (for energy conservation check)
                 einit = 0.0d0
                 do up = 1, upn-1
-                   einit = einit + model%temper%temp(up,ew,ns) *  &
-                        (model%numerics%sigma(up+1) -   &
-                        model%numerics%sigma(up) )
+                   einit = einit + temp(up,ew,ns) * (sigma(up+1) - sigma(up))
                 enddo
-                einit = einit * rhoi * shci * model%geometry%thck(ew,ns)*thk0
+                einit = einit * rhoi * shci * thck(ew,ns)*thk0
                 
                 ! compute matrix elements
 
-                call glissade_findvtri(model%numerics%dttem,            &
-                                       upn,                             &
-                                       model%numerics%stagsigma,        &
-                                       subd,  diag, supd, rhsd,         &            
-                                       floating_mask(ew,ns),            &
-                                       model%geometry%thck(ew,ns),      &
-                                       model%temper%temp(:,ew,ns),      &
-                                       model%temper%dissip(:,ew,ns),    &
-                                       model%temper%bheatflx(ew,ns),    &
-                                       model%temper%bfricflx(ew,ns))
+                call glissade_findvtri(dttem,                 &
+                                       upn,     stagsigma,    &
+                                       subd,    diag,         &
+                                       supd,    rhsd,         &            
+                                       floating_mask(ew,ns),  &
+                                       thck(ew,ns),           &
+                                       temp(:,ew,ns),         &
+                                       dissip(:,ew,ns),       &
+                                       bheatflx(ew,ns),       &
+                                       bfricflx(ew,ns))
                 
                 if (verbose_column) then
                    print*, 'After glissade_findvtri, i, j =', ew,ns
@@ -645,7 +700,7 @@ module glissade_therm
                    enddo
                 endif
 
-                prevtemp_stag(:) = model%temper%temp(:,ew,ns)
+                prevtemp_stag(:) = temp(:,ew,ns)
 
                 ! solve the tridiagonal system
 
@@ -657,15 +712,30 @@ module glissade_therm
                 call tridiag(subd(1:upn+1), &
                              diag(1:upn+1), &
                              supd(1:upn+1), &
-                             model%temper%temp(0:upn,ew,ns), &
+                             temp(0:upn,ew,ns), &
                              rhsd(1:upn+1))
+
+                ! conductive flux = (k/H * dT/dsigma) at upper and lower surfaces; positive down
+
+                if (crank_nicolson) then
+                   ! average temperatures between start and end of timestep
+                   dTtop = 0.5d0 * (temp(1,ew,ns) - temp(0,ew,ns) + prevtemp_stag(1) - prevtemp_stag(0))
+                   dTbot = 0.5d0 * (temp(upn,ew,ns) - temp(upn-1,ew,ns) + prevtemp_stag(upn) - prevtemp_stag(upn-1))
+                else    ! fully implicit
+                   ! use temperatures at end of timestep
+                   dTtop = temp(1,ew,ns) - temp(0,ew,ns)
+                   dTbot = temp(upn,ew,ns) - temp(upn-1,ew,ns)
+                endif
+
+                ucondflx(ew,ns) = (-coni / (thck(ew,ns)*thk0) ) * dTtop / (stagsigma(1))
+                lcondflx(ew,ns) = (-coni / (thck(ew,ns)*thk0) ) * dTbot / (1.d0 - stagsigma(upn-1))
 
                 if (verbose_column) then
                    print*, ' '
                    print*, 'After prognostic temp, i, j =', ew, ns
                    print*, 'Temp:'
                    do k = 0, upn
-                      print*, k, model%temper%temp(k,ew,ns)
+                      print*, k, temp(k,ew,ns)
                    enddo
                 endif
                 
@@ -673,63 +743,36 @@ module glissade_therm
                 
                 efinal = 0.0d0
                 do up = 1, upn-1
-                   efinal = efinal + model%temper%temp(up,ew,ns) *  &
-                        (model%numerics%sigma(up+1) - model%numerics%sigma(up))
+                   efinal = efinal + temp(up,ew,ns) * (sigma(up+1) - sigma(up))
                 enddo
-                efinal = efinal * rhoi*shci * model%geometry%thck(ew,ns)*thk0
+                efinal = efinal * rhoi*shci * thck(ew,ns)*thk0
                 
-                ! compute net heat flux to the column
-
-                ! conductive flux = (k/H * dT/dsigma) at upper and lower surfaces; positive down
-
-                if (crank_nicolson) then
-                   ! average temperatures between start and end of timestep
-                   dTtop = 0.5d0 * ( model%temper%temp(1,ew,ns) - model%temper%temp(0,ew,ns) &
-                                   +     prevtemp_stag(1)       -     prevtemp_stag(0) )
-                   dTbot = 0.5d0 * ( model%temper%temp(upn,ew,ns) - model%temper%temp(upn-1,ew,ns) &
-                                   +     prevtemp_stag(upn)       -   prevtemp_stag(upn-1) )
-                else    ! fully implicit
-                   ! use temperatures at end of timestep
-                   dTtop = model%temper%temp(1,ew,ns) - model%temper%temp(0,ew,ns)
-                   dTbot = model%temper%temp(upn,ew,ns) - model%temper%temp(upn-1,ew,ns)
-                endif
-
-                model%temper%ucondflx(ew,ns) = (-coni / (model%geometry%thck(ew,ns)*thk0) )         &
-                                              * dTtop / (model%numerics%stagsigma(1))
-
-                model%temper%lcondflx(ew,ns) = (-coni / (model%geometry%thck(ew,ns)*thk0) )         &
-                                              * dTbot / (1.d0 - model%numerics%stagsigma(upn-1))
-
              endif   ! whichtemp
 
              ! Compute total dissipation in column (W/m^2)
 
-             model%temper%dissipcol(ew,ns) = 0.0d0
+             dissipcol(ew,ns) = 0.0d0
              do up = 1, upn-1
-                model%temper%dissipcol(ew,ns) = model%temper%dissipcol(ew,ns) + &
-                                                model%temper%dissip(up,ew,ns)  &
-                                             * (model%numerics%sigma(up+1) - model%numerics%sigma(up))  
+                dissipcol(ew,ns) = dissipcol(ew,ns) + dissip(up,ew,ns) * (sigma(up+1) - sigma(up))
              enddo
-             model%temper%dissipcol(ew,ns) = model%temper%dissipcol(ew, ns)     &
-                                           * thk0*model%geometry%thck(ew,ns)*rhoi*shci / (tim0*model%numerics%dttem)  
+             dissipcol(ew,ns) = dissipcol(ew,ns) * thk0*thck(ew,ns)*rhoi*shci / (tim0*dttem)
 
              ! Verify that the net input of energy into the column is equal to the change in
              ! internal energy.  
 
-             delta_e = (model%temper%ucondflx(ew,ns) - model%temper%lcondflx(ew,ns)  &
-                      + model%temper%dissipcol(ew,ns)) * tim0*model%numerics%dttem
+             delta_e = (ucondflx(ew,ns) - lcondflx(ew,ns) + dissipcol(ew,ns)) * tim0*dttem
 
-             if ( abs((efinal-einit-delta_e)/(tim0*model%numerics%dttem)) > 1.0d-8 ) then
+             if (abs((efinal-einit-delta_e)/(tim0*dttem)) > 1.0d-8) then
 
                 if (verbose_column) then
-                   print*, 'Ice thickness:', thk0*model%geometry%thck(ew,ns)
-                   print*, 'thklim_temp:', thk0*model%numerics%thklim_temp
+                   print*, 'Ice thickness:', thk0*thck(ew,ns)
+                   print*, 'thklim_temp:', thk0*thklim_temp
                    print*, ' '
                    print*, 'Interior fluxes:'
-                   print*, 'ftop (pos up)=', -model%temper%ucondflx(ew,ns) 
-                   print*, 'fbot (pos up)=', -model%temper%lcondflx(ew,ns)
-                   print*, 'fdissip =',       model%temper%dissipcol(ew,ns)
-                   print*, 'Net flux =', delta_e/(tim0*model%numerics%dttem)
+                   print*, 'ftop (pos up)=', -ucondflx(ew,ns) 
+                   print*, 'fbot (pos up)=', -lcondflx(ew,ns)
+                   print*, 'fdissip =',       dissipcol(ew,ns)
+                   print*, 'Net flux =', delta_e/(tim0*dttem)
                    print*, ' '
                    print*, 'delta_e =', delta_e
                    print*, 'einit =',  einit
@@ -739,19 +782,14 @@ module glissade_therm
                    print*, 'Energy imbalance =', efinal - einit - delta_e
                    print*, ' '
                    print*, 'Basal fluxes:'
-                   print*, 'ffric =', model%temper%bfricflx(ew,ns)
-                   print*, 'fgeo =', -model%temper%bheatflx(ew,ns)
-                   print*, 'flux for bottom melting =', model%temper%bfricflx(ew,ns)   &
-                                                      - model%temper%bheatflx(ew,ns)   &
-                                                      + model%temper%lcondflx(ew,ns)
+                   print*, 'ffric =', bfricflx(ew,ns)
+                   print*, 'fgeo =', -bheatflx(ew,ns)
+                   print*, 'flux for bottom melting =', bfricflx(ew,ns) - bheatflx(ew,ns) + lcondflx(ew,ns)
                 endif   ! verbose_temp
 
                 write(message,*) 'WARNING: Energy conservation error, ew, ns =', ew, ns
                 call write_log(message,GM_FATAL)
              endif
-
-             !WHL - No call here to corrpmpt.  Temperatures above pmpt are set to pmpt 
-             !      in glissade_calcbmlt (conserving energy).
 
           endif  ! thck > thklim_temp
        end do    ! ew
@@ -759,11 +797,11 @@ module glissade_therm
 
        ! Set temperature of thin ice to the air temperature and set ice-free nodes to zero
 
-       do ns = 1, model%general%nsn
-          do ew = 1, model%general%ewn
+       do ns = 1, nsn
+          do ew = 1, ewn
 
-              if (model%geometry%thck(ew,ns) <= model%numerics%thklim_temp) then
-                 model%temper%temp(:,ew,ns) = min(0.d0, model%climate%artm(ew,ns))
+              if (thck(ew,ns) <= thklim_temp) then
+                 temp(:,ew,ns) = min(0.d0, artm(ew,ns))
               endif
 
               !TODO - Maybe it should be done in the following way, so that the temperature profile for thin ice
@@ -774,63 +812,45 @@ module glissade_therm
              !       To conserve energy, we need either thklim_temp = 0, or some additional
              !        energy accounting and correction.
  
-!             if (model%geometry%thck(ew,ns) <= model%numerics%thklim_temp) then
-!                call glissade_init_temp_column(model%options%temp_init,         &
-!                                               model%numerics%stagsigma(:),     &
-!                                               dble(model%climate%artm(ew,ns)), &
-!                                               model%geometry%thck(ew,ns),      &
-!                                               model%temper%temp(:,ew,ns) )
+!             if (thck(ew,ns) <= thklim_temp) then
+!                call glissade_init_temp_column(temp_init,         &
+!                                               stagsigma(:),     &
+!                                               artm(ew,ns)),      &
+!                                               thck(ew,ns),      &
+!                                               temp(:,ew,ns) )
 !             else if (model%geometry%thkmask(ew,ns) < 0) then
-!                model%temper%temp(:,ew,ns) = 0.d0
+!                temp(:,ew,ns) = 0.d0
 !             end if
 
           end do
        end do
 
        ! Calculate basal melt rate
-       ! Temperature above the pressure melting point are reset to Tpmp,
-       !  with excess heat contributing to melting.
+       ! For the standard temperature scheme, temperatures above the pressure melting point 
+       !  are reset to Tpmp, with excess heat contributing to basal melt.
+       ! For the enthalpy scheme, internal meltwater in excess of the prescribed maximum
+       !  fraction (0.01 by default) is drained to the bed.
 
-       call glissade_calcbmlt(whichtemp,                     &
-                              model%numerics%dttem,          &
-                              ewn,  nsn,  upn,               &
-                              model%numerics%sigma,          &
-                              model%numerics%stagwbndsigma,  &
-                              ice_mask_temp,                 &
-                              floating_mask,                 &
-                              model%geometry%thck,           &
-                              model%temper%temp,             &
-                              model%temper%waterfrac,        &
-                              model%temper%bfricflx,         &
-                              model%temper%bheatflx,         &
-                              model%temper%lcondflx,         &
-                              model%temper%bwat,             &
-                              model%temper%bmlt)
+       call glissade_calcbmlt(whichtemp,     dttem,             &
+                              ewn,           nsn,       upn,    &
+                              sigma,         stagsigma,         &
+                              ice_mask_temp, floating_mask,     &
+                              thck,                             &
+                              temp,          waterfrac,         &
+                              bfricflx,      bheatflx,          &
+                              lcondflx,      bwat,              &
+                              bmlt)
 
-       ! Interpolate basal temperature and pressure melting point onto velocity grid
-
-       call glissade_stagger(model%general%ewn,     model%general%nsn,  &
-                             model%temper%temp(upn,:,:),  &
-                             model%temper%stagbtemp(:,:),               &
-                             ice_mask_temp(:,:),                        &
-                             stagger_margin_in = 1)
-
-       call glissade_stagger(model%general%ewn,     model%general%nsn,  &
-                             model%temper%bpmp(:,:),                    &
-                             model%temper%stagbpmp(:,:),                &
-                             ice_mask_temp(:,:),                        &
-                             stagger_margin_in = 1)
-
-    end select
+    end select   ! whichtemp
 
     ! Check for temperatures that are physically unrealistic.
     ! Thresholds are set at the top of this module.
 
-    do ns = 1, model%general%nsn
-       do ew = 1, model%general%ewn
+    do ns = 1, nsn
+       do ew = 1, ewn
 
-          maxtemp = maxval(model%temper%temp(:,ew,ns))
-          mintemp = minval(model%temper%temp(:,ew,ns))
+          maxtemp = maxval(temp(:,ew,ns))
+          mintemp = minval(temp(:,ew,ns))
           
           if (maxtemp > maxtemp_threshold) then
              write(message,*) 'maxtemp > 0: i, j, maxtemp =', ew, ns, maxtemp
@@ -839,10 +859,10 @@ module glissade_therm
           
           if (mintemp < mintemp_threshold) then
              !uncommment these lines to get more info
-!             print*, 'thck =', model%geometry%thck(ew,ns) * thk0
+!             print*, 'thck =', thck(ew,ns) * thk0
 !             print*, 'temp:'
 !             do k = 1, upn
-!                print*, k, model%temper%temp(k,ew,ns)
+!                print*, k, temp(k,ew,ns)
 !             enddo
              write(message,*) 'mintemp < mintemp_threshold: i, j, mintemp =', ew, ns, mintemp
              call write_log(message,GM_FATAL)
@@ -853,7 +873,10 @@ module glissade_therm
 
     ! Rescale dissipation term to deg C/s (instead of deg C)
     !TODO - Treat dissip above as a rate (deg C/s) instead of deg C?
-    model%temper%dissip(:,:,:) =  model%temper%dissip(:,:,:) /  (model%numerics%dttem*tim0)
+    dissip(:,:,:) =  dissip(:,:,:) /  (dttem*tim0)
+
+    ! Copy temp back to derived type (because temp is not a pointer; see comment above)
+    model%temper%temp(:,:,:) = temp(:,:,:)
 
   end subroutine glissade_therm_driver
 
@@ -1103,9 +1126,9 @@ module glissade_therm
 
     ! local variables
 
-    real(dp) :: pmptempb  ! pressure melting temp at bed
+    real(dp) :: pmptemp_bed  ! pressure melting temp at bed
     real(dp) :: fact
-    real(dp) :: dsigbot   ! bottom layer thicknes in sigma coords
+    real(dp) :: dsigbot      ! bottom layer thicknes in sigma coords
 
     ! Compute subdiagonal, diagonal, and superdiagonal matrix elements
 
@@ -1158,16 +1181,16 @@ module glissade_therm
 
     else    ! grounded ice
 
-       call glissade_calcpmpt_bed(pmptempb, thck)
+       call glissade_pressure_melting_point(thck, pmptemp_bed)
 
-       if (abs(temp(upn) - pmptempb) < 0.001d0) then  ! melting
+       if (abs(temp(upn) - pmptemp_bed) < 0.001d0) then
 
           ! hold basal temperature at pressure melting point
 
           supd(upn+1) = 0.0d0
           subd(upn+1) = 0.0d0
           diag(upn+1) = 1.0d0
-          rhsd(upn+1) = pmptempb
+          rhsd(upn+1) = pmptemp_bed
 
        else   ! frozen at bed
               ! maintain balance of heat sources and sinks
@@ -1247,8 +1270,9 @@ module glissade_therm
     real(dp) :: alpha0 ! temperate ice diffusivity
     real(dp) :: fact ! coefficient in tridiag
     integer  :: up
-    real(dp), dimension(0:upn) :: pmptemp    ! pmptemp all nodes (deg C)
-    real(dp), dimension(0:upn) :: enth_T     ! temperature part of specific enthalpy (J/m^3)
+    real(dp), dimension(1:upn-1) :: pmptemp    ! pressure melting point temp in interior (deg C)
+    real(dp) :: pmptemp_bed                    ! pressure melting point temp at bed (deg C)
+    real(dp), dimension(0:upn) :: enth_T       ! temperature part of specific enthalpy (J/m^3)
     real(dp) :: denth    ! enthalpy difference between adjacent layers
     real(dp) :: denth_T  ! difference in temperature component of enthalpy between adjacent layers
     real(dp) :: alpha_fact  ! factor for averaging diffusivity, 0 <= fact <= 1
@@ -1269,14 +1293,13 @@ module glissade_therm
     alpha0 = alphai / 100.0d0
 	
     ! find pmptemp for this column (interior nodes and boundary)
-    pmptemp(0) = 0.0d0
-    call glissade_calcpmpt(pmptemp(1:upn-1), thck, stagsigma(1:upn-1))
-    call glissade_calcpmpt_bed(pmptemp(upn), thck)
+    call glissade_pressure_melting_point_column(thck, stagsigma(1:upn-1), pmptemp(1:upn-1))
+    call glissade_pressure_melting_point(thck, pmptemp_bed)
 
     !WHL - debug                                                                                                                       
     if (verbose_column) then
        print*, ' '
-       print*, 'Starting enthalpy calc'
+       print*, 'Starting enthalpy calc in vtri'
        print*, 'k, temp, wfrac, enthalpy/(rhoi*ci), pmpt:'
        up = 0
        print*, up, temp(up), 0.d0, enthalpy(up)/(rhoi*shci)
@@ -1285,7 +1308,7 @@ module glissade_therm
                enthalpy(up)/(rhoi*shci), pmptemp(up)
        enddo
        up = upn
-       print*, up, temp(up), 0.d0, enthalpy(up)/(rhoi*shci), pmptemp(up)
+       print*, up, temp(up), 0.d0, enthalpy(up)/(rhoi*shci), pmptemp_bed
     endif
 
     !WHL - Commenting out the following and replacing it with a new way of computing alpha.
@@ -1432,12 +1455,12 @@ module glissade_therm
           up = upn-1
           print*, 'temp(upn-1), pmptemp(upn-1):', temp(up), pmptemp(up)
           up = upn
-          print*, 'temp(upn), pmptemp(upn):', temp(up), pmptemp(up)
+          print*, 'temp(upn), pmptemp(upn):', temp(up), pmptemp_bed
        endif
 
-    !Positive-Thickness Basal Temperate Boundary Layer
+    ! Positive-Thickness Basal Temperate Boundary Layer
 
-    !WHL - Not sure whether this condition is right.  
+    !WHL - Not sure whether this condition is ideal.
     !      It implies that the enthalpy at the bed (upn) = enthalpy in layer (upn-1). 
        if (abs(temp(upn-1) - pmptemp(upn-1)) < 0.001d0) then   
        
@@ -1452,13 +1475,13 @@ module glissade_therm
           endif
 
           !Zero-Thickness Basal Temperate Boundary Layer
-       elseif (abs(temp(upn) -  pmptemp(upn)) < 0.001d0) then  ! melting
+       elseif (abs(temp(upn) -  pmptemp_bed) < 0.001d0) then  ! melting
           
           ! hold basal temperature at pressure melting point
           supd(upn+1) = 0.0d0
           subd(upn+1) = 0.0d0
           diag(upn+1) = 1.0d0
-          rhsd(upn+1) = pmptemp(upn) * rhoi * shci
+          rhsd(upn+1) = pmptemp_bed * rhoi * shci
           
           !WHL - debug
           if (verbose_column) then
@@ -1506,7 +1529,7 @@ module glissade_therm
   subroutine glissade_calcbmlt(whichtemp,     dttem,         &
                                ewn,           nsn,           &
                                upn,                          &
-                               sigma,         stagwbndsigma, &
+                               sigma,         stagsigma,     &
                                ice_mask,      floating_mask, &
                                thck,                         &
                                temp,          waterfrac,     &
@@ -1518,11 +1541,11 @@ module glissade_therm
     ! The basal melting computed here is applied to the ice thickness
     !  by glissade_transport_driver, conserving mass and energy.
     !
-    ! Any internal temperatures above the pressure melting point are reset to the
-    !  pmp temperature, with excess energy applied toward basal melting.
-    !  Hopefully this is rare.
-    ! TODO: Moving all internal melting to the basal surface is not very realistic 
-    !       and should be revisited.
+    ! For the standard prognostic temperature scheme, any internal temperatures 
+    !  above the pressure melting point are reset to Tpmp.  Excess energy 
+    !  is applied toward melting with immediate drainage to the bed. 
+    ! For the enthalpy scheme, any meltwater in excess of the maximum allowed
+    !  meltwater fraction (0.01 by default) is drained to the bed.
 
     use glimmer_physcon, only: shci, rhoi, lhci
     use glimmer_paramets, only : thk0, tim0
@@ -1534,8 +1557,8 @@ module glissade_therm
     integer, intent(in) :: whichtemp          ! temperature method (TEMP_PROGNOSTIC or TEMP_ENTHALPY)
     real(dp), intent(in) :: dttem             ! time step
     integer, intent(in) :: ewn, nsn, upn      ! grid dimensions
-    real(dp), dimension(:),      intent(in) :: sigma           ! vertical sigma coordinate
-    real(dp), dimension(0:),     intent(in) :: stagwbndsigma   ! staggered vertical coordinate for temperature
+    real(dp), dimension(upn),    intent(in) :: sigma           ! vertical sigma coordinate
+    real(dp), dimension(upn-1),  intent(in) :: stagsigma       ! staggered vertical coordinate for temperature
     real(dp), dimension(0:,:,:), intent(inout) :: temp         ! temperature (deg C)
     real(dp), dimension(:,:,:),  intent(inout) :: waterfrac    ! water fraction
     real(dp), dimension(:,:),    intent(in) :: &
@@ -1556,10 +1579,10 @@ module glissade_therm
     ! Local variables
     !-----------------------------------------------------------------
 
-    real(dp), dimension(size(stagwbndsigma))    :: pmptemp   ! pressure melting point temperature
-    real(dp) :: bflx    ! heat flux available for basal melting (W/m^2)
     integer :: up, ew, ns
-
+    real(dp), dimension(upn-1)  :: pmptemp   ! pressure melting point temp in ice interior
+    real(dp) :: pmptemp_bed     ! pressure melting point temp at bed
+    real(dp) :: bflx          ! heat flux available for basal melting (W/m^2)
     real(dp) :: layer_thck    ! layer thickness (m)
     real(dp) :: melt_energy   ! energy available for internal melting (J/m^2)
     real(dp) :: internal_melt_rate   ! internal melt rate, transferred to bed (m/s)
@@ -1600,12 +1623,8 @@ module glissade_therm
              if (whichtemp == TEMP_ENTHALPY) then
 
                 ! Add internal melting associated with waterfrac > max_waterfrac (1%)
-                !TODO - Define max_waterfrac above
 
-!!             call glissade_calcpmpt(pmptemp(:), thck(ew,ns),   &
-!!                                    stagsigma(:) )
-
-                !WHL - Any correction for rhoi/rhow here?
+                !TODO - Any correction for rhoi/rhow here?  Or melting ice that is already partly melted?
                 do up = 1, upn-1
                    if (waterfrac(up,ew,ns) > max_waterfrac) then
                       ! compute melt rate associated with excess water
@@ -1620,12 +1639,9 @@ module glissade_therm
 
              else   ! whichtemp = TEMP_PROGNOSTIC
 
-                ! Add internal melting associated with temp > pmptemp
-                ! Note: glissade_calcpmpt does not compute pmpt at the top surface or the bed.
+                ! Add internal melting associated with T > Tpmp
 
-                !TODO - Make sure the '0' starting index is handled correctly
-                call glissade_calcpmpt(pmptemp(:), thck(ew,ns),   &
-                                       stagwbndsigma(:) )
+                call glissade_pressure_melting_point_column(thck(ew,ns), stagsigma(:), pmptemp(:))
 
                 do up = 1, upn-1
                    if (temp(up,ew,ns) > pmptemp(up)) then
@@ -1642,18 +1658,18 @@ module glissade_therm
 
              endif    ! whichtemp
 
-             ! Cap basal temp at pmptemp, if necessary
+             ! Cap basal temp at pressure melting point, if necessary
 
-             call glissade_calcpmpt_bed(pmptemp(upn), thck(ew,ns))
-             temp(upn,ew,ns) = min (temp(upn,ew,ns), pmptemp(upn))
+             call glissade_pressure_melting_point(thck(ew,ns), pmptemp_bed)
+             temp(upn,ew,ns) = min (temp(upn,ew,ns), pmptemp_bed)
 
              ! If freeze-on was computed above (bmlt < 0) and Tbed = Tpmp but no basal water is present, then set T(upn) < Tpmp.
              ! Note: In subroutine findvtri, we solve for Tbed (instead of holding it at Tpmp) when Tbed < 0.001.
              !       With an offset here of 0.01, we will solve for T_bed at the next timestep.
              ! Note: Energy is not exactly conserved here.
 
-             if (bmlt(ew,ns) < 0.d0 .and. bwat(ew,ns)==0.d0 .and. temp(upn,ew,ns) >= pmptemp(upn)) then
-                temp(upn,ew,ns) = pmptemp(upn) - 0.01d0
+             if (bmlt(ew,ns) < 0.d0 .and. bwat(ew,ns)==0.d0 .and. temp(upn,ew,ns) >= pmptemp_bed) then
+                temp(upn,ew,ns) = pmptemp_bed - 0.01d0
              endif
 
           endif   ! thk > thklim_temp
@@ -1665,67 +1681,145 @@ module glissade_therm
 
 !=======================================================================
 
-  !TODO - Inline glissade_calcpmpt and glissade_calcbpmp above?
+  subroutine glissade_pressure_melting_point(depth, pmptemp)
 
-  subroutine glissade_calcpmpt(pmptemp, thck, stagsigma)
-
-    ! Compute the pressure melting point temperature in the column
-    ! (but not at the surface or bed).
-    ! Note: pmptemp and stagsigma should have dimensions (1:upn-1).
+    ! Compute the pressure melting point temperature at a given depth
 
     use glimmer_physcon, only : rhoi, grav, pmlt 
     use glimmer_paramets, only : thk0
 
-    real(dp), dimension(:), intent(out) :: pmptemp  ! pressure melting point temperature (deg C)
-    real(dp), intent(in) :: thck                    ! ice thickness
-    real(dp), intent(in), dimension(:) :: stagsigma ! staggered vertical coordinate
+    real(dp), intent(in) :: depth      ! depth in column (model thickness units)
+    real(dp), intent(out) :: pmptemp   ! pressure melting point temp (deg C)
+
+    real(dp), parameter :: pmpfact = - rhoi * grav * pmlt * thk0
+
+    pmptemp = pmpfact * depth
+
+  end subroutine glissade_pressure_melting_point
+
+!=======================================================================
+
+  subroutine glissade_pressure_melting_point_column(thck, stagsigma, pmptemp)
+
+    ! Compute the pressure melting point temperature in a column
+    ! Note: pmptemp and stagsigma should have the same dimension
+
+    use glimmer_physcon, only : rhoi, grav, pmlt 
+    use glimmer_paramets, only : thk0
+
+    real(dp), intent(in) :: thck                    ! ice thickness (model thickness units)
+    real(dp), dimension(:), intent(in) :: stagsigma ! staggered vertical sigma coordinate
                                                     ! (defined at layer midpoints)
+    real(dp), dimension(:), intent(out) :: pmptemp  ! pressure melting point temperature (deg C)
 
-    real(dp), parameter :: fact = - grav * rhoi * pmlt * thk0
+    real(dp), parameter :: pmpfact = - rhoi * grav * pmlt * thk0
 
-    pmptemp(:) = fact * thck * stagsigma(:)
+    pmptemp(:) = pmpfact * thck * stagsigma(:)
 
-  end subroutine glissade_calcpmpt
+  end subroutine glissade_pressure_melting_point_column
 
 !=======================================================================
 
-  subroutine glissade_therm_calcbpmp(ewn,   nsn,  &
-                                     thck,  bpmp)
+  subroutine glissade_enth2temp (stagsigma,           &
+                                 thck,    enthalpy,   &
+                                 temp,    waterfrac)
 
-    ! Calculate the pressure melting point at the base of the ice sheet
+    ! Convert from specific enthalpy to ice temperature and water content
+	
+    use glimmer_physcon, only : rhoi, shci, lhci, rhow
 
-    integer, intent(in) ::  ewn, nsn    ! grid dimensions
+    ! I/O variables
+    real(dp), dimension(:), intent(in)                      :: stagsigma ! (1:upn-1)
+    real(dp), intent(in)                                    :: thck
+    real(dp), dimension(0:size(stagsigma)+1), intent(inout) :: enthalpy  ! (0:upn)
+    real(dp), dimension(0:size(stagsigma)+1), intent(out)   :: temp      ! (0:upn)
+    real(dp), dimension(size(stagsigma)), intent(out)       :: waterfrac ! (1:upn-1)
 
-    real(dp), dimension(:,:), intent(in)  :: thck  ! ice thickness (dimensionless)
-    real(dp), dimension(:,:), intent(out) :: bpmp  ! bed pressure melting point (deg C)
+    ! local variables
+    real(dp), dimension(size(stagsigma))                 :: pmptemp     ! (1:upn-1)
+    real(dp)                                             :: pmptemp_bed
+    real(dp), dimension(0:size(stagsigma)+1)             :: pmpenthalpy ! (0:upn)
+    integer :: up, upn
+	
+    upn = size(stagsigma) + 1
+	
+    ! find pmpenthalpy(0:upn)
+    call glissade_pressure_melting_point_column(thck, stagsigma(1:upn-1), pmptemp(1:upn-1))
+    call glissade_pressure_melting_point(thck, pmptemp_bed)
+    pmpenthalpy(0) = 0.d0
+    pmpenthalpy(1:upn-1) = pmptemp(1:upn-1) * rhoi*shci
+    pmpenthalpy(upn) = pmptemp_bed * rhoi*shci
 
-    integer :: ew,ns
-
-    bpmp(:,:) = 0.d0
-
-    do ns = 1, nsn
-       do ew = 1, ewn
-          call glissade_calcpmpt_bed(bpmp(ew,ns),thck(ew,ns))
-       end do
+    ! solve for temp and waterfrac
+    if (enthalpy(0) >= pmpenthalpy(0)) then ! temperate ice
+       temp(0) = 0.d0                      ! temperate ice
+       ! Reset enthalpy to be consistent with the surface temperature.
+       ! This is consistent with energy conservation because the top surface
+       !  is infinitesimally thin.
+       enthalpy(0) = pmpenthalpy(0)
+    else
+       temp(0) = enthalpy(0) / (rhoi*shci) ! cold ice
+    endif
+	
+    do up = 1, upn-1
+       if (enthalpy(up) >= pmpenthalpy(up)) then ! temperate ice
+          temp(up) = pmptemp(up)
+          waterfrac(up) = (enthalpy(up)-pmpenthalpy(up)) /                 &
+                          ((rhow-rhoi) * shci * pmptemp(up) + rhow * lhci)
+       else ! cold ice
+          temp(up) = enthalpy(up) / (rhoi*shci)
+          waterfrac(up) = 0.0d0
+       endif
     end do
+	
+    if (enthalpy(upn) >= pmpenthalpy(upn)) then  ! temperate ice
+       temp(upn) = pmptemp_bed
+       ! Reset enthalpy to be consistent with the bed temperature.
+       ! This is consistent with energy conservation because the basal surface
+       !  is infinitesimally thin.
+       enthalpy(upn) = pmpenthalpy(upn)
+    else
+       temp(upn) = enthalpy(upn) / (rhoi*shci)   ! cold ice
+    endif
 
-  end subroutine glissade_therm_calcbpmp
+  end subroutine glissade_enth2temp
 
 !=======================================================================
 
-  subroutine glissade_calcpmpt_bed(pmptemp_bed, thck)
+  subroutine glissade_temp2enth (stagsigma,          &
+                                 temp, waterfrac,    &
+                                 thck, enthalpy)
 
-    use glimmer_physcon, only : rhoi, grav, pmlt 
-    use glimmer_paramets, only : thk0
+    ! Convert from temperature and water fraction to specific enthalpy
 
-    real(dp), intent(out) :: pmptemp_bed ! pressure melting point temp at bed (deg C)
-    real(dp), intent(in) :: thck         ! ice thickness
+    use glimmer_physcon, only : rhoi, shci, lhci, rhow
 
-    real(dp), parameter :: fact = - grav * rhoi * pmlt * thk0
+    ! I/O variables
+    real(dp), dimension(:), intent(in)                    :: stagsigma ! (1:upn-1)
+    real(dp), dimension(0:size(stagsigma)+1), intent(in)  :: temp      ! (0:upn)
+    real(dp), dimension(1:size(stagsigma)), intent(in)    :: waterfrac ! (1:upn-1)
+    real(dp), intent(in)                                  :: thck
+    real(dp), dimension(0:size(stagsigma)+1), intent(out) :: enthalpy  ! (0:upn)
 
-    pmptemp_bed = fact * thck 
-
-  end subroutine glissade_calcpmpt_bed
+    ! local variables
+    real(dp), dimension(size(stagsigma))        :: pmptemp  !(1:upn-1)
+    integer :: up, upn
+		
+    upn = size(stagsigma) + 1
+	
+    ! find pmptemp in column
+    call glissade_pressure_melting_point_column (thck, stagsigma(1:upn-1), pmptemp(1:upn-1))
+    
+    ! solve for enthalpy
+    ! assume waterfrac = 0 at upper and lower ice surfaces
+    enthalpy(0) = temp(0) * rhoi * shci
+    do up = 1, upn-1
+       enthalpy(up) = ((1.d0 - waterfrac(up)) * rhoi * shci * temp(up))          &
+                      + waterfrac(up) * rhow * ((shci * pmptemp(up)) + lhci)
+    end do
+    enthalpy(upn) = temp(upn) * rhoi * shci
+	
+  end subroutine glissade_temp2enth
 
 !=======================================================================
 
@@ -1900,127 +1994,6 @@ module glissade_therm
     end select
 
   end subroutine glissade_therm_calcflwa
-
-!=======================================================================
-
-  subroutine glissade_enth2temp (enthalpy, temp, waterfrac, thck, stagsigma)
-
-    ! BDM convert from specific enthalpy to ice temperature and water content
-    ! takes a vertical column of size enthalpy(dup-1,1,1) and converts to
-    ! temp(1:dup-1,1,1) and waterfrac(1:dup-1,1,1)
-    ! enthalpy(1:dup-1,1,1)
-    ! temp(1:dup-1,1,1)
-    ! waterfrac(1:dup-1,1,1)
-    ! thck(1,1,1)
-    ! stagsigma(1:dup-1,1,1)
-	
-    use glimmer_physcon, only : rhoi, shci, lhci, rhow
-
-    ! I/O variables
-    real(dp), dimension(0:), intent(inout)               :: enthalpy !enthalpy is (0:upn)
-    real(dp), intent(in)                                 :: thck
-    real(dp), dimension(:), intent(in)                   :: stagsigma !stagsigma is (1:upn-1)
-    real(dp), dimension(0:size(enthalpy)-1), intent(out) :: temp !temp is (0:upn)
-    real(dp), dimension(1:size(enthalpy)-2), intent(out) :: waterfrac !waterfrac is (1:upn-1)
-
-    ! local variables
-    real(dp), dimension(0:size(enthalpy)-1)              :: pmptemp ! (0:upn)
-    real(dp), dimension(0:size(enthalpy)-1)              :: pmpenthalpy ! (0:upn)
-    integer                                              :: upn !used for convenience
-    integer                                              :: up
-	
-    upn = size(enthalpy)-1
-	
-    ! Find pmpenthalpy(0:upn)
-    pmptemp(0) = 0.0d0
-    call glissade_calcpmpt(pmptemp(1:upn-1), thck, stagsigma(1:upn-1))
-    call glissade_calcpmpt_bed(pmptemp(upn), thck)
-	
-    pmpenthalpy = pmptemp * rhoi * shci
-	
-    !solve for temp and waterfrac
-    if(enthalpy(0) >= pmpenthalpy(0)) then ! temperate ice
-       temp(0) = pmptemp(0)                ! temperate ice
-       !WHL - Resetting enthalpy so that it's consistent with the new temperature
-       !      This is consistent with energy conservation because the top surface
-       !       is infinitesimally thin.
-       enthalpy(0) = pmpenthalpy(0)
-    else
-       temp(0) = enthalpy(0) / (rhoi*shci) ! temp is cold
-    endif
-	
-    do up = 1, upn-1
-       if(enthalpy(up) >= pmpenthalpy(up)) then ! temperate ice
-          temp(up) = pmptemp(up)                ! temp = pmptemp
-          waterfrac(up) = (enthalpy(up)-pmpenthalpy(up)) /                 &
-                          ((rhow-rhoi) * shci * pmptemp(up) + rhow * lhci)
-       else ! cold ice
-
-          !WHL - debug
-          if (waterfrac(up) > 0.d0) then
-             print*, 'Zeroing out waterfrac: k, waterfrac =', up, waterfrac(up)
-          endif
-
-          temp(up) = enthalpy(up) / (rhoi*shci) ! temp is cold
-          waterfrac(up) = 0.0d0                 ! waterfrac = 0
-       endif
-    end do
-	
-    if(enthalpy(upn) >= pmpenthalpy(upn)) then  ! temperate ice
-       temp(upn) = pmptemp(upn)                 ! temp = pmptemp
-    else
-       temp(upn) = enthalpy(upn) / (rhoi*shci)  ! temp is cold
-       !WHL - Resetting enthalpy so that it's consistent with the new temperature
-       !      This is consistent with energy conservation because the top surface
-       !       is infinitesimally thin.
-       enthalpy(upn) = pmpenthalpy(upn)
-    endif
-
-  end subroutine glissade_enth2temp
-
-!=======================================================================
-
-  subroutine glissade_temp2enth (enthalpy, temp, waterfrac, thck, stagsigma)
-
-    ! BDM convert from temperature and water content and converts to specific enthalpy
-    ! takes a vertical column of size temp(0:dup) and converts to enthalpy(0:dup,1,1)
-    ! waterfrac is only size(1:dup-1), so will assume no waterfrac at boundaries
-
-    use glimmer_physcon, only : rhoi, shci, lhci, rhow
-
-    ! I/O variables
-    real(dp), dimension(0:), intent(out)        :: enthalpy !enthalpy is (0:upn)
-    real(dp), intent(in)                        :: thck
-    real(dp), dimension(:), intent(in)          :: stagsigma !stagsigma is (1:upn-1)
-    real(dp), dimension(0:), intent(in)         :: temp !temp is (0:upn)
-    real(dp), dimension(:), intent(in)          :: waterfrac !waterfrac is (1:upn-1)
-
-    ! local variables
-    real(dp), dimension(0:size(temp)-1)         :: pmptemp !(0:upn)
-    real(dp), dimension(0:size(temp)-1)         :: pmpenthalpy !(0:upn)
-    integer                                     :: up
-    integer                                     :: upn !used for convenience
-		
-    upn = size(temp)-1
-	
-    ! Find pmpenthalpy(0:dup,1,1)
-    pmptemp(0) = 0.0d0
-    call glissade_calcpmpt(pmptemp(1:upn-1), thck, stagsigma(1:upn-1))
-    call glissade_calcpmpt_bed(pmptemp(upn), thck)
-    
-    !WHL - This variable is not used below
-    pmpenthalpy = rhoi * shci * pmptemp
-	
-    ! solve for enthalpy
-    ! assume waterfrac = 0 at upper and lower ice surfaces
-    enthalpy(0) = temp(0) * rhoi * shci
-    do up = 1, upn-1
-       enthalpy(up) = ((1 - waterfrac(up)) * rhoi * shci * temp(up))          &
-                      + waterfrac(up) * rhow * ((shci * pmptemp(up)) + lhci)
-    end do
-    enthalpy(upn) = temp(upn) * rhoi * shci
-	
-  end subroutine glissade_temp2enth
 
 !=======================================================================
 

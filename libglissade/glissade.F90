@@ -347,7 +347,7 @@ contains
     use glimmer_physcon, only: scyr
     !TODO - Replace glissade_temp with glissade_therm
     use glissade_temp, only: glissade_temp_driver
-    use glissade_therm, only: glissade_therm_driver
+    use glissade_therm, only: glissade_therm_driver, glissade_temp2enth, glissade_enth2temp
     use glide_mask, only: glide_set_mask, calc_iareaf_iareag
     use glide_ground, only: glide_marinlim
     use glide_grid_operators
@@ -386,10 +386,15 @@ contains
 
     integer :: i, j, k
     integer :: nx, ny
-
-
+    integer :: ewn, nsn, upn
+    
     !WHL - debug
     real(dp) :: thck_west, thck_east, dthck, u_west, u_east
+
+    ewn = model%general%ewn
+    nsn = model%general%nsn
+    upn = model%general%upn
+
     if (this_rank == model%numerics%rdiag_local) then
        rtest = model%numerics%rdiag_local
        itest = model%numerics%idiag_local
@@ -560,6 +565,16 @@ contains
                                                                 ! (and other tracers, if present)
                                                                 ! Note: We are passing arrays in SI units.
 
+             !WHL - debug
+             i = itest
+             j = jtest
+             print*, ' '
+             print*, 'Pre-trans: i, j =', i, j
+             print*, 'k, temp:'
+             do k = 0, model%general%upn
+                print*, k, model%temper%temp(k,i,j)
+             enddo
+
              call glissade_transport_driver(model%numerics%dt_transport * tim0,                   &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
@@ -573,6 +588,16 @@ contains
                                             model%temper%temp(:,:,:),                             &
                                             upwind_transport_in = do_upwind_transport )
 
+             !WHL - debug
+             i = itest
+             j = jtest
+             print*, ' '
+             print*, 'Post-trans: i, j =', i, j
+             print*, 'k, temp:'
+             do k = 0, model%general%upn
+                print*, k, model%temper%temp(k,i,j)
+             enddo
+
              ! convert thck and acab back to scaled units
              model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
              model%climate%acab(:,:) = acab_unscaled(:,:) / (thk0/tim0)
@@ -582,11 +607,9 @@ contains
              ! Derive enthalpy from temperature and waterfrac
              do j = 1, model%general%nsn 
                 do i = 1, model%general%ewn
-
-                   call temp2enth (model%temper%enthalpy(:,i,j),                                  &
-                                   model%temper%temp(:,i,j),     model%temper%waterfrac(:,i,j),   &
-                                   model%geometry%thck(i,j),     model%numerics%stagsigma(:) )
-
+                   call glissade_temp2enth (model%numerics%stagsigma(1:upn-1),        &
+                                            model%temper%temp(0:upn,i,j),     model%temper%waterfrac(1:upn-1,i,j),   &
+                                            model%geometry%thck(i,j),         model%temper%enthalpy(0:upn,i,j))
                 enddo
              enddo
 
@@ -689,9 +712,9 @@ contains
              ! Derive new temperature and waterfrac from enthalpy (will be correct in halo cells)
              do j = 1, model%general%nsn 
                 do i = 1, model%general%ewn 
-                   call enth2temp (model%temper%enthalpy(:,i,j),                                  &
-                                   model%temper%temp(:,i,j),     model%temper%waterfrac(:,i,j),   &
-                                   model%geometry%thck(i,j),     model%numerics%stagsigma(:) )
+                   call glissade_enth2temp(model%numerics%stagsigma(1:upn-1),                                    &
+                                           model%geometry%thck(i,j),         model%temper%enthalpy(0:upn,i,j),   &
+                                           model%temper%temp(0:upn,i,j),     model%temper%waterfrac(1:upn-1,i,j))
                 enddo
              enddo
 
