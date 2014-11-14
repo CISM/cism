@@ -445,30 +445,25 @@ contains
          ! Note: glissade_therm_driver uses SI units
          !       Output arguments are temp, waterfrac and bmlt
          call glissade_therm_driver (model%options%whichtemp,                                      &
-!!                                     model%numerics%dttem*tim0,                                    & ! s
-                                     model%numerics%dttem,                                         & 
+                                     model%numerics%dttem*tim0,                                    & ! s
                                      model%general%ewn,          model%general%nsn,                &
                                      model%general%upn,                                            &
                                      model%numerics%idiag_local, model%numerics%jdiag_local,       &
                                      model%numerics%rdiag_local,                                   &
                                      model%numerics%sigma,       model%numerics%stagsigma,         &
-!!                                     model%numerics%thklim*thk0, model%numerics%thklim_temp*thk0,  & ! m
-!!                                     model%geometry%thck*thk0,                                     & ! m
-!!                                     model%geometry%topg*thk0,   model%climate%eus*thk0,           & ! m
-                                     model%numerics%thklim,      model%numerics%thklim_temp,       &
-                                     model%geometry%thck,                                          &
-                                     model%geometry%topg,        model%climate%eus,                &
+                                     model%numerics%thklim*thk0, model%numerics%thklim_temp*thk0,  & ! m
+                                     model%geometry%thck*thk0,                                     & ! m
+                                     model%geometry%topg*thk0,   model%climate%eus*thk0,           & ! m
                                      model%climate%artm,                                           & ! deg C    
                                      model%temper%bheatflx,      model%temper%bfricflx,            & ! W/m2
                                      model%temper%dissip,                                          & ! deg/s
-!!                                     model%temper%bwat*thk0,                                       & ! m
-                                     model%temper%bwat,                                            &
+                                     model%temper%bwat*thk0,                                       & ! m
                                      model%temper%temp,                                            & ! deg C
                                      model%temper%waterfrac,                                       & ! unitless
                                      model%temper%bmlt)                                              ! m on output
                                      
-         ! convert bmlt to scaled model units
-!!         model%temper%bmlt = model%temper%bmlt / thk0
+         ! convert bmlt from meters to scaled model units
+         model%temper%bmlt = model%temper%bmlt / thk0
                                      
       else
          print*, 'Call glissade_temp_driver'
@@ -634,11 +629,12 @@ contains
           elseif (model%options%whichtemp == TEMP_ENTHALPY) then  ! Use IR to transport thickness and enthalpy
 
              ! Derive enthalpy from temperature and waterfrac
+             ! Note: glissade_temp2enth expects SI units
              do j = 1, model%general%nsn 
                 do i = 1, model%general%ewn
                    call glissade_temp2enth (model%numerics%stagsigma(1:upn-1),        &
                                             model%temper%temp(0:upn,i,j),     model%temper%waterfrac(1:upn-1,i,j),   &
-                                            model%geometry%thck(i,j),         model%temper%enthalpy(0:upn,i,j))
+                                            model%geometry%thck(i,j)*thk0,    model%temper%enthalpy(0:upn,i,j))
                 enddo
              enddo
 
@@ -739,10 +735,11 @@ contains
              print*, 'After transport, call enth2temp'
 
              ! Derive new temperature and waterfrac from enthalpy (will be correct in halo cells)
+             ! Note: glissade_enth2temp expects SI units
              do j = 1, model%general%nsn 
                 do i = 1, model%general%ewn 
                    call glissade_enth2temp(model%numerics%stagsigma(1:upn-1),                                    &
-                                           model%geometry%thck(i,j),         model%temper%enthalpy(0:upn,i,j),   &
+                                           model%geometry%thck(i,j)*thk0,    model%temper%enthalpy(0:upn,i,j),   &
                                            model%temper%temp(0:upn,i,j),     model%temper%waterfrac(1:upn-1,i,j))
                 enddo
              enddo
@@ -1101,8 +1098,7 @@ contains
 
        if (model%options%which_ho_disp == HO_DISP_SIA) then
 
-          call glissade_interior_dissipation_sia(model%numerics%dttem,        &
-                                                 model%general%ewn,           &
+          call glissade_interior_dissipation_sia(model%general%ewn,           &
                                                  model%general%nsn,           &
                                                  model%general%upn,           &
                                                  model%numerics%stagsigma(:), &
@@ -1114,8 +1110,7 @@ contains
                                                  model%temper%dissip)
           
        else    ! first-order dissipation                                                                                                                                                               
-          call glissade_interior_dissipation_first_order(model%numerics%dttem,       &
-                                                         model%general%ewn,          &
+          call glissade_interior_dissipation_first_order(model%general%ewn,          &
                                                          model%general%nsn,          &
                                                          model%general%upn,          &
                                                          ice_mask,                   &

@@ -286,11 +286,10 @@
                              temp(nz,:,:), stagbtemp,  &
                              ice_mask,     stagger_margin_in = 1)
        
-       ! Compute pressure melting pt temp at bed
-       ! Note: glissade_pressure_melting_point expects dimensionless thickness
+       ! Compute pressure melting point temp at bed
        do j = 1, ny
           do i = 1, nx
-             call glissade_pressure_melting_point(thck(i,j)/thk0, bpmp(i,j))
+             call glissade_pressure_melting_point(thck(i,j), bpmp(i,j))
           enddo
        enddo
 
