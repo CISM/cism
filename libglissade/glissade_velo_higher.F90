@@ -2877,7 +2877,7 @@
     bu = bu / (tau0/len0)
     bv = bv / (tau0/len0)
 
-    ! Convert stresses to dimensionless units
+    ! Convert stresses from Pa to dimensionless units
     btractx = btractx/tau0
     btracty = btracty/tau0
     tau_xz  = tau_xz/tau0
@@ -5297,11 +5297,12 @@
     integer :: iNode, jNode, kNode
    
     ! initialize stresses
-    tau_xz(:,:,:) = 0.d0
-    tau_yz(:,:,:) = 0.d0
-    tau_xx(:,:,:) = 0.d0
-    tau_yy(:,:,:) = 0.d0
-    tau_xy(:,:,:) = 0.d0
+    tau_xz (:,:,:) = 0.d0
+    tau_yz (:,:,:) = 0.d0
+    tau_xx (:,:,:) = 0.d0
+    tau_yy (:,:,:) = 0.d0
+    tau_xy (:,:,:) = 0.d0
+    tau_eff(:,:,:) = 0.d0
 
     ! Loop over cells that border locally owned vertices
 

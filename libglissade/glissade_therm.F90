@@ -60,8 +60,8 @@ module glissade_therm
 
     private
     public :: glissade_init_therm, glissade_therm_driver, glissade_therm_calcflwa, glissade_pressure_melting_point, &
+              glissade_interior_dissipation_sia, glissade_interior_dissipation_first_order,                         &
               glissade_enth2temp, glissade_temp2enth
-
 
     ! time stepping scheme
 
@@ -316,7 +316,18 @@ module glissade_therm
 
 !=======================================================================
 
-  subroutine glissade_therm_driver(model, whichtemp)
+  subroutine glissade_therm_driver(whichtemp,   dttem,            &
+                                   ewn,         nsn,       upn,   &
+                                   itest,       jtest,     rtest, &
+                                   sigma,       stagsigma,        &
+                                   thklim,      thklim_temp,      &
+                                   thck,                          &
+                                   topg,        eus,              &
+                                   artm,                          &
+                                   bheatflx,    bfricflx,         &
+                                   dissip,      bwat,             &
+                                   temp,        waterfrac,        &
+                                   bmlt)
 
     ! Calculates the new ice temperature 
 
@@ -328,134 +339,84 @@ module glissade_therm
     use glissade_masks, only: glissade_get_masks
 
     !------------------------------------------------------------------------------------
-    ! Subroutine arguments
+    ! Input/output arguments
     !------------------------------------------------------------------------------------
 
-    type(glide_global_type),intent(inout) :: model       ! Ice model parameters
-    integer,                intent(in)    :: whichtemp   ! Flag to choose method
+    integer, intent(in) ::   &
+         whichtemp         ! option for computing temperature 
 
-    !------------------------------------------------------------------------------------
-    ! Local variables and pointers set to components of model derived type
-    !------------------------------------------------------------------------------------
-
-    integer :: ewn, nsn, upn
-    integer :: itest, jtest, rtest
-
-    integer ::   &
-         which_dycore      ! dycore option (e.g., Glam, Glissade)
-
-    real(dp) ::   &
+    integer, intent(in) ::   &
+         ewn, nsn, upn,      & ! grid dimensions
+         itest, jtest, rtest   ! coordinates of diagnostic point
+ 
+    real(dp), intent(in) ::   &
          dttem,           &! time step for temperature solve
-         thklim,          &! minimum ice thickness for velocity calculation
-         thklim_temp,     &! minimum ice thickness for thickness calculation
+         thklim,          &! minimum ice thickness (m) for velocity calculation
+         thklim_temp,     &! minimum ice thickness (m) for thickness calculation
          eus               ! eustatic sea level (m), = 0. by default  
 
-    real(dp), dimension(:), pointer ::   &
-         sigma,           &! vertical temperature coordinate
-                           ! located at layer interfaces
-         stagsigma         ! staggered vertical temperature coordinate
-                           ! located at the center of each layer
+    real(dp), dimension(:), intent(in) ::   &
+         sigma,           &! vertical coordinate, located at layer interfaces
+         stagsigma         ! staggered vertical coordinate, located at the center of each layer
 
-    real(dp), dimension(:,:), pointer ::  &
-         thck,            &! ice thickness (model thickness units)
-         topg,            &! basal topography (model thickness units)
+    real(dp), dimension(:,:), intent(in) ::  &
+         thck,            &! ice thickness (m)
+         topg,            &! basal topography (m)
          artm,            &! surface air temperature (deg C)
-         bwat,            &! basal water depth
-         bmlt,            &! basal melt rate
+         bwat,            &! basal water depth (m)
          bheatflx,        &! geothermal flux (W m-2), positive down
          bfricflx          ! basal friction heat flux (W m-2), >= 0
          
-    real(dp), dimension(:,:,:), pointer ::  &
-         waterfrac,       &! internal water fraction (unitless)
+    real(dp), dimension(:,:,:), intent(in) ::  &
          dissip            ! interior heat dissipation (deg/s)
 
-    real(dp), dimension(:,:,:), pointer ::  &
-         enthalpy          ! specific enthalpy (J m-3)
+    real(dp), dimension(0:,:,:), intent(out) ::  &
+         temp              ! ice temperature (deg C)
 
-    !WHL - Tried making temp a pointer but got errors.
-    !      I think these are associated with the vertical range beginning with 0.
-    !      Workaround: Declare temp as a local array and do copies.
-    !      Might want to do the same workaround with enthalpy, but for now it doesn't matter
-    !       because the enthalpy computed here isn't used again.
-!!    real(dp), dimension(:,:,:), pointer ::  &
-!!         temp              ! ice temperature (deg C)
+    real(dp), dimension(:,:,:), intent(out) ::  &
+         waterfrac         ! internal water fraction (unitless)
+
+    real(dp), dimension(:,:), intent(out) ::  &
+         bmlt              ! basal melt rate
 
     !------------------------------------------------------------------------------------
     ! Internal variables
     !------------------------------------------------------------------------------------
 
-    ! See comment above
-    real(dp), dimension(0:model%general%upn,model%general%ewn,model%general%nsn)  ::  &
-         temp              ! ice temperature (deg C)
-
-    integer :: ew, ns, up
     character(len=100) :: message
 
-    real(dp), dimension(model%general%upn+1) :: subd, diag, supd, rhsd
+    real(dp), dimension(0:upn,ewn,nsn) ::  &
+         enthalpy          ! specific enthalpy (J m-3)
 
-    ! These have the same dimensions as staggered temperature
-    real(dp),dimension(0:model%general%upn) :: prevtemp_stag
+    real(dp), dimension(upn+1) :: subd, diag, supd, rhsd   ! matrix coefficients
 
-    ! for energy conservation check
-    real(dp) :: einit, efinal, delta_e, dTtop, dTbot, denth_top, denth_bot
+    real(dp),dimension(0:upn) :: prevtemp   ! previous temperature in column
 
-    real(dp) :: maxtemp, mintemp   ! max and min temps in column
+    real(dp) ::                &
+         einit, efinal,        &! initial and final internal energy
+         delta_e,              &! net energy input to ice
+         dTtop, dTbot,         &! temperature differences
+         denth_top, denth_bot, &! enthalpy differences
+         maxtemp, mintemp   ! max and min temps in column
 
-    real(dp), dimension(1:model%general%upn) :: alpha_enth   ! diffusivity at interfaces (m2/s) for enthalpy solver
-                                                             ! = coni / (rhoi*shci) for cold ice
+    real(dp), dimension(1:upn) :: alpha_enth   ! diffusivity at interfaces (m2/s) for enthalpy solver
+                                               ! = coni / (rhoi*shci) for cold ice
 
-    integer, dimension(model%general%ewn,model%general%nsn) ::  &
+    integer, dimension(ewn,nsn) ::  &
          ice_mask,      &! = 1 where ice velocity is computed (thck > thklim), else = 0
          ice_mask_temp, &! = 1 where ice temperature is computed (thck > thklim_temp), else = 0
          floating_mask   ! = 1 where ice is floating, else = 0
 
-    real(dp), dimension(model%general%ewn,model%general%nsn) ::  &
+    real(dp), dimension(ewn,nsn) ::  &
          ucondflx,     & ! conductive heat flux (W/m^2) at upper sfc (positive down)
          lcondflx,     & ! conductive heat flux (W/m^2) at lower sfc (positive down)
          dissipcol       ! total heat dissipation rate (W/m^2) in column (>= 0)
 
+    integer :: ew, ns, up
+    integer :: i, j, k
+
     logical, parameter:: verbose_temp = .true.
     logical :: verbose_column
-    integer :: k
-
-    !------------------------------------------------------------------------------------
-    ! Assign local pointers and variables to derived type components
-    !------------------------------------------------------------------------------------
-
-    ewn = model%general%ewn
-    nsn = model%general%nsn
-    upn = model%general%upn
-
-    itest = 1
-    jtest = 1
-    if (this_rank == model%numerics%rdiag_local) then
-       rtest = model%numerics%rdiag_local
-       itest = model%numerics%idiag_local
-       jtest = model%numerics%jdiag_local
-    endif
-
-    which_dycore = model%options%whichdycore
-
-    dttem        = model%numerics%dttem
-    thklim       = model%numerics%thklim
-    thklim_temp  = model%numerics%thklim_temp
-    eus          = model%climate%eus
-
-    sigma       => model%numerics%sigma(:)
-    stagsigma   => model%numerics%stagsigma(:)
-    thck        => model%geometry%thck(:,:)
-    topg        => model%geometry%topg(:,:)
-    artm        => model%climate%artm(:,:)
-    dissip      => model%temper%dissip(:,:,:)
-    bheatflx    => model%temper%bheatflx(:,:)
-    bfricflx    => model%temper%bfricflx(:,:)
-    bwat        => model%temper%bwat(:,:)
-    bmlt        => model%temper%bmlt(:,:)
-    waterfrac   => model%temper%waterfrac(:,:,:)
-    enthalpy    => model%temper%enthalpy(:,:,:)
-
-!    temp        => model%temper%temp(:,:,:)  !WHL: temp is not a pointer; see commment above
-    temp(:,:,:) = model%temper%temp(:,:,:)
 
     !------------------------------------------------------------------------------------
     ! Compute the new temperature profile in each column
@@ -473,7 +434,12 @@ module glissade_therm
 
     case(TEMP_STEADY)   ! do nothing
 
-    case(TEMP_PROGNOSTIC, TEMP_ENTHALPY)  ! Local column calculation (with advection done elsewhere)
+    case(TEMP_PROGNOSTIC, TEMP_ENTHALPY)  ! Local column calculation
+
+       ! No horizontal or vertical advection; vertical diffusion and strain heating only.
+       ! Temperatures are vertically staggered relative to velocities.  
+       ! That is, the temperature is defined at the midpoint of each layer 
+       ! (and at the top and bottom surfaces).
 
        ! Compute masks: ice_mask = 1 where thck > thklim; floating_mask = 1 where ice is floating
 
@@ -488,53 +454,13 @@ module glissade_therm
                                thck,         topg,         &
                                eus,          thklim_temp,  &
                                ice_mask_temp)
-
-       ! No horizontal or vertical advection; vertical diffusion and strain heating only.
-       ! Temperatures are vertically staggered relative to velocities.  
-       ! That is, the temperature is defined at the midpoint of each layer 
-       ! (and at the top and bottom surfaces).
-       
-       !TODO - Move this calculation to velo solver modules?
-
-       ! Calculate interior heat dissipation -------------------------------------
-
-       dissip(:,:,:) = 0.d0
-
-       if (model%options%which_ho_disp == HO_DISP_SIA) then
-
-          call glissade_interior_dissipation_sia(dttem,       &
-                                                 ewn,          nsn,          &
-                                                 upn,          stagsigma(:), &
-                                                 ice_mask,                   &
-                                                 model%geomderv%stagthck,    &
-                                                 model%temper%flwa,          &
-                                                 model%geomderv%dusrfdew,    &
-                                                 model%geomderv%dusrfdns,   &
-                                                 dissip)
-
-       else    ! first-order dissipation
-
-          call glissade_interior_dissipation_first_order(dttem,       &
-                                                         ewn,          nsn,          &
-                                                         upn,                        &
-                                                         ice_mask,                   &
-                                                         model%stress%tau%scalar,    &
-                                                         model%stress%efvs,          &
-                                                         dissip)
-          
-       endif
-
-       ! Calculate heating from basal friction
-       ! (only for Glam; bfricflx is computed by the Glissade velocity solver)
-
-       if (model%options%whichdycore == DYCORE_GLAM) then
-          call glissade_basal_friction(ewn,         nsn,                &
-                                       ice_mask,    floating_mask,      &
-                                       model%velocity%uvel(upn,:,:),    &
-                                       model%velocity%vvel(upn,:,:),    &
-                                       model%velocity%btraction(:,:,:), &
-                                       bfricflx(:,:) )
-       endif
+      
+       !Note: Interior heat dissipation used to be calculated here.
+       !      Now it is computed at the end of the previous time step, after solving for velocity.
+       !
+       !      Basal frictional heating also was calculated here.
+       !      Now it is computed in the velocity solver (for Glissade) or just after
+       !       the velocity solution (for Glam).
 
        !TODO: Change to 1, nsn/ewn?
        do ns = 2, nsn-1
@@ -679,6 +605,14 @@ module glissade_therm
                 enddo
                 einit = einit * rhoi * shci * thck(ew,ns)*thk0
                 
+                if (verbose_column) then
+                   print*, 'Before glissade_findvtri, i, j =', ew,ns
+                   print*, 'k, dissip (deg/yr):'
+                   do k = 1, upn-1
+                      print*, k, dissip(k,ew,ns)*scyr
+                   enddo
+                endif
+
                 ! compute matrix elements
 
                 call glissade_findvtri(dttem,                 &
@@ -700,7 +634,7 @@ module glissade_therm
                    enddo
                 endif
 
-                prevtemp_stag(:) = temp(:,ew,ns)
+                prevtemp(:) = temp(:,ew,ns)
 
                 ! solve the tridiagonal system
 
@@ -719,8 +653,8 @@ module glissade_therm
 
                 if (crank_nicolson) then
                    ! average temperatures between start and end of timestep
-                   dTtop = 0.5d0 * (temp(1,ew,ns) - temp(0,ew,ns) + prevtemp_stag(1) - prevtemp_stag(0))
-                   dTbot = 0.5d0 * (temp(upn,ew,ns) - temp(upn-1,ew,ns) + prevtemp_stag(upn) - prevtemp_stag(upn-1))
+                   dTtop = 0.5d0 * (temp(1,ew,ns) - temp(0,ew,ns) + prevtemp(1) - prevtemp(0))
+                   dTbot = 0.5d0 * (temp(upn,ew,ns) - temp(upn-1,ew,ns) + prevtemp(upn) - prevtemp(upn-1))
                 else    ! fully implicit
                    ! use temperatures at end of timestep
                    dTtop = temp(1,ew,ns) - temp(0,ew,ns)
@@ -749,13 +683,13 @@ module glissade_therm
                 
              endif   ! whichtemp
 
-             ! Compute total dissipation in column (W/m^2)
+             ! Compute total dissipation rate in column (W/m^2)
 
              dissipcol(ew,ns) = 0.0d0
              do up = 1, upn-1
                 dissipcol(ew,ns) = dissipcol(ew,ns) + dissip(up,ew,ns) * (sigma(up+1) - sigma(up))
              enddo
-             dissipcol(ew,ns) = dissipcol(ew,ns) * thk0*thck(ew,ns)*rhoi*shci / (tim0*dttem)
+             dissipcol(ew,ns) = dissipcol(ew,ns) * thk0*thck(ew,ns)*rhoi*shci
 
              ! Verify that the net input of energy into the column is equal to the change in
              ! internal energy.  
@@ -871,12 +805,8 @@ module glissade_therm
        enddo
     enddo
 
-    ! Rescale dissipation term to deg C/s (instead of deg C)
-    !TODO - Treat dissip above as a rate (deg C/s) instead of deg C?
-    dissip(:,:,:) =  dissip(:,:,:) /  (dttem*tim0)
-
     ! Copy temp back to derived type (because temp is not a pointer; see comment above)
-    model%temper%temp(:,:,:) = temp(:,:,:)
+!    model%temper%temp(:,:,:) = temp(:,:,:)
 
   end subroutine glissade_therm_driver
 
@@ -909,7 +839,7 @@ module glissade_therm
          flwa         ! flow factor, Pa^(-n) yr^(-1)  
 
     real(dp), dimension(:,:,:), intent(out) ::  &
-         dissip       ! interior heat dissipation (deg C during timestep)
+         dissip       ! interior heat dissipation (deg/s)
     
     integer, parameter :: p1 = gn + 1  
 
@@ -931,7 +861,8 @@ module glissade_therm
 
     ! Note: Factor of 16 is for averaging flwa
     sia_dissip_fact(1:upn-1) = (stagsigma(1:upn-1) * rhoi * grav * thk0**2 / len0)**p1 &
-                             * 2.0d0 * vis0 * dttem * tim0 / (16.0d0 * rhoi * shci)
+!!                             * 2.0d0 * vis0 * dttem * tim0 / (16.0d0 * rhoi * shci)
+                             * 2.0d0 * vis0 / (16.0d0 * rhoi * shci)
 
     do ns = 2, nsn-1
        do ew = 2, ewn-1
@@ -950,7 +881,7 @@ module glissade_therm
   end subroutine glissade_interior_dissipation_sia
 
 !=======================================================================
- 
+
   subroutine glissade_interior_dissipation_first_order(dttem,                &
                                                        ewn,       nsn,       &
                                                        upn,                  &
@@ -975,7 +906,7 @@ module glissade_therm
          efvs          ! effective viscosity, Pa yr
 
     real(dp), dimension(:,:,:), intent(out) ::  &
-         dissip       ! interior heat dissipation (deg C during timestep)
+         dissip       ! interior heat dissipation (deg/s)
     
     integer :: ew, ns, k
     real(dp) :: ho_dissip_fact    ! factor in higher-order dissipation calculation
@@ -992,7 +923,7 @@ module glissade_therm
     endif
 
     dissip(:,:,:) = 0.0d0
-    ho_dissip_fact = (tau0*vel0/len0)/(rhoi*shci) * (dttem*tim0)
+    ho_dissip_fact = (tau0*vel0/len0)/(rhoi*shci)
 
     do ns = 1, nsn
        do ew = 1, ewn
@@ -1120,7 +1051,7 @@ module glissade_therm
     integer, intent(in) :: floating_mask
     real(dp), intent(in) ::  thck       ! ice thickness
     real(dp), dimension(0:upn), intent(in) ::  temp     ! ice temperature
-    real(dp), dimension(upn-1), intent(in) :: dissip     ! interior heat dissipation (deg)
+    real(dp), dimension(upn-1), intent(in) :: dissip     ! interior heat dissipation (deg/s)
     real(dp), intent(in) :: bheatflx    ! geothermal flux (W m-2), positive down
     real(dp), intent(in) :: bfricflx    ! basal friction heat flux (W m-2), >= 0
 
@@ -1159,7 +1090,7 @@ module glissade_therm
        subd(2:upn) = -fact * dups(1:upn-1,1)
        supd(2:upn) = -fact * dups(1:upn-1,2)
        diag(2:upn) = 1.0d0 - subd(2:upn) - supd(2:upn)
-       rhsd(2:upn) = temp(1:upn-1) + dissip(1:upn-1)
+       rhsd(2:upn) = temp(1:upn-1) + dissip(1:upn-1)*(dttem*tim0)
 
     endif    ! crank_nicolson
 
@@ -1256,7 +1187,7 @@ module glissade_therm
     real(dp), dimension(0:upn), intent(in) :: temp       ! temperature (deg C)
     real(dp), dimension(upn-1), intent(in) :: waterfrac  ! water fraction (unitless)
     real(dp), dimension(0:upn), intent(in) :: enthalpy   ! specific enthalpy (J/m^3)
-    real(dp), dimension(upn-1), intent(in) :: dissip     ! interior heat dissipation (deg)
+    real(dp), dimension(upn-1), intent(in) :: dissip     ! interior heat dissipation (deg/s)
     real(dp), intent(in) :: bheatflx   ! geothermal flux (W m-2), positive down
     real(dp), intent(in) :: bfricflx   ! basal friction heat flux (W m-2), >= 0
     real(dp), dimension(:), intent(out) :: alpha_enth  ! half-node diffusivity (m^2/s) for enthalpy
@@ -1427,7 +1358,7 @@ module glissade_therm
     subd(2:upn) = -fact * alpha_enth(1:upn-1) * dups(1:upn-1,1)                                
     supd(2:upn) = -fact * alpha_enth(2:upn) * dups(1:upn-1,2)                                
     diag(2:upn) = 1.0d0 - subd(2:upn) - supd(2:upn)                                
-    rhsd(2:upn) = enthalpy(1:upn-1) + dissip(1:upn-1) * rhoi * shci
+    rhsd(2:upn) = enthalpy(1:upn-1) + dissip(1:upn-1)*(dttem*tim0) * rhoi * shci
                               
     ! BDM I'm assuming that dissip has units of phi/rhoi/shci.
     ! For an enthalpy calc, we want just phi, hence dissip * rhoi * shci

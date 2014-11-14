@@ -583,7 +583,6 @@ units:      Pa
 long_name:  effective stress
 data:       data%stress%tau%scalar(up,:,:)
 factor:     scale_tau
-load:       1
 
 [tau_xz]
 dimensions: time, staglevel, y1, x1
@@ -689,7 +688,6 @@ units:         Pascal * years
 long_name:     effective viscosity               
 data:          data%stress%efvs(up,:,:)
 factor:        scale_efvs
-load:          1
 coordinates:   lon lat
 
 [temp]
@@ -815,6 +813,7 @@ units:        deg C/yr
 long_name:    dissipation rate (W m-3) divided by rhoi Ci
 data:         data%temper%dissip(up,:,:)
 factor:       scyr
+load:         1
 coordinates:  lon lat
 
 [dissipstag]
@@ -823,6 +822,7 @@ units:        deg C/yr
 long_name:    dissipation rate (W m-3) divided by rhoi Ci
 data:         data%temper%dissip(up,:,:)
 factor:       scyr
+load:         1
 coordinates:  lon lat
 
 [adv_cfl_dt]

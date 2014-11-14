@@ -439,8 +439,37 @@ contains
 
       !TODO - Replace temp with therm
       if (call_glissade_therm) then
+
          print*, 'Call glissade_therm_driver'
-         call glissade_therm_driver (model, model%options%whichtemp)
+
+         ! Note: glissade_therm_driver uses SI units
+         !       Output arguments are temp, waterfrac and bmlt
+         call glissade_therm_driver (model%options%whichtemp,                                      &
+!!                                     model%numerics%dttem*tim0,                                    & ! s
+                                     model%numerics%dttem,                                         & 
+                                     model%general%ewn,          model%general%nsn,                &
+                                     model%general%upn,                                            &
+                                     model%numerics%idiag_local, model%numerics%jdiag_local,       &
+                                     model%numerics%rdiag_local,                                   &
+                                     model%numerics%sigma,       model%numerics%stagsigma,         &
+!!                                     model%numerics%thklim*thk0, model%numerics%thklim_temp*thk0,  & ! m
+!!                                     model%geometry%thck*thk0,                                     & ! m
+!!                                     model%geometry%topg*thk0,   model%climate%eus*thk0,           & ! m
+                                     model%numerics%thklim,      model%numerics%thklim_temp,       &
+                                     model%geometry%thck,                                          &
+                                     model%geometry%topg,        model%climate%eus,                &
+                                     model%climate%artm,                                           & ! deg C    
+                                     model%temper%bheatflx,      model%temper%bfricflx,            & ! W/m2
+                                     model%temper%dissip,                                          & ! deg/s
+!!                                     model%temper%bwat*thk0,                                       & ! m
+                                     model%temper%bwat,                                            &
+                                     model%temper%temp,                                            & ! deg C
+                                     model%temper%waterfrac,                                       & ! unitless
+                                     model%temper%bmlt)                                              ! m on output
+                                     
+         ! convert bmlt to scaled model units
+!!         model%temper%bmlt = model%temper%bmlt / thk0
+                                     
       else
          print*, 'Call glissade_temp_driver'
          call glissade_temp_driver(model, model%options%whichtemp)
@@ -893,9 +922,12 @@ contains
     use glimmer_physcon, only: scyr
     use glide_thck, only: glide_calclsrf
     use glissade_temp, only: glissade_calcflwa
-    use glam_velo, only: glam_velo_driver
+    use glam_velo, only: glam_velo_driver, glam_basal_friction
     use glissade_velo, only: glissade_velo_driver
     use glide_velo, only: wvelintg
+    use glissade_masks, only: glissade_get_masks
+    use glissade_therm, only: glissade_interior_dissipation_sia,  &
+                              glissade_interior_dissipation_first_order
 
     use glam_grid_operators, only: glam_geometry_derivs, stagthickness
     use felix_dycore_interface, only: felix_velo_driver
@@ -907,7 +939,9 @@ contains
     ! Local variables
 
     integer :: i, j, k
-
+    integer, dimension(model%general%ewn, model%general%nsn) :: &
+         ice_mask,     &! = 1 where thck > thklim, else = 0
+         floating_mask  ! = 1 where ice is floating, else = 0
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
     ! 1. First part of diagnostic solve: 
@@ -1055,6 +1089,68 @@ contains
 
        end select
  
+       ! Compute internal heat dissipation
+       ! This is used in the prognostic temperature calculation during the next time step.
+
+       call glissade_get_masks(model%general%ewn,   model%general%nsn,     &
+                               model%geometry%thck, model%geometry%topg,   &
+                               model%climate%eus,   model%numerics%thklim, &
+                               ice_mask,            floating_mask)
+
+       model%temper%dissip(:,:,:) = 0.d0
+
+       if (model%options%which_ho_disp == HO_DISP_SIA) then
+
+          call glissade_interior_dissipation_sia(model%numerics%dttem,        &
+                                                 model%general%ewn,           &
+                                                 model%general%nsn,           &
+                                                 model%general%upn,           &
+                                                 model%numerics%stagsigma(:), &
+                                                 ice_mask,                    &
+                                                 model%geomderv%stagthck,     &
+                                                 model%temper%flwa,           &
+                                                 model%geomderv%dusrfdew,     &
+                                                 model%geomderv%dusrfdns,     &
+                                                 model%temper%dissip)
+          
+       else    ! first-order dissipation                                                                                                                                                               
+          call glissade_interior_dissipation_first_order(model%numerics%dttem,       &
+                                                         model%general%ewn,          &
+                                                         model%general%nsn,          &
+                                                         model%general%upn,          &
+                                                         ice_mask,                   &
+                                                         model%stress%tau%scalar,    &
+                                                         model%stress%efvs,          &
+                                                         model%temper%dissip)
+          
+       endif    ! which_ho_disp
+          
+       ! If running Glam, compute the basal friction heat flux
+       ! (Glissade computes this flux as part of the velocity solution.)
+       
+       if (model%options%whichdycore == DYCORE_GLAM) then
+          call glam_basal_friction(model%general%ewn,                             &
+                                   model%general%nsn,                             &
+                                   ice_mask,                                      &
+                                   floating_mask,                                 &
+                                   model%velocity%uvel(model%general%upn,:,:),    &
+                                   model%velocity%vvel(model%general%upn,:,:),    &
+                                   model%velocity%btraction(:,:,:),               &
+                                   model%temper%bfricflx(:,:) )
+       endif
+       
+       !WHL - debug
+       i = model%numerics%idiag_local
+       j = model%numerics%jdiag_local
+       print*, 'k, dissip (deg/yr):'
+       do k = 1, model%general%upn-1
+          print*, k, model%temper%dissip(k,i,j)*scyr
+       enddo
+       print*, 'uvel, vvel =', model%velocity%uvel(model%general%upn,i,j),  &
+                            model%velocity%vvel(model%general%upn,i,j)
+       print*, 'btraction =',  model%velocity%btraction(:,i,j)
+       print*, 'bfricflx =', model%temper%bfricflx(i,j)
+
        if (main_task .and. verbose_glissade) then
           print*, ' '
           print*, 'After glissade velocity solve: uvel, k = 1:'
