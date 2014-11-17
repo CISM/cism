@@ -59,7 +59,7 @@ module glissade_therm
     implicit none
 
     private
-    public :: glissade_init_therm, glissade_therm_driver, glissade_therm_calcflwa, glissade_pressure_melting_point, &
+    public :: glissade_init_therm, glissade_therm_driver, glissade_flow_factor, glissade_pressure_melting_point, &
               glissade_interior_dissipation_sia, glissade_interior_dissipation_first_order,                         &
               glissade_enth2temp, glissade_temp2enth
 
@@ -1668,11 +1668,12 @@ module glissade_therm
 
 !=======================================================================
 
-  subroutine glissade_therm_calcflwa(stagsigma,   thklim,   &
-                                     flwa,        temp,     &
-                                     thck,        flow_factor, &
-                                     default_flwa_arg,      &
-                                     flag,        waterfrac)
+  subroutine glissade_flow_factor(whichflwa,         whichtemp,  &
+                                  stagsigma,                     &
+                                  thck,              ice_mask,   &
+                                  temp,              flwa,       &
+                                  default_flwa_arg,              &
+                                  flow_fudge_factor, waterfrac)
 
     ! Calculates Glen's $A$ over the three-dimensional domain,
     ! using one of three possible methods.
@@ -1685,7 +1686,7 @@ module glissade_therm
     ! $Q$ is the activation energy for for ice creep, and $R$ is the universal gas constant.
     ! The pressure-corrected temperature, $T^{*}$ is given by:
     ! \[
-    ! T^{*}=T-T_{\mathrm{pmp}}+T_0
+    ! T^{*} = T-T_{\mathrm{pmp}} + T_0
     ! \] 
     ! \[
     ! T_{\mathrm{pmp}}=T_0-\sigma \rho g H \Phi
@@ -1694,7 +1695,7 @@ module glissade_therm
     ! temperature, $T_0$ is the triple point of water, $\rho$ is the ice density, and 
     ! $\Phi$ is the (constant) rate of change of melting point temperature with pressure.
 
-    !TODO - Remove scale factors?
+    !TODO - Remove scale factors?  List phys constants included?
     use glimmer_physcon
     use glimmer_paramets, only : thk0, vis0
 
@@ -1702,24 +1703,26 @@ module glissade_therm
     ! Subroutine arguments
     !------------------------------------------------------------------------------------
 
-!   Note: The flwa, temp, and stagsigma arrays should have the same vertical dimension
-!         (1:upn-1 on the staggered vertical grid).
+!   Note: The flwa, temp, and stagsigma arrays should have vertical dimension 1:upn-1.
+!         The input temperature at the upper surface (k=1) and bed (k=upn) are not included.
 
-    real(dp),dimension(:),      intent(in)    :: stagsigma ! vertical coordinate at layer midpoints
-    real(dp),                   intent(in)    :: thklim    ! thickness threshold (model thickness units)
-    real(dp),dimension(:,:,:),  intent(in)    :: temp      ! 3D temperature field
-    real(dp),dimension(:,:),    intent(in)    :: thck      ! ice thickness (model thickness units)
-    real(dp)                                  :: flow_factor ! fudge factor in Arrhenius relationship
-    real(dp),                   intent(in)    :: default_flwa_arg ! Glen's A to use in isothermal case 
-                                                                  ! Units: Pa^{-n} yr^{-1} 
-    integer,                    intent(in)    :: flag      !> Flag to select the method of calculation
-    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !> The calculated values of $A$
-    real(dp),dimension(:,:,:),  intent(in), optional :: waterfrac !> internal water content fraction, 0 to 1
+    integer,                    intent(in)    :: whichflwa !> which method of calculating A
+    integer,                    intent(in)    :: whichtemp !> which method of calculating temperature;
+                                                           !> include waterfrac in calculation if using enthalpy method
+    real(dp),dimension(:),      intent(in)    :: stagsigma !> vertical coordinate at layer midpoints
+    real(dp),dimension(:,:),    intent(in)    :: thck      !> ice thickness (model thickness units)
+    integer, dimension(:,:),    intent(in)    :: ice_mask  !> = 1 where ice is present (thck > thklim), else = 0
+    real(dp),dimension(:,:,:),  intent(in)    :: temp      !> 3D temperature field
+    real(dp),dimension(:,:,:),  intent(out)   :: flwa      !> calculated values of $A$
+    real(dp), intent(in)                      :: default_flwa_arg  !> Glen's A to use in isothermal case 
+                                                                   !> Units: Pa^{-n} yr^{-1} 
+    real(dp), intent(in), optional            :: flow_fudge_factor !> fudge factor in Arrhenius relationship
+    real(dp),dimension(:,:,:), intent(in), optional :: waterfrac   !> internal water content fraction, 0 to 1
 
     !> \begin{description}
-    !> \item[0] {\em Paterson and Budd} relationship.
-    !> \item[1] {\em Paterson and Budd} relationship, with temperature set to -5$^{\circ}$C.
-    !> \item[2] Set to prescribed constant value.
+    !> \item[0] Set to prescribed constant value.
+    !> \item[1] {\em Paterson and Budd} relationship.
+    !> \item[2] {\em Paterson and Budd} relationship, with temperature set to -5$^{\circ}$C.
     !> \end{description}
 
     !------------------------------------------------------------------------------------
@@ -1727,10 +1730,11 @@ module glissade_therm
     !------------------------------------------------------------------------------------
 
     real(dp) :: default_flwa
-    integer :: ew, ns, up, ewn, nsn, uflwa
+    integer :: ew, ns, up, ewn, nsn, nlayers
     real(dp) :: tempcor
+    real(dp), dimension(size(stagsigma)) :: pmptemp   ! pressure melting point temperature
 
-    real(dp), parameter :: fact = grav * rhoi * pmlt * thk0
+    real(dp), parameter :: pmp_fact = grav * rhoi * pmlt * thk0
 
     real(dp),dimension(4), parameter ::  &
        arrfact = (/ arrmlh / vis0,      &   ! Value of A when T* is above -263K
@@ -1738,26 +1742,39 @@ module glissade_therm
                    -actenh / gascon,    &   ! Value of -Q/R when T* is above -263K
                    -actenl / gascon/)       ! Value of -Q/R when T* is below -263K
     
-    real(dp), parameter :: const_temp = -5.0d0
+    real(dp), parameter :: const_temp = -5.0d0   ! deg C
     real(dp), parameter :: flwa_waterfrac_enhance_factor = 181.25d0
+
+    real(dp) :: fudge_factor                ! fudge factor in Arrhenius relationship
 
     !------------------------------------------------------------------------------------ 
    
-    uflwa=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
+    nlayers = size(flwa,1)   ! upn - 1
+    ewn = size(flwa,2)
+    nsn = size(flwa,3)
+
+    if (present(flow_fudge_factor)) then
+       fudge_factor = flow_fudge_factor
+    else
+       fudge_factor = 1.d0
+    endif
 
     ! Check that the temperature array has the desired vertical dimension
 
     if (size(temp,1) /= size(flwa,1)) then
-       call write_log('glissade_calcflwa: temp and flwa must have the same vertical dimensions', GM_FATAL)
+       call write_log('glissade_flow_factor: temp and flwa must have the same vertical dimensions', GM_FATAL)
     endif
 
     ! Scale the default rate factor (default value has units Pa^{-n} yr^{-1}).
-    ! Also multiply by fudge factor
+    ! Also multiply by fudge factor if needed
 
-    default_flwa = flow_factor * default_flwa_arg / (vis0*scyr)
+    default_flwa = fudge_factor * default_flwa_arg / (vis0*scyr)
     !write(*,*)"Default flwa = ",default_flwa
 
-    select case(flag)
+    ! initialize
+    flwa(:,:,:) = default_flwa
+
+    select case(whichflwa)
 
     case(FLWA_PATERSON_BUDD)
 
@@ -1767,39 +1784,41 @@ module glissade_therm
       do ns = 1,nsn
          do ew = 1,ewn
 
-            if (thck(ew,ns) > thklim) then
+            if (ice_mask(ew,ns) == 1) then
             
-               do up = 1, uflwa   ! uflwa = upn - 1 (values at layer midpoints)
+               call glissade_pressure_melting_point_column (thck(ew,ns)*thk0, stagsigma, pmptemp)
+
+               if (ew==11 .and. ns==33) then
+                  print*, 'i, j =', ew, ns
+                  print*, 'k, tempcor old, tempcor new:'
+               endif
+
+               do up = 1, nlayers   ! nlayers = upn - 1
 
                   ! Calculate the corrected temperature
-
-                  tempcor = min(0.0d0, temp(up,ew,ns) + thck(ew,ns)*fact*stagsigma(up))
+                  !TODO - Replace the first line below with the second line (results will change at roundoff level)
+                  tempcor = min(0.0d0, temp(up,ew,ns) + thck(ew,ns)*pmp_fact*stagsigma(up))
+!!                  tempcor = min(0.0d0, temp(up,ew,ns) - pmptemp(up))   ! pmptemp < 0
                   tempcor = max(-50.0d0, tempcor)
 
                   ! Calculate Glen's A (including flow fudge factor)
 
                   if (tempcor >= -10.d0) then
-                     flwa(up,ew,ns) = flow_factor * arrfact(1) * exp(arrfact(3)/(tempcor + trpt))
+                     flwa(up,ew,ns) = fudge_factor * arrfact(1) * exp(arrfact(3)/(tempcor + trpt))
                   else
-                     flwa(up,ew,ns) = flow_factor * arrfact(2) * exp(arrfact(4)/(tempcor + trpt))
+                     flwa(up,ew,ns) = fudge_factor * arrfact(2) * exp(arrfact(4)/(tempcor + trpt))
                   endif
 
                   ! BDM added correction for a liquid water fraction 
-                  ! Using Greve and Blatter, 2009 formulation for Glen's A flow rate factor:
+                  ! Using Greve and Blatter (2009) formulation for Glen's A flow rate factor:
                   !    A = A(theta_PMP) * (1 + 181.25 * waterfrac)
-		  ! RJH - commenting out waterfrac correction to explore causes of
-		  ! oscillations in thk and vel for EISMINT-2 test cases
-                  if (present(waterfrac)) then
+                  if (whichtemp == TEMP_ENTHALPY .and. present(waterfrac)) then
                      if (waterfrac(up,ew,ns) > 0.0d0) then
                         flwa(up,ew,ns) = flwa(up,ew,ns) * (1.d0 + flwa_waterfrac_enhance_factor * waterfrac(up,ew,ns))      
                      endif
                   endif
 
                enddo   ! up
-
-            else   ! thck < thklim
-
-               flwa(:,ew,ns) = default_flwa
 
             end if
 
@@ -1808,38 +1827,34 @@ module glissade_therm
 
     case(FLWA_PATERSON_BUDD_CONST_TEMP)
 
-      ! This is the Paterson and Budd relationship, but with the temperature held constant
-      ! at -5 deg C
+      ! This is the Paterson and Budd relationship, but with the temperature held constant at -5 deg C
+      !WHL - If we are assuming a constant temperature of 5 deg C, then I think we should always use 
+      !      the Arrhenius factors appropriate for a warm temperature (T > -10).
+      !      I changed the code accordingly by commenting out some lines below.
 
       do ns = 1,nsn
          do ew = 1,ewn
-
-            if (thck(ew,ns) > thklim) then
+            if (ice_mask(ew,ns) == 1) then
 
                ! Calculate Glen's A with a fixed temperature (including flow fudge factor)
 
-               if (const_temp >= -10.d0) then
-                  flwa(:,ew,ns) = flow_factor * arrfact(1) * exp(arrfact(3)/(const_temp + trpt))
-               else
-                  flwa(:,ew,ns) = flow_factor * arrfact(2) * exp(arrfact(4)/(const_temp + trpt))
-               endif
-
-            else
-
-               flwa(:,ew,ns) = default_flwa
+!!               if (const_temp >= -10.d0) then
+                  flwa(:,ew,ns) = fudge_factor * arrfact(1) * exp(arrfact(3)/(const_temp + trpt))
+!!               else
+!!                  flwa(:,ew,ns) = fudge_factor * arrfact(2) * exp(arrfact(4)/(const_temp + trpt))
+!!               endif
 
             end if
-
          end do
       end do
 
-    case(FLWA_CONST_FLWA) 
+    case(FLWA_CONST_FLWA)
 
-      flwa(:,:,:) = default_flwa
+       ! do nothing (flwa set to default_flwa above)
   
     end select
 
-  end subroutine glissade_therm_calcflwa
+  end subroutine glissade_flow_factor
 
 !=======================================================================
 

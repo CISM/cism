@@ -1582,7 +1582,7 @@ contains
 
   subroutine glissade_calcflwa(stagsigma,   thklim,   &
                                flwa,        temp,     &
-                               thck,        flow_factor, &
+                               thck,        flow_fudge_factor, &
                                default_flwa_arg,      &
                                flag,        waterfrac)
 
@@ -1620,7 +1620,7 @@ contains
     real(dp),                   intent(in)    :: thklim    ! thickness threshold
     real(dp),dimension(:,:,:),  intent(in)    :: temp      ! 3D temperature field
     real(dp),dimension(:,:),    intent(in)    :: thck      ! ice thickness
-    real(dp)                                  :: flow_factor ! fudge factor in Arrhenius relationship
+    real(dp)                                  :: flow_fudge_factor ! fudge factor in Arrhenius relationship
     real(dp),                   intent(in)    :: default_flwa_arg ! Glen's A to use in isothermal case 
                                                                   ! Units: Pa^{-n} yr^{-1} 
     integer,                    intent(in)    :: flag      !> Flag to select the method of calculation
@@ -1665,7 +1665,7 @@ contains
     ! Scale the default rate factor (default value has units Pa^{-n} yr^{-1}).
     ! Also multiply by fudge factor
 
-    default_flwa = flow_factor * default_flwa_arg / (vis0*scyr)
+    default_flwa = flow_fudge_factor * default_flwa_arg / (vis0*scyr)
     !write(*,*)"Default flwa = ",default_flwa
 
     select case(flag)
@@ -1690,9 +1690,9 @@ contains
                   ! Calculate Glen's A (including flow fudge factor)
 
                   if (tempcor >= -10.d0) then
-                     flwa(up,ew,ns) = flow_factor * arrfact(1) * exp(arrfact(3)/(tempcor + trpt))
+                     flwa(up,ew,ns) = flow_fudge_factor * arrfact(1) * exp(arrfact(3)/(tempcor + trpt))
                   else
-                     flwa(up,ew,ns) = flow_factor * arrfact(2) * exp(arrfact(4)/(tempcor + trpt))
+                     flwa(up,ew,ns) = flow_fudge_factor * arrfact(2) * exp(arrfact(4)/(tempcor + trpt))
                   endif
 
                   ! BDM added correction for a liquid water fraction 
@@ -1730,9 +1730,9 @@ contains
                ! Calculate Glen's A with a fixed temperature (including flow fudge factor)
 
                if (const_temp >= -10.d0) then
-                  flwa(:,ew,ns) = flow_factor * arrfact(1) * exp(arrfact(3)/(const_temp + trpt))
+                  flwa(:,ew,ns) = flow_fudge_factor * arrfact(1) * exp(arrfact(3)/(const_temp + trpt))
                else
-                  flwa(:,ew,ns) = flow_factor * arrfact(2) * exp(arrfact(4)/(const_temp + trpt))
+                  flwa(:,ew,ns) = flow_fudge_factor * arrfact(2) * exp(arrfact(4)/(const_temp + trpt))
                endif
 
             else

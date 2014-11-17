@@ -285,7 +285,7 @@ contains
                            model%temper%flwa,           &
                            model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
                            model%geometry%thck,         &
-                           model%paramets%flow_factor,  &
+                           model%paramets%flow_fudge_factor,  &
                            model%paramets%default_flwa, &
                            model%options%whichflwa) 
     else
@@ -655,7 +655,7 @@ contains
                         model%temper%flwa,           &
                         model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
                         model%geometry%thck,         &
-                        model%paramets%flow_factor,  &
+                        model%paramets%flow_fudge_factor,  &
                         model%paramets%default_flwa, &
                         model%options%whichflwa) 
 
@@ -1159,7 +1159,7 @@ contains
 
 !-------------------------------------------------------------------
 
-  subroutine glide_calcflwa(sigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
+  subroutine glide_calcflwa(sigma, thklim, flwa, temp, thck, flow_fudge_factor, default_flwa_arg, flag)
 
     !> Calculates Glen's $A$ over the three-dimensional domain,
     !> using one of three possible methods.
@@ -1183,7 +1183,7 @@ contains
     real(dp),dimension(:,:,:),  intent(out)   :: flwa      !> The calculated values of $A$
     real(dp),dimension(:,:,:),  intent(in)    :: temp      !> The 3D temperature field
     real(dp),dimension(:,:),    intent(in)    :: thck      !> The ice thickness
-    real(dp)                                  :: flow_factor !> Fudge factor in arrhenius relationship
+    real(dp)                                  :: flow_fudge_factor !> Fudge factor in arrhenius relationship
     real(dp),                   intent(in)    :: default_flwa_arg !> Glen's A to use in isothermal case 
     integer,                    intent(in)    :: flag      !> Flag to select the method
                                                            !> of calculation:
@@ -1220,14 +1220,14 @@ contains
 !         vis0 = 3.17E-024 Pa-3 s-1 for old glide dycore = 1d-16 Pa-3 yr-1 / scyr
 !
 
-    default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
+    default_flwa = flow_fudge_factor * default_flwa_arg / (vis0*scyr) 
 
     !write(*,*)"Default flwa = ",default_flwa
 
     upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
 
-    arrfact = (/ flow_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
-                 flow_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
+    arrfact = (/ flow_fudge_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
+                 flow_fudge_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
                  -actenh / gascon,        &       ! Value of -Q/R when T* is above -263K
                  -actenl / gascon/)               ! Value of -Q/R when T* is below -263K
 
@@ -1324,15 +1324,15 @@ contains
 
     !------------------------------------------------------------------------------------
 
-!       arrfact = (/ flow_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
-!                    flow_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
+!       arrfact = (/ flow_fudge_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
+!                    flow_fudge_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
 !                    -actenh / gascon,        &       ! Value of -Q/R when T* is above -263K
 !                    -actenl / gascon/)               ! Value of -Q/R when T* is below -263K
 !       
 !       where arrmlh = 1.733d3 Pa-3 s-1
 !             arrmll = 3.613d-13 Pa-3 s-1
 !             and vis0 has units Pa-3 s-1
-!       The result calcga is a scaled flwa, multiplied by flow_factor
+!       The result calcga is a scaled flwa, multiplied by flow_fudge_factor
 
     ! Actual calculation is done here - constants depend on temperature -----------------
 

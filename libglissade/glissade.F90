@@ -924,8 +924,8 @@ contains
     use glide_velo, only: wvelintg
     use glissade_masks, only: glissade_get_masks
     use glissade_therm, only: glissade_interior_dissipation_sia,  &
-                              glissade_interior_dissipation_first_order
-
+                              glissade_interior_dissipation_first_order, &
+                              glissade_flow_factor
     use glam_grid_operators, only: glam_geometry_derivs, stagthickness
     use felix_dycore_interface, only: felix_velo_driver
 
@@ -939,6 +939,7 @@ contains
     integer, dimension(model%general%ewn, model%general%nsn) :: &
          ice_mask,     &! = 1 where thck > thklim, else = 0
          floating_mask  ! = 1 where ice is floating, else = 0
+
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
     ! 1. First part of diagnostic solve: 
@@ -947,53 +948,17 @@ contains
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
 
-    ! Calculate Glen's A --------------------------------------------------------
-    !
-    ! Note: because flwa is not a restart variable in glissade, no check is included 
-    !       here for whether to calculate it on initial time (as is done in glide).
-    ! 
-    ! Note: We are passing in only vertical elements (1:upn-1) of the temp array,
-    !       so that it has the same vertical dimensions as flwa.
-
-    ! TODO - Use a single call (with waterfrac) for either TEMP option?
-
-    if (model%options%whichtemp == TEMP_ENTHALPY) then
-
-       call glissade_calcflwa(model%numerics%stagsigma,    &
-                              model%numerics%thklim,       &
-                              model%temper%flwa,           &
-                              model%temper%temp(1:model%general%upn-1,:,:),  &
-                              model%geometry%thck,         &
-                              model%paramets%flow_factor,  &
-                              model%paramets%default_flwa, &
-                              model%options%whichflwa,      &
-                              model%temper%waterfrac(:,:,:))
-    else
-
-       call glissade_calcflwa(model%numerics%stagsigma,    &
-                              model%numerics%thklim,       &
-                              model%temper%flwa,           &
-                              model%temper%temp(1:model%general%upn-1,:,:),  &
-                              model%geometry%thck,         &
-                              model%paramets%flow_factor,  &
-                              model%paramets%default_flwa, &
-                              model%options%whichflwa)
-    endif
-
-    ! Halo update for flwa
-    call parallel_halo(model%temper%flwa)
-
     ! ------------------------------------------------------------------------
     ! Halo updates for ice topography and thickness
     !
-    !WHL - Note the optional argument periodic_offset_ew for topg.
-    !      This is for ismip-hom experiments. A positive EW offset means that 
-    !       the topography in west halo cells will be raised, and the topography 
-    !       in east halo cells will be lowered.  This ensures that the topography
-    !       and upper surface elevation are continuous between halo cells
-    !       and locally owned cells at the edge of the global domain.
-    !      In other cases (anything but ismip-hom), periodic_offset_ew = periodic_offset_ns = 0, 
-    !       and this argument will have no effect.
+    ! NOTE: There is an optional argument periodic_offset_ew for topg.
+    !       This is for ismip-hom experiments. A positive EW offset means that 
+    !        the topography in west halo cells will be raised, and the topography 
+    !        in east halo cells will be lowered.  This ensures that the topography
+    !        and upper surface elevation are continuous between halo cells
+    !        and locally owned cells at the edge of the global domain.
+    !       In other cases (anything but ismip-hom), periodic_offset_ew = periodic_offset_ns = 0, 
+    !        and this argument will have no effect.
     ! ------------------------------------------------------------------------
 
     call parallel_halo(model%geometry%thck)
@@ -1018,10 +983,46 @@ contains
     !       However, some of the fields (stagthck, dusrfdew and dusrfdns) 
     !       are needed during the next timestep by glissade_temp
     !       if we're doing shallow-ice dissipation.
-    !TODO - Move this glam_geometry_derivs call to glissade_temp? 
+    !TODO - Replace this glam_geometry_derivs call with calls to Glissade subroutines?
     !       (The glam_velo driver includes its own call to glam_geometry_derivs.) 
 
     call glam_geometry_derivs(model)
+
+    ! ------------------------------------------------------------------------
+    ! Update some masks that are used by Glissade subroutines
+    ! ------------------------------------------------------------------------
+
+    call glissade_get_masks(model%general%ewn,   model%general%nsn,     &
+                            model%geometry%thck, model%geometry%topg,   &
+                            model%climate%eus,   model%numerics%thklim, &
+                            ice_mask,            floating_mask)
+
+    ! ------------------------------------------------------------------------ 
+    ! Calculate Glen's A
+    !
+    ! Note:
+    ! (1) Because flwa is not a restart variable in Glissade, no check is included 
+    !      here for whether to calculate it on initial time (as is done in Glide).
+    ! (2) We are passing in only vertical elements (1:upn-1) of the temp array,
+    !       so that it has the same vertical dimensions as flwa.
+    ! (3) The flow fudge factor is 1 by default.
+    ! (4) The waterfrac field is ignored unless whichtemp = TEMP_ENTHALPY.
+    ! ------------------------------------------------------------------------
+
+    call glissade_flow_factor(model%options%whichflwa,     &
+                              model%options%whichtemp,     &
+                              model%numerics%stagsigma,    &
+                              model%geometry%thck,         &
+                              ice_mask,                    &
+                              model%temper%temp(1:model%general%upn-1,:,:),  &
+                              model%temper%flwa,           &
+                              model%paramets%default_flwa, &
+                              model%paramets%flow_fudge_factor,  &
+                              model%temper%waterfrac(:,:,:))
+
+    !TODO - Not needed?
+    ! Halo update for flwa
+    call parallel_halo(model%temper%flwa)
 
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
@@ -1088,11 +1089,6 @@ contains
  
        ! Compute internal heat dissipation
        ! This is used in the prognostic temperature calculation during the next time step.
-
-       call glissade_get_masks(model%general%ewn,   model%general%nsn,     &
-                               model%geometry%thck, model%geometry%topg,   &
-                               model%climate%eus,   model%numerics%thklim, &
-                               ice_mask,            floating_mask)
 
        model%temper%dissip(:,:,:) = 0.d0
 
