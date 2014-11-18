@@ -198,7 +198,7 @@ contains
     !
     !TODO - Remove halo parameters below, since uhalo = lhalo = 0 for Glide.
     !TODO - Make sure cells in the Glide temperature halo are initialized to reasonable values
-    !       (preferably not -999), e.g. if reading temps from input or restart file.
+    !       (not unphys_val), e.g. if reading temps from input or restart file.
 
     if (model%options%is_restart == RESTART_TRUE) then
 
@@ -210,10 +210,10 @@ contains
     elseif ( minval(model%temper%temp(1:model%general%upn, &
                     1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) > &
                     (-1.0d0 * trpt) ) then    ! trpt = 273.15 K
-                                              ! Default initial temps in glide_types are -999
+                                              ! Default initial temps in glide_types are unphys_val = -999
 
        ! Temperature has already been initialized from an input file.
-       ! (We know this because the default initial temps have been overwritten.)
+       ! (We know this because the unphysical initial values have been overwritten.)
 
        call write_log('Initializing ice temperature from an input file')
 

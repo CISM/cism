@@ -282,9 +282,6 @@ module glide_types
     !> \item[3] Prognostic enthalpy solution
     !> \end{description}
 
-    !TODO: Change the default to temp_init = 2?
-    !      Setting default = 1 for now so that existing config files will get the same results.
-
     integer :: temp_init = 1
 
     ! Temperature initialization:
@@ -1345,6 +1342,7 @@ contains
 
     use glimmer_log
     use glimmer_coordinates, only: coordsystem_allocate
+    use glimmer_paramets, only: unphys_val
 
     implicit none
 
@@ -1401,8 +1399,8 @@ contains
 
     ! MJH - Set temp and flwa to physically unrealistic values so we can tell later if 
     !       arrays were initialized correctly
-    model%temper%temp(:,:,:) = -999.0d0
-    model%temper%flwa(:,:,:) = -999.0d0
+    model%temper%temp(:,:,:) = unphys_val  ! unphys_val = -999.d0
+    model%temper%flwa(:,:,:) = unphys_val
     model%temper%dissip(:,:,:) = 0.d0
 
     !WHL - debug
@@ -1471,7 +1469,7 @@ contains
        call coordsystem_allocate(model%general%ice_grid, model%velocity%unstagbeta)
        ! WHL - Set unstagbeta to a physically unrealistic values so we can tell later if
        !       it was read correctly from an input file
-       model%velocity%unstagbeta(:,:) = -999.0d0
+       model%velocity%unstagbeta(:,:) = unphys_val
 
        call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%wvel_ho)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%kinbcmask)

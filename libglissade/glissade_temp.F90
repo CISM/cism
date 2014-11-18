@@ -85,7 +85,7 @@ contains
     ! vertically staggered grid (i.e., at layer centers)
 
     use glimmer_physcon, only : rhoi, shci, coni, scyr, grav, gn, lhci, rhow, trpt
-    use glimmer_paramets, only : tim0, thk0, len0, vis0, vel0, tau0
+    use glimmer_paramets, only : tim0, thk0, len0, vis0, vel0, tau0, unphys_val
     use parallel, only: lhalo, uhalo
     use glissade_enthalpy, only: glissade_init_enthalpy
 
@@ -197,11 +197,11 @@ contains
     elseif ( minval(model%temper%temp(1:model%general%upn, &
                     1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) > &
                     (-1.0d0 * trpt) ) then    ! trpt = 273.15 K
-                                              ! Default initial temps in glide_types are -999
+                                              ! Default initial temps in glide_types are unphys_val = -999
 
-       if ( (maxval(model%temper%temp(model%general%upn+1, &
-                    1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) == &
-                    -999.0d0 ) .and.    &
+       !TODO - Verify vertical dimension here (should be 0 or upn?)
+       if ( (maxval(model%temper%temp(model%general%upn, &
+                    1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) == unphys_val) .and.    &
                     (model%options%whichdycore /= DYCORE_BISICLES) )then
           ! Throw a fatal error if we think the user has supplied temp instead of tempstag
           ! (We don't want to implicitly shift the vertical layers from one coordinate system
@@ -209,16 +209,16 @@ contains
           ! This case will look like good data in all the layers except the top layer.
           ! MJH: Letting BISICLES run with this situation as per Dan Martin's request.
           call write_log("The variable 'temp' has been read from an input file, but it only is appropriate " &
-             // "for the GLIDE dycore.  Use the 'tempstag' variable with higher-order dycores instead.", GM_FATAL)
+             // "for the Glide dycore.  Use the 'tempstag' variable with higher-order dycores instead.", GM_FATAL)
        else
           ! Temperature has already been initialized from an input file.
-          ! (We know this because the default initial temps of -999 have been overwritten.)
+          ! (We know this because the default initial temps of unphys_val = -999 have been overwritten.)
 
           call write_log('Initializing ice temperature from an input file')
        endif
 
     else   ! not reading temperature from restart or input file
-           ! initialize it here basee on model%options%temp_init
+           ! initialize it here based on model%options%temp_init
 
        ! First set T = 0 C everywhere
 
@@ -254,7 +254,6 @@ contains
 
           ! Initialize ice column temperature with a linear profile:
           ! T = artm at the surface, and T <= Tpmp at the bed.
-          ! Loop over physical cells where artm is defined (not temperature halo cells)
 
           call write_log('Initializing ice temperature to a linear profile in each column')
 

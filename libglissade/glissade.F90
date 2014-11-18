@@ -211,6 +211,16 @@ contains
 
     ! initialise glissade components
 
+    ! Update some variables in halo cells
+    ! Note: We need thck and artm in halo cells so that temperature will be initialized correctly (if not read from input file).
+    !       We do an update here for temp in case temp is read from an input file.
+    !       If temp is computed in glissade_init_therm (based on the value of options%temp_init),
+    !        then the halos will receive the correct values.
+    !TODO - Does anything else need an initial halo update?
+    call parallel_halo(model%geometry%thck)
+    call parallel_halo(model%climate%artm)
+    call parallel_halo(model%temper%temp)
+
     !TODO - Remove call to init_velo in glissade_initialise?
     !       Most of what's done in init_velo is needed for SIA only, but still need velowk for call to wvelintg
     call init_velo(model)
@@ -218,7 +228,13 @@ contains
     !TODO - Replace temp with therm
     if (call_glissade_therm) then
        print*, 'Call glissade_init_therm'
-       call glissade_init_therm(model)
+       call glissade_init_therm(model%options%temp_init,    model%options%is_restart,  &
+                                model%general%ewn,          model%general%nsn,         &
+                                model%general%upn,                                     &
+                                model%numerics%sigma,       model%numerics%stagsigma,  &
+                                model%geometry%thck*thk0,                              & ! m
+                                model%climate%artm,                                    & ! deg C
+                                model%temper%temp)                                       ! deg C
     else
        print*, 'Call glissade_init_temp'
        call glissade_init_temp(model)
@@ -255,7 +271,7 @@ contains
 
     ! If unstagbeta (i.e., beta on the scalar ice grid) was read from an input file,
     !  then interpolate it to beta on the staggered grid.
-    ! NOTE: unstagbeta is initialized to -999.d0, so its maxval will be > 0 only if
+    ! NOTE: unstagbeta is initialized to unphys_val = -999.d0, so its maxval will be > 0 only if
     !       the field is read in.
     ! We can make an exception for ISHOM case C; for greater accuracy we set beta in 
     !  subroutine calcbeta instead of interpolating from unstagbeta (one processor only).

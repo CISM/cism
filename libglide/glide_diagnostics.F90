@@ -170,7 +170,7 @@ contains
  
     use parallel
 
-    use glimmer_paramets, only: thk0, len0, vel0, tim0
+    use glimmer_paramets, only: thk0, len0, vel0, tim0, unphys_val
     use glimmer_physcon, only: scyr, rhoi, shci
  
     implicit none
@@ -227,8 +227,7 @@ contains
     character(len=100) :: message
  
     real(dp), parameter ::   &
-       eps = 1.0d-11,           &! small number
-       unphys_val = -999999.d0   ! unphysical negative number
+       eps = 1.0d-11             ! small number
  
     ewn = model%general%ewn
     nsn = model%general%nsn
@@ -416,7 +415,7 @@ contains
 
     imax = 0
     jmax = 0
-    max_thck = -999.d0
+    max_thck = unphys_val   ! = -999.d0 (an arbitrary large negative number)
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
           if (model%geometry%thck(i,j) > max_thck) then
@@ -449,7 +448,7 @@ contains
     imax = 0
     jmax = 0
     kmax = 0
-    max_temp =  -999.d0
+    max_temp =  unphys_val
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
           if (model%geometry%thck(i,j) * thk0 > minthick) then
@@ -481,7 +480,7 @@ contains
     imin = 0
     jmin = 0
     kmin = 0
-    min_temp =  999.d0
+    min_temp = 999.d0  ! arbitrary large positive number
     do j = lhalo+1, nsn-uhalo
        do i = lhalo+1, ewn-uhalo
           if (model%geometry%thck(i,j) * thk0 > minthick) then
@@ -512,7 +511,7 @@ contains
 
     imax = 0
     jmax = 0
-    max_spd_sfc = -999.d0
+    max_spd_sfc = unphys_val
 
     do j = lhalo+1, velo_ns_ubound
        do i = lhalo+1, velo_ew_ubound
@@ -539,7 +538,7 @@ contains
 
     imax = 0
     jmax = 0
-    max_spd_bas = -999.d0
+    max_spd_bas = unphys_val
     do j = lhalo+1, velo_ns_ubound
        do i = lhalo+1, velo_ew_ubound
           spd = sqrt(model%velocity%uvel(upn,i,j)**2   &
