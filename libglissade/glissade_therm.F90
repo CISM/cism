@@ -315,7 +315,7 @@ module glissade_therm
     ! Note: SI units are used throughout this subroutine
 
     use glimmer_utils,  only : tridiag
-    use glimmer_physcon, only: shci, coni, rhoi
+    use glimmer_physcon, only: shci, coni, rhoi, tocnfrz
     use glide_mask
     use glissade_grid_operators, only: glissade_stagger
     use glissade_masks, only: glissade_get_masks
@@ -752,15 +752,15 @@ module glissade_therm
        ! For the enthalpy scheme, internal meltwater in excess of the prescribed maximum
        !  fraction (0.01 by default) is drained to the bed.
 
-       call glissade_calcbmlt(whichtemp,     dttem,             &
-                              ewn,           nsn,       upn,    &
-                              sigma,         stagsigma,         &
-                              ice_mask_temp, floating_mask,     &
-                              thck,                             &
-                              temp,          waterfrac,         &
-                              bfricflx,      bheatflx,          &
-                              lcondflx,      bwat,              &
-                              bmlt)
+       call glissade_basal_melting(whichtemp,     dttem,             &
+                                   ewn,           nsn,       upn,    &
+                                   sigma,         stagsigma,         &
+                                   ice_mask_temp, floating_mask,     &
+                                   thck,          temp,              &
+                                   waterfrac,     enthalpy,          &
+                                   bfricflx,      bheatflx,          &
+                                   lcondflx,      bwat,              &
+                                   bmlt)
 
     end select   ! whichtemp
 
@@ -1220,18 +1220,18 @@ module glissade_therm
 
 !=======================================================================
 
-  subroutine glissade_calcbmlt(whichtemp,     dttem,         &
-                               ewn,           nsn,           &
-                               upn,                          &
-                               sigma,         stagsigma,     &
-                               ice_mask,      floating_mask, &
-                               thck,                         &
-                               temp,          waterfrac,     &
-                               bfricflx,      bheatflx,      &
-                               lcondflx,                     &
-                               bwat,          bmlt)
+  subroutine glissade_basal_melting(whichtemp,     dttem,         &
+                                    ewn,           nsn,           &
+                                    upn,                          &
+                                    sigma,         stagsigma,     &
+                                    ice_mask,      floating_mask, &
+                                    thck,          temp,          &
+                                    waterfrac,     enthalpy,      &
+                                    bfricflx,      bheatflx,      &
+                                    lcondflx,                     &
+                                    bwat,          bmlt)
 
-    ! Compute the amount of basal melting.
+    ! Compute the rate of basal melting.
     ! The basal melting computed here is applied to the ice thickness
     !  by glissade_transport_driver, conserving mass and energy.
     !
@@ -1240,6 +1240,8 @@ module glissade_therm
     !  is applied toward melting with immediate drainage to the bed. 
     ! For the enthalpy scheme, any meltwater in excess of the maximum allowed
     !  meltwater fraction (0.01 by default) is drained to the bed.
+    !
+    !TODO - Deal with basal melting for floating ice
 
     use glimmer_physcon, only: shci, rhoi, lhci
 
@@ -1254,6 +1256,7 @@ module glissade_therm
     real(dp), dimension(upn-1),  intent(in) :: stagsigma       ! staggered vertical coordinate for temperature
     real(dp), dimension(0:,:,:), intent(inout) :: temp         ! temperature (deg C)
     real(dp), dimension(:,:,:),  intent(inout) :: waterfrac    ! water fraction
+    real(dp), dimension(0:,:,:), intent(in) :: enthalpy        ! enthalpy
     real(dp), dimension(:,:),    intent(in) :: &
          thck,                 & ! ice thickness (m)
          bfricflx,             & ! basal frictional heating flux (W m-2), >= 0
@@ -1306,9 +1309,17 @@ module glissade_therm
              !        (lcondflx, positive down) is carrying enough heat away from the boundary.  
              !       But freeze-on requires a local water supply, bwat > 0.
              !       When bwat = 0, we reset the bed temperature to a value slightly below the melting point.
+             !
+             !TODO - For the enthalpy scheme, deal with the rare case that the bottom layer melts completely
+             !       and overlying layers with a different enthalpy also melt.
 
              bflx = bfricflx(ew,ns) + lcondflx(ew,ns) - bheatflx(ew,ns)  ! W/m^2
-             bmlt(ew,ns) = bflx * melt_fact   ! m/s
+
+             if (whichtemp == TEMP_ENTHALPY) then
+                bmlt(ew,ns) = bflx / (lhci*rhoi - enthalpy(upn,ew,ns))
+             else
+                bmlt(ew,ns) = bflx * melt_fact   ! m/s
+             endif
 
              ! Add internal melting
 
@@ -1369,7 +1380,7 @@ module glissade_therm
        enddo
     enddo
 
-  end subroutine glissade_calcbmlt
+  end subroutine glissade_basal_melting
 
 !=======================================================================
 
