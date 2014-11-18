@@ -915,7 +915,7 @@ contains
 
     use parallel
 
-    use glimmer_paramets, only: tim0, len0, vel0
+    use glimmer_paramets, only: tim0, len0, vel0, thk0, vis0, tau0, evs0
     use glimmer_physcon, only: scyr
     use glide_thck, only: glide_calclsrf
     use glissade_temp, only: glissade_calcflwa
@@ -1000,27 +1000,31 @@ contains
     ! ------------------------------------------------------------------------ 
     ! Calculate Glen's A
     !
-    ! Note:
+    ! Notes:
     ! (1) Because flwa is not a restart variable in Glissade, no check is included 
     !      here for whether to calculate it on initial time (as is done in Glide).
     ! (2) We are passing in only vertical elements (1:upn-1) of the temp array,
     !       so that it has the same vertical dimensions as flwa.
     ! (3) The flow fudge factor is 1 by default.
     ! (4) The waterfrac field is ignored unless whichtemp = TEMP_ENTHALPY.
+    ! (5) Inputs and outputs of glissade_flow_factor should have SI units.
     ! ------------------------------------------------------------------------
 
-    call glissade_flow_factor(model%options%whichflwa,     &
-                              model%options%whichtemp,     &
-                              model%numerics%stagsigma,    &
-                              model%geometry%thck,         &
-                              ice_mask,                    &
+    call glissade_flow_factor(model%options%whichflwa,            &
+                              model%options%whichtemp,            &
+                              model%numerics%stagsigma,           &
+                              model%geometry%thck * thk0,         &  ! scale to m
+                              ice_mask,                           &
                               model%temper%temp(1:model%general%upn-1,:,:),  &
-                              model%temper%flwa,           &
-                              model%paramets%default_flwa, &
-                              model%paramets%flow_fudge_factor,  &
+                              model%temper%flwa,                  &  ! Pa^{-n} s^{-1}
+                              model%paramets%default_flwa / scyr, &  ! scale to Pa^{-n} s^{-1}
+                              model%paramets%flow_fudge_factor,   &
                               model%temper%waterfrac(:,:,:))
 
-    !TODO - Not needed?
+    ! Change flwa to model units (glissade_flow_factor assumes SI units of Pa{-n} s^{-1})
+    model%temper%flwa(:,:,:) = model%temper%flwa(:,:,:) / vis0
+
+    !TODO - flwa halo update not needed?
     ! Halo update for flwa
     call parallel_halo(model%temper%flwa)
 
@@ -1089,20 +1093,25 @@ contains
  
        ! Compute internal heat dissipation
        ! This is used in the prognostic temperature calculation during the next time step.
+       ! Note: These glissade subroutines assume SI units on input and output
 
        model%temper%dissip(:,:,:) = 0.d0
 
        if (model%options%which_ho_disp == HO_DISP_SIA) then
 
-          call glissade_interior_dissipation_sia(model%general%ewn,           &
-                                                 model%general%nsn,           &
-                                                 model%general%upn,           &
-                                                 model%numerics%stagsigma(:), &
-                                                 ice_mask,                    &
-                                                 model%geomderv%stagthck,     &
-                                                 model%temper%flwa,           &
-                                                 model%geomderv%dusrfdew,     &
-                                                 model%geomderv%dusrfdns,     &
+          call glissade_interior_dissipation_sia(model%general%ewn,              &
+                                                 model%general%nsn,              &
+                                                 model%general%upn,              &
+                                                 model%numerics%stagsigma(:),    &
+                                                 ice_mask,                       &
+!                                                 model%geomderv%stagthck,     &
+!                                                 model%temper%flwa,           &
+!                                                 model%geomderv%dusrfdew,     &
+!                                                 model%geomderv%dusrfdns,     &
+                                                 model%geomderv%stagthck * thk0, & ! scale to m
+                                                 model%temper%flwa * vis0,       & ! scale to Pa^{-n} s^{-1}
+                                                 model%geomderv%dusrfdew * thk0/len0, & ! scale to m/m
+                                                 model%geomderv%dusrfdns * thk0/len0, & ! scale to m/m
                                                  model%temper%dissip)
           
        else    ! first-order dissipation                                                                                                                                                               
@@ -1110,8 +1119,8 @@ contains
                                                          model%general%nsn,          &
                                                          model%general%upn,          &
                                                          ice_mask,                   &
-                                                         model%stress%tau%scalar,    &
-                                                         model%stress%efvs,          &
+                                                         model%stress%tau%scalar * tau0,  &  ! scale to Pa
+                                                         model%stress%efvs * evs0,   &  ! scale to Pa s
                                                          model%temper%dissip)
           
        endif    ! which_ho_disp
