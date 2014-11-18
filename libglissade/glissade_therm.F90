@@ -459,6 +459,12 @@ module glissade_therm
 
              temp(0,ew,ns) = min(0.d0, artm(ew,ns))
 
+             ! For floating ice, set the basal temperature to the freezing temperature of seawater (-1.8 C)
+
+             if (floating_mask(ew,ns) == 1) then
+                temp(upn,ew,ns) = tocnfrz
+             endif
+
              if (whichtemp == TEMP_ENTHALPY) then
 
                 ! Given temperature and waterfrac, compute enthalpy (dimension 0:upn).

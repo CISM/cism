@@ -44,7 +44,7 @@ module glimmer_physcon
                            grav=>   SHR_CONST_G,&    
                            shci=>   SHR_CONST_CPICE,&
                            lhci=>   SHR_CONST_LATICE,&
-                           trpt=>   SHR_CONST_TKTRIP                                       
+                           trpt=>   SHR_CONST_TKTRIP   
   implicit none  
   save
  
@@ -62,7 +62,6 @@ module glimmer_physcon
   real(dp),parameter :: shci = 2009.0d0          !< Specific heat capacity of ice (J kg<SUP>-1</SUP> K<SUP>-1</SUP>) 
   real(dp),parameter :: lhci = 335.0d3           !< Latent heat of melting of ice (J kg<SUP>-1</SUP>)  
   real(dp),parameter :: trpt = 273.15d0          !< Triple point of water (K)    
-
 #endif
 
   real(dp),parameter :: scyr = 31536000.d0       ! Number of seconds in a year of exactly 365 days
@@ -81,5 +80,6 @@ module glimmer_physcon
   real(dp),parameter :: gascon = 8.314d0         !< The gas ideal constant \f$R\f$ (J mol<SUP>-1</SUP> K<SUP>-1</SUP>)
   real(dp),parameter :: coni = 2.1d0             !< Thermal conductivity of ice (W m<SUP>-1</SUP> K<SUP>-1</SUP>)
   real(dp),parameter :: pmlt = 9.7456d-8         !< Factor for dependence of melting point on pressure (K Pa<SUP>-1</SUP>)
+  real(dp),parameter :: tocnfrz = -1.8d0         !< Freezing temperature of seawater (C)
 
 end module glimmer_physcon
