@@ -411,7 +411,8 @@ contains
     integer, dimension(model%general%ewn,model%general%nsn) ::  &
          ice_mask   ! = 1 where thck > thklim_temp, else = 0
 
-    logical, parameter:: verbose_temp = .false.
+!!    logical, parameter:: verbose_temp = .false.
+    logical, parameter:: verbose_temp = .true.
     integer :: k
 
     itest = 1
@@ -720,27 +721,30 @@ contains
       Tstagsigma(1:model%general%upn-1) = model%numerics%stagsigma(1:model%general%upn-1)
       Tstagsigma(model%general%upn) = 1.d0
 
+      !WHL - Commenting out the next two calls because dissip and bfricflx are now
+      !      computed at the end of the previous time step
+
       ! Calculate interior heat dissipation -------------------------------------
 
-      call glissade_finddisp(  model,                      &
-                               model%geometry%thck,        &
-                               model%options%which_ho_disp,&
-                               model%stress%efvs,          &
-                               model%geomderv%stagthck,    &
-                               model%geomderv%dusrfdew,    &
-                               model%geomderv%dusrfdns,    &
-                               model%temper%flwa)
+!      call glissade_finddisp(  model,                      &
+!                               model%geometry%thck,        &
+!                               model%options%which_ho_disp,&
+!                               model%stress%efvs,          &
+!                               model%geomderv%stagthck,    &
+!                               model%geomderv%dusrfdew,    &
+!                               model%geomderv%dusrfdns,    &
+!                               model%temper%flwa)
 
       ! Calculate heating from basal friction -----------------------------------
 
-      call glissade_calcbfric( model,                        &
-                               model%options%whichdycore,    &
-                               model%geometry%thck,          &
-                               model%velocity%btraction,     &
-                               model%velocity%ubas,          &
-                               model%velocity%vbas,          &
-                               GLIDE_IS_FLOAT(model%geometry%thkmask), &
-                               model%temper%bfricflx )
+!      call glissade_calcbfric( model,                        &
+!                               model%options%whichdycore,    &
+!                               model%geometry%thck,          &
+!                               model%velocity%btraction,     &
+!                               model%velocity%ubas,          &
+!                               model%velocity%vbas,          &
+!                               GLIDE_IS_FLOAT(model%geometry%thkmask), &
+!                               model%temper%bfricflx )
 
       ! Note: No iteration is needed here since we are doing a local tridiagonal solve without advection.
 
@@ -1319,7 +1323,7 @@ contains
     type(glide_global_type) :: model
 
     real(dp), dimension(0:,:,:), intent(inout) :: temp
-    real(dp), dimension(0:),     intent(in) :: stagsigma
+    real(dp), dimension(0:),     intent(in) :: stagsigma  !WHL - This is Tstagsigma, (0:upn)
     real(dp), dimension(:,:),    intent(in) :: thck
     real(dp), dimension(:,:),    intent(out):: bmlt    ! scaled melt rate (m/s * tim0/thk0)
                                                        ! > 0 for melting, < 0 for freeze-on
@@ -1332,6 +1336,10 @@ contains
     real(dp) :: layer_thck    ! layer thickness (m)
     real(dp) :: melt_energy   ! energy available for internal melting (J/m^2)
     real(dp) :: internal_melt_rate   ! internal melt rate, transferred to bed (m/s)
+    real(dp) :: eps11 = 1.d-11       ! small number
+
+    !WHL - Set bmlt_bugfix = .true. to activate small fixes to give agreement with glissade_therm version
+    logical, parameter :: bmlt_bugfix = .true.
 
     bmlt(:,:) = 0.0d0
 
@@ -1355,13 +1363,25 @@ contains
              !       What should we do if bwat = 0?
 
              bflx = model%temper%bfricflx(ew,ns) + model%temper%lcondflx(ew,ns) - model%temper%bheatflx(ew,ns)  ! W/m^2
+
+             if (bmlt_bugfix) then
+                if (abs(bflx) < eps11) then  ! bflx might be slightly different from zero because of rounding errors; if so, then zero out
+                   bflx = 0.d0
+                endif
+             else
+                ! do nothing; can result in bmlt very slightly less than 0, leading to temperature reset below
+             endif
+
              bmlt(ew,ns) = bflx * model%tempwk%f(2)   ! f(2) = tim0 / (thk0 * lhci * rhoi)
 
             ! Add internal melting associated with temp > pmptemp
             ! Note: glissade_calcpmpt does not compute pmpt at the top surface or the bed.
 
-             call glissade_calcpmpt(pmptemp(:), thck(ew,ns),   &
-                                    stagsigma(:) )
+             if (bmlt_bugfix) then
+                call glissade_calcpmpt(pmptemp(1:model%general%upn-1), thck(ew,ns), stagsigma(1:model%general%upn-1))
+             else
+                call glissade_calcpmpt(pmptemp(:), thck(ew,ns), stagsigma(:))   ! this gives the wrong answer
+             endif
 
              do up = 1, model%general%upn-1
                  if (temp(up,ew,ns) > pmptemp(up)) then

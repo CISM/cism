@@ -476,10 +476,10 @@ contains
                                      model%temper%bwat*thk0,                                       & ! m
                                      model%temper%temp,                                            & ! deg C
                                      model%temper%waterfrac,                                       & ! unitless
-                                     model%temper%bmlt)                                              ! m on output
+                                     model%temper%bmlt)                                              ! m/s on output
                                      
-         ! convert bmlt from meters to scaled model units
-         model%temper%bmlt = model%temper%bmlt / thk0
+         ! convert bmlt from m/s to scaled model units
+         model%temper%bmlt = model%temper%bmlt * tim0/thk0
                                      
       else
          print*, 'Call glissade_temp_driver'
@@ -501,7 +501,7 @@ contains
                      GLIDE_IS_FLOAT(model%geometry%thkmask),   &
                      model%tempwk%wphi)
 
-    end if
+    end if  ! take a temperature time step
 
     !------------------------------------------------------------------------ 
     ! Halo updates
@@ -604,13 +604,12 @@ contains
           if (model%options%whichtemp == TEMP_PROGNOSTIC) then  ! Use IR to transport thickness, temperature
                                                                 ! (and other tracers, if present)
                                                                 ! Note: We are passing arrays in SI units.
-
              !WHL - debug
              i = itest
              j = jtest
              print*, ' '
              print*, 'Pre-trans: i, j =', i, j
-             print*, 'k, temp:'
+             print*, 'k, temp(k,i,j):'
              do k = 0, model%general%upn
                 print*, k, model%temper%temp(k,i,j)
              enddo
@@ -630,10 +629,10 @@ contains
 
              !WHL - debug
              i = itest
-             j = jtest
+             j = jtest+1
              print*, ' '
              print*, 'Post-trans: i, j =', i, j
-             print*, 'k, temp:'
+             print*, 'k, temp(k,i,j):'
              do k = 0, model%general%upn
                 print*, k, model%temper%temp(k,i,j)
              enddo
@@ -746,9 +745,6 @@ contains
 
              ! Update enthalpy in halo cells
              call parallel_halo(model%temper%enthalpy)
-
-             !WHL - debug
-             print*, 'After transport, call enth2temp'
 
              ! Derive new temperature and waterfrac from enthalpy (will be correct in halo cells)
              ! Note: glissade_enth2temp expects SI units

@@ -592,14 +592,6 @@ module glissade_therm
                 enddo
                 einit = einit * rhoi * shci * thck(ew,ns)
                 
-                if (verbose_column) then
-                   print*, 'Before glissade_findvtri, i, j =', ew,ns
-                   print*, 'k, dissip (deg/yr):'
-                   do k = 1, upn-1
-                      print*, k, dissip(k,ew,ns)*scyr
-                   enddo
-                endif
-
                 ! compute matrix elements
 
                 call glissade_findvtri(dttem,                 &
@@ -1268,8 +1260,8 @@ module glissade_therm
          ice_mask,           &! = 1 where ice exists (thck > thklim_temp), else = 0
          floating_mask        ! = 1 where ice is floating, else = 0
 
-    real(dp), dimension(:,:),    intent(out):: bmlt    ! melt rate (m/s)
-                                                       ! > 0 for melting, < 0 for freeze-on
+    real(dp), dimension(:,:), intent(out):: bmlt    ! melt rate (m/s)
+                                                    ! > 0 for melting, < 0 for freeze-on
 
     !-----------------------------------------------------------------
     ! Local variables
@@ -1287,6 +1279,7 @@ module glissade_therm
 
     real(dp), parameter :: max_waterfrac = 0.01d0   ! maximum allowed water fraction
                                                     ! excess water drains to the bed
+    real(dp), parameter :: eps11 = 1.d-11     ! small number
 
     bmlt(:,:) = 0.0d0
     melt_fact = 1.0d0 / (lhci * rhoi) 
@@ -1314,6 +1307,10 @@ module glissade_therm
              !       and overlying layers with a different enthalpy also melt.
 
              bflx = bfricflx(ew,ns) + lcondflx(ew,ns) - bheatflx(ew,ns)  ! W/m^2
+
+             if (abs(bflx) < eps11) then  ! bflx might be slightly different from zero because of rounding errors; if so, then zero out
+                bflx = 0.d0
+             endif
 
              if (whichtemp == TEMP_ENTHALPY) then
                 bmlt(ew,ns) = bflx / (lhci*rhoi - enthalpy(upn,ew,ns))
