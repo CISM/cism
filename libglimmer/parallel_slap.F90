@@ -1103,6 +1103,8 @@ contains
 
   end function distributed_put_var_real8_2d
 
+  !TODO - Should we assume that ewn is the first index?
+  !       Typically it is the 2nd index.
   function distributed_put_var_real8_3d(ncid,varid,values,start)
 
     implicit none
@@ -2274,8 +2276,8 @@ contains
     character(len=*) :: file
     ! begin
     write(0,*) "STOP in ",file," at line ",line
-    ! stop
-    write(0,*) "RUNNING in parallel_slap mode, so STOP IGNORED."
+    stop
+!!    write(0,*) "RUNNING in parallel_slap mode, so STOP IGNORED."
   end subroutine parallel_stop
 
   function parallel_sync(ncid)
