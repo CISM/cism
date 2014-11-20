@@ -102,7 +102,7 @@ cmake \
 #  -D CISM_TRILINOS_DIR=/tmp/proj/cli054/trilinos-10.12/FEB2013_FAST_PGI/install \
 
 #  -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611 -DH5_USE_16_API" \
-#  -D CISM_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE" \
+#  -D CISM_Fortran_FLAGS:STRING="-O2" \
 
 
 #  -D CISM_FMAIN=/opt/pgi/13.7.0/linux86-64/13.7/lib/f90main.o \

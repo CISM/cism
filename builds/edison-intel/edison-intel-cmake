@@ -98,7 +98,7 @@ cmake \
   -D CISM_GPTL_DIR=/project/projectdirs/piscees/cism_gptl/libgptl/libgptl-edison-intel \
 \
   -D CMAKE_CXX_FLAGS:STRING="-O2 -openmp" \
-  -D CISM_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE -openmp" \
+  -D CISM_Fortran_FLAGS:STRING="-O2 -openmp" \
   -D BISICLES_LIB_SUBDIR=libintel \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D CISM_MPI_LIBS:STRING="mpichf90" \
