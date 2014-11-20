@@ -83,12 +83,12 @@ cmake \
   -D CISM_BUILD_GLINT_EXAMPLE:BOOL=OFF \
   -D CISM_BUILD_CISM_DRIVER:BOOL=ON \
 \
-  -D GLIMMER_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-pgi/install \
-  -D GLIMMER_TRILINOS_GPTL_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-pgi-ci-nophal/install \
-  -D GLIMMER_TRILINOS_ALBANY_DIR= \
+  -D CISM_TRILINOS_DIR=/ccs/proj/cli062/Trilinos/cism-standard/default-pgi/install \
+  -D CISM_TRILINOS_GPTL_DIR=/ccs/proj/cli062/cism_gptl/Trilinos/titan-pgi-ci-nophal/install \
+  -D CISM_TRILINOS_ALBANY_DIR= \
 \
-  -D GLIMMER_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-pgi \
-  -D GLIMMER_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \
+  -D CISM_GPTL_DIR=/ccs/proj/cli062/cism_gptl/libgptl/libgptl-titan-pgi \
+  -D CISM_NETCDF_DIR=/opt/cray/netcdf-hdf5parallel/4.3.0/pgi/121 \
 \
   -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
   -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
@@ -99,10 +99,10 @@ cmake \
   -D CMAKE_Fortran_COMPILER=ftn \
 \
   -D CMAKE_CXX_FLAGS:STRING="-fast -Kieee --diag_suppress 554,111,611" \
-  -D GLIMMER_Fortran_FLAGS:STRING="-fast -Kieee" \
+  -D CISM_Fortran_FLAGS:STRING="-fast -Kieee" \
   -D BISICLES_LIB_SUBDIR=libpgi \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
-  -D GLIMMER_MPI_LIBS:STRING="mpichf90" \
+  -D CISM_MPI_LIBS:STRING="mpichf90" \
   -D CISM_USE_CXX_IMPLICIT_LIBS:BOOL=OFF \
   -D CISM_STATIC_LINKING:BOOL=ON \
   ../..
@@ -113,7 +113,7 @@ cmake \
 #  -D GLIMMER_TRILINOS_DIR=/tmp/proj/cli054/trilinos-10.12/FEB2013_FAST_PGI/install \
 
 #  -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611 -DH5_USE_16_API" \
-#  -D GLIMMER_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE" \
+#  -D GLIMMER_Fortran_FLAGS:STRING="-O2" \
 
 
 #  -D GLIMMER_FMAIN=/opt/pgi/13.7.0/linux86-64/13.7/lib/f90main.o \

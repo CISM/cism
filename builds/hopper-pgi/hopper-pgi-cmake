@@ -100,7 +100,7 @@ cmake \
   -D CISM_GPTL_DIR=/project/projectdirs/ccsm1/libgptl/libgptl-pgi \
 \
   -D CMAKE_CXX_FLAGS:STRING="-O2 --diag_suppress 554,111,611 -DH5_USE_16_API" \
-  -D CISM_Fortran_FLAGS:STRING="-O2 -DNO_RESCALE" \
+  -D CISM_Fortran_FLAGS:STRING="-O2" \
   -D BISICLES_LIB_SUBDIR=libpgi \
   -D BISICLES_INTERFACE_DIR=$PWD/../../../BISICLES/CISM-interface/interface \
   -D CISM_MPI_LIBS:STRING="mpichf90" \
