@@ -4,7 +4,7 @@ stream
 This directory contains Python scripts for running idealized ice stream experiments.
 
 This test case simulates flow over an idealized ice stream underlain by a subglacial till with a known and specificed
-yield stress distribution. For the two distributions available in this test case, anyalytical solutions are available
+yield stress distribution. For the two distributions available in this test case, analytical solutions are available
 from Raymond (2000) and Schoof (2006). Some additional discussion of the Schoof test case can be found in Bueler and 
 Brown (2009). 
 
