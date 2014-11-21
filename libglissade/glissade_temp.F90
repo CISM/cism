@@ -1336,10 +1336,8 @@ contains
     real(dp) :: layer_thck    ! layer thickness (m)
     real(dp) :: melt_energy   ! energy available for internal melting (J/m^2)
     real(dp) :: internal_melt_rate   ! internal melt rate, transferred to bed (m/s)
-    real(dp) :: eps11 = 1.d-11       ! small number
 
-    !WHL - Set bmlt_bugfix = .true. to activate small fixes to give agreement with glissade_therm version
-    logical, parameter :: bmlt_bugfix = .true.
+    real(dp), parameter :: eps11 = 1.d-11       ! small number
 
     bmlt(:,:) = 0.0d0
 
@@ -1364,24 +1362,15 @@ contains
 
              bflx = model%temper%bfricflx(ew,ns) + model%temper%lcondflx(ew,ns) - model%temper%bheatflx(ew,ns)  ! W/m^2
 
-             if (bmlt_bugfix) then
-                if (abs(bflx) < eps11) then  ! bflx might be slightly different from zero because of rounding errors; if so, then zero out
-                   bflx = 0.d0
-                endif
-             else
-                ! do nothing; can result in bmlt very slightly less than 0, leading to temperature reset below
-             endif
+             ! bflx might be slightly different from zero because of rounding errors; if so, then set bflx = 0
+             if (abs(bflx) < eps11) bflx = 0.d0
 
              bmlt(ew,ns) = bflx * model%tempwk%f(2)   ! f(2) = tim0 / (thk0 * lhci * rhoi)
 
             ! Add internal melting associated with temp > pmptemp
             ! Note: glissade_calcpmpt does not compute pmpt at the top surface or the bed.
 
-             if (bmlt_bugfix) then
-                call glissade_calcpmpt(pmptemp(1:model%general%upn-1), thck(ew,ns), stagsigma(1:model%general%upn-1))
-             else
-                call glissade_calcpmpt(pmptemp(:), thck(ew,ns), stagsigma(:))   ! this gives the wrong answer
-             endif
+             call glissade_calcpmpt(pmptemp(1:model%general%upn-1), thck(ew,ns), stagsigma(1:model%general%upn-1))
 
              do up = 1, model%general%upn-1
                  if (temp(up,ew,ns) > pmptemp(up)) then

@@ -151,7 +151,7 @@ module glissade_therm
     ! vertical dimension (1:upn), then the temperature in layers 1:upn may appear correct (though
     ! staggered incorrectly), but the temperature in layer 0 will remain at an unphysical value.
     ! Let the user know if this has happened.
-    !TODO - Test whether this is in fact what happens.
+    !WHL - Nov. 2014 - I verified that the code aborts here if temp (rather than tempstag) is in the restart file.
 
     if (minval(temp(0,:,:)) < (-1.d0*trpt) .and. minval(temp(1:upn,:,:)) > (-1.d0*trpt)) then
        call write_log('Error, temperature field has been read incorrectly. Note that the '  &
