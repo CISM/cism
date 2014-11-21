@@ -69,10 +69,6 @@ module glissade
 
   logical, parameter :: verbose_glissade = .false.
 
-  !WHL - debug
-  logical, parameter :: verbose_debug = .true.
-  integer :: itest, jtest, rtest
-
   ! Change either of the following logical parameters to true to carry out simple tests
   logical, parameter :: test_transport = .false.   ! if true, call test_transport subroutine
   real(dp), parameter :: thk_init = 500.d0         ! initial thickness (m) for test_transport
@@ -99,7 +95,7 @@ contains
     use glide_setup
     use glimmer_ncio
     use glide_velo, only: init_velo  !TODO - Remove call to init_velo?
-    !TODO - Replace glissade_temp with glissade_therm
+    !TODO - Remove glissade_temp
     use glissade_temp, only: glissade_init_temp
     use glissade_therm, only: glissade_init_therm
     use glimmer_scales
@@ -225,7 +221,7 @@ contains
     !       Most of what's done in init_velo is needed for SIA only, but still need velowk for call to wvelintg
     call init_velo(model)
 
-    !TODO - Replace temp with therm
+    !TODO - Remove glissade_init_temp option
     if (call_glissade_therm) then
        print*, 'Call glissade_init_therm'
        call glissade_init_therm(model%options%temp_init,    model%options%is_restart,  &
@@ -361,7 +357,7 @@ contains
     use glimmer_paramets, only: tim0, len0, vel0, thk0
     use glimmer_scales, only: scale_acab
     use glimmer_physcon, only: scyr
-    !TODO - Replace glissade_temp with glissade_therm
+    !TODO - Remove glissade_temp option
     use glissade_temp, only: glissade_temp_driver
     use glissade_therm, only: glissade_therm_driver, glissade_temp2enth, glissade_enth2temp
     use glide_mask, only: glide_set_mask, calc_iareaf_iareag
@@ -411,12 +407,6 @@ contains
     nsn = model%general%nsn
     upn = model%general%upn
 
-    if (this_rank == model%numerics%rdiag_local) then
-       rtest = model%numerics%rdiag_local
-       itest = model%numerics%idiag_local
-       jtest = model%numerics%jdiag_local
-    endif
-
     ! ========================
 
     ! Update internal clock
@@ -451,12 +441,12 @@ contains
 
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%dttem*tim0/scyr)) then
 
-      call t_startf('glissade_temp_driver')
+      call t_startf('glissade_therm_driver')
 
-      !TODO - Replace temp with therm
+      !TODO - Remove glissade_temp option
       if (call_glissade_therm) then
 
-         print*, 'Call glissade_therm_driver'
+         if (main_task .and. verbose_glissade) print*, 'Call glissade_therm_driver'
 
          ! Note: glissade_therm_driver uses SI units
          !       Output arguments are temp, waterfrac and bmlt
@@ -482,10 +472,10 @@ contains
          model%temper%bmlt = model%temper%bmlt * tim0/thk0
                                      
       else
-         print*, 'Call glissade_temp_driver'
+         if (main_task .and. verbose_glissade) print*, 'Call glissade_temp_driver'
          call glissade_temp_driver(model, model%options%whichtemp)
       endif
-      call t_stopf('glissade_temp_driver')
+      call t_stopf('glissade_therm_driver')
 
       model%temper%newtemps = .true.
 
@@ -604,15 +594,6 @@ contains
           if (model%options%whichtemp == TEMP_PROGNOSTIC) then  ! Use IR to transport thickness, temperature
                                                                 ! (and other tracers, if present)
                                                                 ! Note: We are passing arrays in SI units.
-             !WHL - debug
-             i = itest
-             j = jtest
-             print*, ' '
-             print*, 'Pre-trans: i, j =', i, j
-             print*, 'k, temp(k,i,j):'
-             do k = 0, model%general%upn
-                print*, k, model%temper%temp(k,i,j)
-             enddo
 
              call glissade_transport_driver(model%numerics%dt_transport * tim0,                   &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
@@ -626,16 +607,6 @@ contains
                                             bmlt_continuity(:,:),                                 &
                                             model%temper%temp(:,:,:),                             &
                                             upwind_transport_in = do_upwind_transport )
-
-             !WHL - debug
-             i = itest
-             j = jtest+1
-             print*, ' '
-             print*, 'Post-trans: i, j =', i, j
-             print*, 'k, temp(k,i,j):'
-             do k = 0, model%general%upn
-                print*, k, model%temper%temp(k,i,j)
-             enddo
 
              ! convert thck and acab back to scaled units
              model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
@@ -653,25 +624,6 @@ contains
                 enddo
              enddo
 
-             !WHL - debug
-             i = itest
-             j = jtest
-             k = 10
-             print*, ' '
-             print*, 'Pre-trans: i, j, k, temp, wfrac, enth:', i, j, k, &
-                      model%temper%temp(k,i,j), model%temper%waterfrac(k,i,j), model%temper%enthalpy(k,i,j)/(rhoi*shci)
-             k = model%general%upn
-             print*, 'basal temp, enth/(rhoi*ci) =', model%temper%temp(k,i,j), model%temper%enthalpy(k,i,j)/(rhoi*shci)
-             print*, 'thck (m) =', thck_unscaled(i-1:i+1,j)
-             thck_east = thck_unscaled(i+1,j)
-             thck_west = thck_unscaled(i,j)
-             u_east = sum(model%velocity%uvel(:,i,j))/model%general%upn * vel0*scyr 
-             u_west = sum(model%velocity%uvel(:,i-1,j))/model%general%upn * vel0*scyr 
-!!             print*, 'uvel (m/yr) =', u_west, u_east
-!!             print*, 'divergence (m) =', (thck_west*u_west - thck_east*u_east) &
-!!                                    * model%numerics%dt_transport*(tim0/scyr) / (model%numerics%dew*len0)
-!!             print*, 'acab (m) =', acab_unscaled(i,j) * model%numerics%dt_transport*tim0
-
              ! Transport fields, with enthalpy as a tracer instead of temperature
              call glissade_transport_driver(model%numerics%dt_transport * tim0,                   &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
@@ -686,12 +638,6 @@ contains
                                             model%temper%enthalpy(:,:,:),                         & 
                                             upwind_transport_in = do_upwind_transport )
 
-             !WHL - debug
-             i = itest
-             j = jtest
-             k = 10
-             print*, 'dthck(m) =', thck_unscaled(i,j) - model%geometry%thck(i,j)*thk0
- 
           else  ! Use IR to transport thickness only
                 ! Note: In glissade_transport_driver, the ice thickness is transported layer by layer,
                 !       which is inefficient if no tracers are being transported.  (It would be more
@@ -755,15 +701,6 @@ contains
                                            model%temper%temp(0:upn,i,j),     model%temper%waterfrac(1:upn-1,i,j))
                 enddo
              enddo
-
-             !WHL - debug
-             i = itest
-             j = jtest
-             k = 10
-             print*, 'Post-trans: i, j, k, temp, wfrac, enth:', i, j, k, &
-                      model%temper%temp(k,i,j), model%temper%waterfrac(k,i,j), model%temper%enthalpy(k,i,j)/(rhoi*shci)
-             k = model%general%upn
-             print*, 'basal temp, enth/(rhoi*ci) =', model%temper%temp(k,i,j), model%temper%enthalpy(k,i,j)/(rhoi*shci)
 
          else   ! update temperature in halo cells
 
@@ -1151,17 +1088,18 @@ contains
                                    model%temper%bfricflx(:,:) )
        endif
        
-       !WHL - debug
-       i = model%numerics%idiag_local
-       j = model%numerics%jdiag_local
-       print*, 'k, dissip (deg/yr):'
-       do k = 1, model%general%upn-1
-          print*, k, model%temper%dissip(k,i,j)*scyr
-       enddo
-       print*, 'uvel, vvel =', model%velocity%uvel(model%general%upn,i,j),  &
-                            model%velocity%vvel(model%general%upn,i,j)
-       print*, 'btraction =',  model%velocity%btraction(:,i,j)
-       print*, 'bfricflx =', model%temper%bfricflx(i,j)
+       if (this_rank==model%numerics%rdiag_local .and. verbose_glissade) then
+          i = model%numerics%idiag_local
+          j = model%numerics%jdiag_local
+          print*, 'k, dissip (deg/yr):'
+          do k = 1, model%general%upn-1
+             print*, k, model%temper%dissip(k,i,j)*scyr
+          enddo
+          print*, 'ubas, vbas =', model%velocity%uvel(model%general%upn,i,j),  &
+                                  model%velocity%vvel(model%general%upn,i,j)
+          print*, 'btraction =',  model%velocity%btraction(:,i,j)
+          print*, 'bfricflx =', model%temper%bfricflx(i,j)
+       endif
 
        if (main_task .and. verbose_glissade) then
           print*, ' '

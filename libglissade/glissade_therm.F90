@@ -397,7 +397,7 @@ module glissade_therm
     integer :: ew, ns, up
     integer :: i, j, k
 
-    logical, parameter:: verbose_temp = .true.
+    logical, parameter:: verbose_temp = .false.  ! set to true for diagnostic column output
     logical :: verbose_column
 
     !------------------------------------------------------------------------------------
@@ -1561,7 +1561,7 @@ module glissade_therm
     ! This subroutine uses (2).
 
     if (size(dissip,1) /= upn-1) then  ! staggered vertical grid
-        !TODO - Write an error message and exit gracefully
+       call write_log('Error, glissade SIA dissipation: dissip has the wrong vertical dimension', GM_FATAL)
     endif
 
     dissip(:,:,:) = 0.0d0
