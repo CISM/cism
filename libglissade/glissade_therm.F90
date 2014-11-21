@@ -397,7 +397,7 @@ module glissade_therm
     integer :: ew, ns, up
     integer :: i, j, k
 
-    logical, parameter:: verbose_temp = .false.  ! set to true for diagnostic column output
+    logical, parameter:: verbose_therm = .false.  ! set to true for diagnostic column output
     logical :: verbose_column
 
     !------------------------------------------------------------------------------------
@@ -447,7 +447,7 @@ module glissade_therm
        do ns = 1, nsn
        do ew = 1, ewn
 
-          if (verbose_temp .and. this_rank==rtest .and. ew==itest .and. ns==jtest) then
+          if (verbose_therm .and. this_rank==rtest .and. ew==itest .and. ns==jtest) then
              verbose_column = .true.
           else
              verbose_column = .false.
@@ -698,7 +698,7 @@ module glissade_therm
                    print*, 'ffric =', bfricflx(ew,ns)
                    print*, 'fgeo =', -bheatflx(ew,ns)
                    print*, 'flux for bottom melting =', bfricflx(ew,ns) - bheatflx(ew,ns) + lcondflx(ew,ns)
-                endif   ! verbose_temp
+                endif   ! verbose_column
 
                 write(message,*) 'WARNING: Energy conservation error, ew, ns =', ew, ns
                 call write_log(message,GM_FATAL)
@@ -846,8 +846,7 @@ module glissade_therm
 
     else   ! fully implicit
 
-       !TODO - Remove redundant factors of 2 (results in roundoff-level answer change)
-       fact = 2.d0 * dttem * coni / (2.d0 * rhoi*shci) / thck**2
+       fact = dttem * coni / (rhoi*shci) / thck**2
        subd(2:upn) = -fact * dups(1:upn-1,1)
        supd(2:upn) = -fact * dups(1:upn-1,2)
        diag(2:upn) = 1.0d0 - subd(2:upn) - supd(2:upn)
