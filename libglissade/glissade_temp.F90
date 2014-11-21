@@ -1145,7 +1145,7 @@ contains
     real(dp) :: melt_energy   ! energy available for internal melting (J/m^2)
     real(dp) :: internal_melt_rate   ! internal melt rate, transferred to bed (m/s)
 
-    real(dp) :: eps11 = 1.d-11   ! small number
+    real(dp), parameter :: eps11 = 1.d-11   ! small number
 
     bmlt(:,:) = 0.0d0
 
