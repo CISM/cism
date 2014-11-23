@@ -61,7 +61,7 @@
   use glimmer_paramets, only : dp
   use glimmer_physcon,  only : scyr
   use glimmer_paramets, only : vel0, tau0
-  use glimmer_log,      only : write_log
+  use glimmer_log
   use glide_types
   use parallel,         only : staggered_parallel_halo  
   use glissade_grid_operators
@@ -258,6 +258,16 @@ contains
     case(HO_BABC_EXTERNAL_BETA)   ! use value passed in externally from CISM
 
       ! scale CISM input value to dimensional units of (Pa yr/m)
+
+       ! beta is initialized to a negative value; we can use that fact to check whether
+       ! it has been read correctly from the file
+       if (maxval(beta) <= 0.d0) then
+          call write_log('ERROR: Trying to use HO_BABC_EXTERNAL_BETA, but all beta values are <= 0,')
+          call write_log('which implies that beta could not be read from the input file.')
+          call write_log('Make sure that beta is in the cism input file,')
+          call write_log('or change which_ho_babc to a different option.')
+          call write_log('Invalid value for beta. See log file for details.', GM_FATAL)
+       end if
 
 !!      beta(:,:) = beta(:,:) * ( tau0 / vel0 / scyr )   ! already dimensional
 
