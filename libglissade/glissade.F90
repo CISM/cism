@@ -223,7 +223,6 @@ contains
 
     !TODO - Remove glissade_init_temp option
     if (call_glissade_therm) then
-       print*, 'Call glissade_init_therm'
        call glissade_init_therm(model%options%temp_init,    model%options%is_restart,  &
                                 model%general%ewn,          model%general%nsn,         &
                                 model%general%upn,                                     &
@@ -232,7 +231,6 @@ contains
                                 model%climate%artm,                                    & ! deg C
                                 model%temper%temp)                                       ! deg C
     else
-       print*, 'Call glissade_init_temp'
        call glissade_init_temp(model)
     endif
 
