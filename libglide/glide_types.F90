@@ -1418,12 +1418,10 @@ contains
        call coordsystem_allocate(model%general%ice_grid, model%temper%bfricflx)
        call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
        call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
-    endif
-
-    if (model%options%whichtemp == TEMP_ENTHALPY) then   ! enthalpy scheme (under construction)
-       ! water fraction lives at the midpoint of each layer (with temp and flwa)
+       ! water fraction and enthalpy live at the midpoint of each layer (with temp and flwa)
+       ! enthalpy (like temp) is defined at the upper and lower surfaces as well
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%waterfrac)
-       allocate(model%temper%enthalpy(0:upn,1:ewn,1:nsn))   ! same dimensions as temperature
+       allocate(model%temper%enthalpy(0:upn,1:ewn,1:nsn))
        model%temper%enthalpy(:,:,:) = 0.d0
     endif
 
