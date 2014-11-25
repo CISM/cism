@@ -315,7 +315,7 @@ module glissade_therm
     ! Note: SI units are used throughout this subroutine
 
     use glimmer_utils,  only : tridiag
-    use glimmer_physcon, only: shci, coni, rhoi, tocnfrz
+    use glimmer_physcon, only: shci, coni, rhoi, tocnfrz_sfc, dtocnfrz_dh
     use glide_mask
     use glissade_grid_operators, only: glissade_stagger
     use glissade_masks, only: glissade_get_masks
@@ -379,7 +379,8 @@ module glissade_therm
          delta_e,              &! net energy input to ice
          dTtop, dTbot,         &! temperature differences
          denth_top, denth_bot, &! enthalpy differences
-         maxtemp, mintemp   ! max and min temps in column
+         maxtemp, mintemp,     &! max and min temps in column
+         depth                  ! depth at base of ice shelf (m)
 
     real(dp), dimension(1:upn) :: alpha_enth   ! diffusivity at interfaces (m2/s) for enthalpy solver
                                                ! = coni / (rhoi*shci) for cold ice
@@ -459,10 +460,11 @@ module glissade_therm
 
              temp(0,ew,ns) = min(0.d0, artm(ew,ns))
 
-             ! For floating ice, set the basal temperature to the freezing temperature of seawater (-1.8 C)
-
+             ! For floating ice, set the basal temperature to the freezing temperature of seawater
+             ! Values based on Ocean Water Freezing Point Calculator with S = 35 PSU
              if (floating_mask(ew,ns) == 1) then
-                temp(upn,ew,ns) = tocnfrz
+                depth = thck(ew,ns) * (rhoi/rhow)
+                temp(upn,ew,ns) = tocnfrz_sfc + dtocnfrz_dh * depth
              endif
 
              if (whichtemp == TEMP_ENTHALPY) then

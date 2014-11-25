@@ -64,9 +64,9 @@ module glimmer_physcon
   real(dp),parameter :: trpt = 273.15d0          !< Triple point of water (K)    
 #endif
 
-  real(dp),parameter :: scyr = 31536000.d0       ! Number of seconds in a year of exactly 365 days
+  real(dp),parameter :: scyr = 31536000.d0       !< Number of seconds in a year of exactly 365 days
   real(dp),parameter :: rhom = 3300.0d0          !< The density of magma(?) (kg m<SUP>-3</SUP>) 
-  real(dp),parameter :: rhos = 2600.0d0          !> The density of solid till (kg m$^{-3}$) 
+  real(dp),parameter :: rhos = 2600.0d0          !< The density of solid till (kg m$^{-3}$) 
   real(dp),parameter :: f = - rhoo / rhoi    
   integer, parameter :: gn = 3                   !< The power dependency of Glenn's flow law.
   real(dp),parameter :: actenh = 139.0d3         !< Activation energy in Glenn's flow law for \f$T^{*}\geq263\f$K. (J mol<SUP>-1</SUP>)
@@ -80,6 +80,8 @@ module glimmer_physcon
   real(dp),parameter :: gascon = 8.314d0         !< The gas ideal constant \f$R\f$ (J mol<SUP>-1</SUP> K<SUP>-1</SUP>)
   real(dp),parameter :: coni = 2.1d0             !< Thermal conductivity of ice (W m<SUP>-1</SUP> K<SUP>-1</SUP>)
   real(dp),parameter :: pmlt = 9.7456d-8         !< Factor for dependence of melting point on pressure (K Pa<SUP>-1</SUP>)
-  real(dp),parameter :: tocnfrz = -1.8d0         !< Freezing temperature of seawater (C)
-
+  real(dp),parameter :: tocnfrz_sfc = -1.92d0    !< Freezing temperature of seawater (deg C) at surface pressure, S = 35 PSU
+  real(dp),parameter :: dtocnfrz_dh = -7.53d-4   !< Rate of change of freezing temperature of seawater with depth (deg/m), given S = 35 PSU
+                                                 !< These values are from the Ocean Water Freezing Point Calculator,
+                                                 !< http://www.csgnetwork.com/h2ofreezecalc.html (25 Nov. 2014)
 end module glimmer_physcon
