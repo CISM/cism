@@ -954,7 +954,7 @@ contains
     !      here for whether to calculate it on initial time (as is done in Glide).
     ! (2) We are passing in only vertical elements (1:upn-1) of the temp array,
     !       so that it has the same vertical dimensions as flwa.
-    ! (3) The flow fudge factor is 1 by default.
+    ! (3) The flow enhancement factor is 1 by default.
     ! (4) The waterfrac field is ignored unless whichtemp = TEMP_ENTHALPY.
     ! (5) Inputs and outputs of glissade_flow_factor should have SI units.
     ! ------------------------------------------------------------------------
@@ -967,10 +967,10 @@ contains
                               model%temper%temp(1:model%general%upn-1,:,:),  &
                               model%temper%flwa,                  &  ! Pa^{-n} s^{-1}
                               model%paramets%default_flwa / scyr, &  ! scale to Pa^{-n} s^{-1}
-                              model%paramets%flow_fudge_factor,   &
+                              model%paramets%flow_enhancement_factor,   &
                               model%temper%waterfrac(:,:,:))
 
-    ! Change flwa to model units (glissade_flow_factor assumes SI units of Pa{-n} s^{-1})
+    ! Change flwa to model units (glissade_gflow_factor assumes SI units of Pa{-n} s^{-1})
     model%temper%flwa(:,:,:) = model%temper%flwa(:,:,:) / vis0
 
     !TODO - flwa halo update not needed?

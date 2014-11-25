@@ -1127,8 +1127,8 @@ module glide_types
     real(dp) :: btrac_slope = 0.0d0    ! Pa^{-1} (gets scaled during init)
     real(dp) :: btrac_max = 0.d0       ! m yr^{-1} Pa^{-1} (gets scaled during init)
     real(dp) :: geot   = -5.0d-2       ! W m^{-2}, positive down
-    real(dp) :: flow_fudge_factor = 1.0d0   ! fudge parameter for the Arrhenius relationship;
-                                            ! typically used in SIA model to speed up the ice
+    real(dp) :: flow_enhancement_factor = 1.0d0   ! flow enhancement parameter for the Arrhenius relationship;
+                                                  ! typically used in SIA model to speed up the ice
                                        ! (NOTE change relative to prev. versions of code - used to be 3)
     real(dp) :: slip_ratio = 1.0d0     ! Slip ratio, used only in higher order code when the slip ratio beta computation is requested
     real(dp) :: hydtim = 1000.0d0      ! years, converted to s^{-1} and scaled
@@ -1402,10 +1402,6 @@ contains
     model%temper%temp(:,:,:) = unphys_val  ! unphys_val = -999.d0
     model%temper%flwa(:,:,:) = unphys_val
     model%temper%dissip(:,:,:) = 0.d0
-
-    !WHL - debug
-    print*, 'size(flwa) =',   size(model%temper%flwa,1),   size(model%temper%flwa,2),   size(model%temper%flwa,3)
-    print*, 'size(dissip) =', size(model%temper%dissip,1), size(model%temper%dissip,2), size(model%temper%dissip,3)
 
     call coordsystem_allocate(model%general%ice_grid,  model%temper%bheatflx)
     call coordsystem_allocate(model%general%ice_grid,  model%temper%bwat)

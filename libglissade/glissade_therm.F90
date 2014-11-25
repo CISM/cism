@@ -497,26 +497,26 @@ module glissade_therm
 
                 ! compute matrix elements using enthalpy gradient method
 
-                call glissade_enthalpy_findvtri(dttem,                     &
-                                                upn,         stagsigma,    &
-                                                subd,        diag,         &
-                                                supd,        rhsd,         &
-                                                dups(:,:),                 &
-                                                floating_mask(ew,ns),      &
-                                                thck(ew,ns),               &
-                                                temp(:,ew,ns),             &
-                                                waterfrac(:,ew,ns),        &
-                                                enthalpy(0:upn,ew,ns),     &
-                                                dissip(:,ew,ns),           &
-                                                bheatflx(ew,ns),           &
-                                                bfricflx(ew,ns),           &
-                                                alpha_enth,                &
-                                                verbose_column)
-
+                call glissade_enthalpy_matrix_elements(dttem,                     &
+                                                       upn,         stagsigma,    &
+                                                       subd,        diag,         &
+                                                       supd,        rhsd,         &
+                                                       dups(:,:),                 &
+                                                       floating_mask(ew,ns),      &
+                                                       thck(ew,ns),               &
+                                                       temp(:,ew,ns),             &
+                                                       waterfrac(:,ew,ns),        &
+                                                       enthalpy(0:upn,ew,ns),     &
+                                                       dissip(:,ew,ns),           &
+                                                       bheatflx(ew,ns),           &
+                                                       bfricflx(ew,ns),           &
+                                                       alpha_enth,                &
+                                                       verbose_column)
+                
                 !WHL - debug
                 if (verbose_column) then
                    print*, ' '
-                   print*, 'After vtri, i, j =', ew, ns
+                   print*, 'After matrix elements, i, j =', ew, ns
                    print*, 'k, subd, diag, supd, rhs/(rhoi*ci):'
                    do k = 1, upn+1
                       print*, k-1, subd(k), diag(k), supd(k), rhsd(k)/(rhoi*shci)
@@ -594,19 +594,19 @@ module glissade_therm
                 
                 ! compute matrix elements
 
-                call glissade_findvtri(dttem,                 &
-                                       upn,     stagsigma,    &
-                                       subd,    diag,         &
-                                       supd,    rhsd,         &            
-                                       floating_mask(ew,ns),  &
-                                       thck(ew,ns),           &
-                                       temp(:,ew,ns),         &
-                                       dissip(:,ew,ns),       &
-                                       bheatflx(ew,ns),       &
-                                       bfricflx(ew,ns))
+                call glissade_temperature_matrix_elements(dttem,                 &
+                                                          upn,     stagsigma,    &
+                                                          subd,    diag,         &
+                                                          supd,    rhsd,         &            
+                                                          floating_mask(ew,ns),  &
+                                                          thck(ew,ns),           &
+                                                          temp(:,ew,ns),         &
+                                                          dissip(:,ew,ns),       &
+                                                          bheatflx(ew,ns),       &
+                                                          bfricflx(ew,ns))
                 
                 if (verbose_column) then
-                   print*, 'After glissade_findvtri, i, j =', ew,ns
+                   print*, 'After matrix elements, i, j =', ew,ns
                    print*, 'k, subd, diag, supd, rhsd:'
                    do k = 1, upn+1
                       print*, k, subd(k), diag(k), supd(k), rhsd(k)
@@ -788,13 +788,14 @@ module glissade_therm
 
 !=======================================================================
 
-  subroutine glissade_findvtri (dttem,                       &
-                                upn,   stagsigma,            &
-                                subd,  diag, supd, rhsd,     &
-                                floating_mask,               &
-                                thck,        temp,           &
-                                dissip,                      &
-                                bheatflx,  bfricflx)
+  subroutine glissade_temperature_matrix_elements(dttem,                        &
+                                                  upn,          stagsigma,      &
+                                                  subd,         diag,           &
+                                                  supd,         rhsd,           &
+                                                  floating_mask,                &
+                                                  thck,         temp,           &
+                                                  dissip,                       &
+                                                  bheatflx,     bfricflx)
 
     ! compute matrix elements for the tridiagonal solve
 
@@ -907,21 +908,21 @@ module glissade_therm
 
     end if     ! floating or grounded
 
-  end subroutine glissade_findvtri
+  end subroutine glissade_temperature_matrix_elements
 
 !=======================================================================
 
-  subroutine glissade_enthalpy_findvtri (dttem,                       &
-                                         upn,       stagsigma,        &
-                                         subd,      diag,             &
-                                         supd,      rhsd,             &
-                                         dups,      floating_mask,    &
-                                         thck,                        &
-                                         temp,      waterfrac,        &
-                                         enthalpy,  dissip,           &
-                                         bheatflx,  bfricflx,         &
-                                         alpha_enth,                  &
-                                         verbose_column_in)
+  subroutine glissade_enthalpy_matrix_elements(dttem,                       &
+                                               upn,       stagsigma,        &
+                                               subd,      diag,             &
+                                               supd,      rhsd,             &
+                                               dups,      floating_mask,    &
+                                               thck,                        &
+                                               temp,      waterfrac,        &
+                                               enthalpy,  dissip,           &
+                                               bheatflx,  bfricflx,         &
+                                               alpha_enth,                  &
+                                               verbose_column_in)
 
     ! solve for tridiagonal entries of sparse matrix
 
@@ -986,7 +987,7 @@ module glissade_therm
     !WHL - debug                                                                                                                       
     if (verbose_column) then
        print*, ' '
-       print*, 'Starting enthalpy calc in vtri'
+       print*, 'Computing enthalpy matrix elements'
        print*, 'k, temp, wfrac, enthalpy/(rhoi*ci), pmpt:'
        up = 0
        print*, up, temp(up), 0.d0, enthalpy(up)/(rhoi*shci)
@@ -1207,7 +1208,7 @@ module glissade_therm
        
     end if     ! floating or grounded
 
-  end subroutine glissade_enthalpy_findvtri
+  end subroutine glissade_enthalpy_matrix_elements
 
 !=======================================================================
 
@@ -1363,9 +1364,10 @@ module glissade_therm
              temp(upn,ew,ns) = min (temp(upn,ew,ns), pmptemp_bed)
 
              ! If freeze-on was computed above (bmlt < 0) and Tbed = Tpmp but no basal water is present, then set T(upn) < Tpmp.
-             ! Note: In subroutine findvtri, we solve for Tbed (instead of holding it at Tpmp) when Tbed < 0.001.
+             ! Note: In the matrix element subroutines, we solve for Tbed (instead of holding it at Tpmp) when Tbed < -0.001.
              !       With an offset here of 0.01, we will solve for T_bed at the next timestep.
-             ! Note: Energy is not exactly conserved here.
+             ! Note: I don't think energy conservation is violated here, because no energy is associated with
+             !       the infinitesimally thin layer at the bed.
 
              if (bmlt(ew,ns) < 0.d0 .and. bwat(ew,ns)==0.d0 .and. temp(upn,ew,ns) >= pmptemp_bed) then
                 temp(upn,ew,ns) = pmptemp_bed - 0.01d0
@@ -1642,12 +1644,12 @@ module glissade_therm
 
 !=======================================================================
 
-  subroutine glissade_flow_factor(whichflwa,         whichtemp,  &
-                                  stagsigma,                     &
-                                  thck,              ice_mask,   &
-                                  temp,              flwa,       &
-                                  default_flwa_arg,              &
-                                  flow_fudge_factor, waterfrac)
+  subroutine glissade_flow_factor(whichflwa,               whichtemp,  &
+                                  stagsigma,                           &
+                                  thck,                    ice_mask,   &
+                                  temp,                    flwa,       &
+                                  default_flwa_arg,                    &
+                                  flow_enhancement_factor, waterfrac)
 
     ! Calculate Glen's $A$ over the 3D domain, using one of three possible methods.
     !
@@ -1687,7 +1689,7 @@ module glissade_therm
     real(dp),dimension(:,:,:),  intent(out)   :: flwa      !> output $A$, in units of Pa^{-n} s^{-1}
     real(dp), intent(in)                      :: default_flwa_arg  !> Glen's A to use in isothermal case 
                                                                    !> Units: Pa^{-n} s^{-1} 
-    real(dp), intent(in), optional            :: flow_fudge_factor !> fudge factor in Arrhenius relationship
+    real(dp), intent(in), optional            :: flow_enhancement_factor !> flow enhancement factor in Arrhenius relationship
     real(dp),dimension(:,:,:), intent(in), optional :: waterfrac   !> internal water content fraction, 0 to 1
 
     !> \begin{description}
@@ -1703,8 +1705,8 @@ module glissade_therm
     real(dp) :: default_flwa   ! Glen's A for isothermal case, in units of Pa{-n} s^{-1}
     integer :: ew, ns, up, ewn, nsn, nlayers
     real(dp), dimension(size(stagsigma)) :: pmptemp   ! pressure melting point temperature
-    real(dp) :: fudge_factor      ! fudge factor in Arrhenius relationship
-    real(dp) :: tempcor           ! temperature relative to pressure melting point
+    real(dp) :: enhancement_factor      ! flow enhancement factor in Arrhenius relationship
+    real(dp) :: tempcor                 ! temperature relative to pressure melting point
 
     real(dp),dimension(4), parameter ::  &
        arrfact = (/ arrmlh,             &   ! Value of a when T* is above -263K, Pa^{-n} s^{-1}
@@ -1721,10 +1723,10 @@ module glissade_therm
     ewn = size(flwa,2)
     nsn = size(flwa,3)
 
-    if (present(flow_fudge_factor)) then
-       fudge_factor = flow_fudge_factor
+    if (present(flow_enhancement_factor)) then
+       enhancement_factor = flow_enhancement_factor
     else
-       fudge_factor = 1.d0
+       enhancement_factor = 1.d0
     endif
 
     ! Check that the temperature array has the desired vertical dimension
@@ -1733,11 +1735,11 @@ module glissade_therm
        call write_log('glissade_flow_factor: temp and flwa must have the same vertical dimensions', GM_FATAL)
     endif
 
-    ! Multiply the default rate factor by the fudge factor if applicable
+    ! Multiply the default rate factor by the enhancement factor if applicable
     ! Note: Here, default_flwa is assumed to have units of Pa^{-n} s^{-1},
     !       whereas model%paramets%default_flwa has units of Pa^{-n} yr^{-1}.
 
-    default_flwa = fudge_factor * default_flwa_arg
+    default_flwa = enhancement_factor * default_flwa_arg
 
     ! initialize
     flwa(:,:,:) = default_flwa
@@ -1760,12 +1762,12 @@ module glissade_therm
                   tempcor = min(0.0d0, temp(up,ew,ns) - pmptemp(up))   ! pmptemp < 0
                   tempcor = max(-50.0d0, tempcor)
 
-                  ! Calculate Glen's A (including flow fudge factor)
+                  ! Calculate Glen's A (including flow enhancement factor)
 
                   if (tempcor >= -10.d0) then
-                     flwa(up,ew,ns) = fudge_factor * arrfact(1) * exp(arrfact(3)/(tempcor + trpt))
+                     flwa(up,ew,ns) = enhancement_factor * arrfact(1) * exp(arrfact(3)/(tempcor + trpt))
                   else
-                     flwa(up,ew,ns) = fudge_factor * arrfact(2) * exp(arrfact(4)/(tempcor + trpt))
+                     flwa(up,ew,ns) = enhancement_factor * arrfact(2) * exp(arrfact(4)/(tempcor + trpt))
                   endif
 
                   ! BDM added correction for a liquid water fraction 
@@ -1793,12 +1795,12 @@ module glissade_therm
          do ew = 1,ewn
             if (ice_mask(ew,ns) == 1) then
 
-               ! Calculate Glen's A with a fixed temperature (including flow fudge factor)
+               ! Calculate Glen's A with a fixed temperature (including flow enhancement factor)
 
 !!               if (const_temp >= -10.d0) then
-                  flwa(:,ew,ns) = fudge_factor * arrfact(1) * exp(arrfact(3)/(const_temp + trpt))
+                  flwa(:,ew,ns) = enhancement_factor * arrfact(1) * exp(arrfact(3)/(const_temp + trpt))
 !!               else
-!!                  flwa(:,ew,ns) = fudge_factor * arrfact(2) * exp(arrfact(4)/(const_temp + trpt))
+!!                  flwa(:,ew,ns) = enhancement_factor * arrfact(2) * exp(arrfact(4)/(const_temp + trpt))
 !!               endif
 
             end if

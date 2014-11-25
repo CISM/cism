@@ -95,10 +95,10 @@ contains
 
     model%velowk%depthw = (/ ((model%numerics%sigma(up+1)+model%numerics%sigma(up)) / 2.0d0, up=1,upn-1), 0.0d0 /)
 
-    model%velowk%fact = (/ model%paramets%flow_fudge_factor* arrmlh / vis0, &   ! Value of a when T* is above -263K
-                           model%paramets%flow_fudge_factor* arrmll / vis0, &   ! Value of a when T* is below -263K
-                          -actenh / gascon,        &                            ! Value of -Q/R when T* is above -263K
-                          -actenl / gascon/)                                    ! Value of -Q/R when T* is below -263K
+    model%velowk%fact = (/ model%paramets%flow_enhancement_factor* arrmlh / vis0, &   ! Value of a when T* is above -263K
+                           model%paramets%flow_enhancement_factor* arrmll / vis0, &   ! Value of a when T* is below -263K
+                          -actenh / gascon,        &                               ! Value of -Q/R when T* is above -263K
+                          -actenl / gascon/)                                       ! Value of -Q/R when T* is below -263K
 
     model%velowk%watwd  = model%paramets%bpar(1)
     model%velowk%watct  = model%paramets%bpar(2)
