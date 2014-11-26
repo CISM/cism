@@ -282,9 +282,6 @@ module glide_types
     !> \item[3] Prognostic enthalpy solution
     !> \end{description}
 
-    !TODO: Change the default to temp_init = 2?
-    !      Setting default = 1 for now so that existing config files will get the same results.
-
     integer :: temp_init = 1
 
     ! Temperature initialization:
@@ -830,11 +827,11 @@ module glide_types
 
     !> Holds fields relating to temperature.
 
-    !Note: In the glide dycore, temp and flwa live on the unstaggered vertical grid
+    !Note: In the Glide dycore, temp, flwa and dissip live on the unstaggered vertical grid
     !       at layer interfaces and have vertical dimension (1:upn).
-    !      In the glam/glissade dycore, with remapping advection of temperature, 
-    !       temp and flwa live on the staggered vertical grid at layer midpoints.  
-    !       The vertical dimensions are temp(0:upn) and flwa(1:upn-1).
+    !      In the Glam/Glissade dycore, with remapping advection of temperature, 
+    !       temp, flwa and dissip live on the staggered vertical grid at layer midpoints.  
+    !       The vertical dimensions are (0:upn) for temp and (1:upn-1) for flwa and dissip.
     !
     !      bheatflx, ucondflx, and lcondflx are defined as positive down,
     !       so they will often be < 0.  
@@ -848,6 +845,7 @@ module glide_types
     real(dp),dimension(:,:,:),pointer :: temp => null()      !> 3D temperature field.
     real(dp),dimension(:,:),  pointer :: bheatflx => null()  !> basal heat flux (W/m^2) (geothermal, positive down)
     real(dp),dimension(:,:,:),pointer :: flwa => null()      !> Glen's flow factor $A$.
+    real(dp),dimension(:,:,:),pointer :: dissip => null()    !> interior heat dissipation rate, divided by rhoi*Ci (deg/s)
     real(dp),dimension(:,:),  pointer :: bwat => null()      !> Basal water depth
     real(dp),dimension(:,:),  pointer :: bwatflx => null()   !> Basal water flux 
     real(dp),dimension(:,:),  pointer :: stagbwat => null()  !> Basal water depth on velo grid
@@ -857,13 +855,13 @@ module glide_types
     real(dp),dimension(:,:),  pointer :: bpmp => null()      !> Basal pressure melting point
     real(dp),dimension(:,:),  pointer :: stagbpmp => null()  !> Basal pressure melting point on velo grid
     real(dp),dimension(:,:),  pointer :: bfricflx => null()  !> basal heat flux (W/m^2) from friction (>= 0)
+    real(dp),dimension(:,:,:),pointer :: waterfrac => null() !> fractional water content in layer (0 <= waterfrac <= 1)
+    real(dp),dimension(:,:,:),pointer :: enthalpy => null()  !> specific enthalpy in layer (J m-3)
+                                                             !> = rhoi * Ci * T for cold ice
+    !TODO - Remove ucondflx, lcondflx, dissipcol; make these local to glissade_therm
     real(dp),dimension(:,:),  pointer :: ucondflx => null()  !> conductive heat flux (W/m^2) at upper sfc (positive down)
     real(dp),dimension(:,:),  pointer :: lcondflx => null()  !> conductive heat flux (W/m^2) at lower sfc (positive down)
-    real(dp),dimension(:,:),  pointer :: dissipcol => null() !> total heat dissipation in column (>= 0)
-
-    ! for enthalpy scheme under construction
-    real(dp),dimension(:,:,:),pointer :: waterfrac => null() !> fractional water content in layer (0 <= waterfrac <= 1)
-    
+    real(dp),dimension(:,:),  pointer :: dissipcol => null() !> total heat dissipation rate (W/m^2) in column (>= 0)
     integer  :: niter   = 0   
     real(dp) :: perturb = 0.d0
     real(dp) :: grid    = 0.d0 
@@ -1091,9 +1089,9 @@ module glide_types
 
   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  !WHL - Moved dissip to glide_temper
   type glide_tempwk
     real(dp),dimension(:,:,:),pointer :: inittemp => null()
-    real(dp),dimension(:,:,:),pointer :: dissip   => null()
     real(dp),dimension(:,:,:),pointer :: compheat => null()
     real(dp),dimension(:,:,:),pointer :: initadvt => null()
     real(dp),dimension(:),    pointer :: dupa     => null()
@@ -1129,7 +1127,8 @@ module glide_types
     real(dp) :: btrac_slope = 0.0d0    ! Pa^{-1} (gets scaled during init)
     real(dp) :: btrac_max = 0.d0       ! m yr^{-1} Pa^{-1} (gets scaled during init)
     real(dp) :: geot   = -5.0d-2       ! W m^{-2}, positive down
-    real(dp) :: flow_factor = 1.0d0    ! "fiddle" parameter for the Arrhenius relationship 
+    real(dp) :: flow_enhancement_factor = 1.0d0   ! flow enhancement parameter for the Arrhenius relationship;
+                                                  ! typically used in SIA model to speed up the ice
                                        ! (NOTE change relative to prev. versions of code - used to be 3)
     real(dp) :: slip_ratio = 1.0d0     ! Slip ratio, used only in higher order code when the slip ratio beta computation is requested
     real(dp) :: hydtim = 1000.0d0      ! years, converted to s^{-1} and scaled
@@ -1266,13 +1265,15 @@ contains
     !> \item \texttt{temp(upn,0:ewn+1,0:nsn+1))}   !WHL - 2 choices
     !> \item \texttt{bheatflx(ewn,nsn))}
     !> \item \texttt{flwa(upn,ewn,nsn))}           !WHL - 2 choices
+    !> \item \texttt{dissip(upn,ewn,nsn))}         !WHL - 2 choices
     !> \item \texttt{bwat(ewn,nsn))}
     !> \item \texttt{bmlt(ewn,nsn))}
     !> \item \texttt{bfricflx(ewn,nsn))}
     !> \item \texttt{ucondflx(ewn,nsn))}
     !> \item \texttt{lcondflx(ewn,nsn))}
     !> \item \texttt{dissipcol(ewn,nsn))}
-    !> \item \texttt{waterfrac(ewn,nsn))}   ! for enthalpy scheme under construction
+    !> \item \texttt{waterfrac(upn-1ewn,nsn))}    ! for enthalpy scheme under construction
+    !> \item \texttt{enthalpy(0:upn,ewn,nsn))}    ! for enthalpy scheme under construction
     !> \end{itemize}
 
     !> In \texttt{model\%velocity}:
@@ -1341,6 +1342,7 @@ contains
 
     use glimmer_log
     use glimmer_coordinates, only: coordsystem_allocate
+    use glimmer_paramets, only: unphys_val
 
     implicit none
 
@@ -1388,15 +1390,18 @@ contains
     if (model%options%whichdycore == DYCORE_GLIDE) then
        allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1))
        call coordsystem_allocate(model%general%ice_grid, upn, model%temper%flwa)
+       call coordsystem_allocate(model%general%ice_grid, upn, model%temper%dissip)
     else    ! glam/glissade dycore
        allocate(model%temper%temp(0:upn,1:ewn,1:nsn))
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%flwa)
+       call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%dissip)
     endif
 
-    ! MJH - Set these to physically unrealistic values so we can tell later if 
+    ! MJH - Set temp and flwa to physically unrealistic values so we can tell later if 
     !       arrays were initialized correctly
-    model%temper%temp(:,:,:) = -999.0d0
-    model%temper%flwa(:,:,:) = -999.0d0
+    model%temper%temp(:,:,:) = unphys_val  ! unphys_val = -999.d0
+    model%temper%flwa(:,:,:) = unphys_val
+    model%temper%dissip(:,:,:) = 0.d0
 
     call coordsystem_allocate(model%general%ice_grid,  model%temper%bheatflx)
     call coordsystem_allocate(model%general%ice_grid,  model%temper%bwat)
@@ -1413,11 +1418,11 @@ contains
        call coordsystem_allocate(model%general%ice_grid, model%temper%bfricflx)
        call coordsystem_allocate(model%general%ice_grid, model%temper%lcondflx)
        call coordsystem_allocate(model%general%ice_grid, model%temper%dissipcol)
-    endif
-
-    if (model%options%whichtemp == TEMP_ENTHALPY) then   ! enthalpy scheme (under construction)
-       ! water fraction lives at the midpoint of each layer (with temp and flwa)
+       ! water fraction and enthalpy live at the midpoint of each layer (with temp and flwa)
+       ! enthalpy (like temp) is defined at the upper and lower surfaces as well
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%waterfrac)
+       allocate(model%temper%enthalpy(0:upn,1:ewn,1:nsn))
+       model%temper%enthalpy(:,:,:) = 0.d0
     endif
 
     ! velocity arrays
@@ -1461,7 +1466,7 @@ contains
        call coordsystem_allocate(model%general%ice_grid, model%velocity%unstagbeta)
        ! WHL - Set unstagbeta to a physically unrealistic values so we can tell later if
        !       it was read correctly from an input file
-       model%velocity%unstagbeta(:,:) = -999.0d0
+       model%velocity%unstagbeta(:,:) = unphys_val
 
        call coordsystem_allocate(model%general%ice_grid,  upn, model%velocity%wvel_ho)
        call coordsystem_allocate(model%general%velo_grid, model%velocity%kinbcmask)
@@ -1655,8 +1660,12 @@ contains
         deallocate(model%temper%dissipcol)
     if (associated(model%temper%waterfrac)) &
         deallocate(model%temper%waterfrac)
+    if (associated(model%temper%enthalpy)) &
+        deallocate(model%temper%enthalpy)
     if (associated(model%temper%flwa)) &
         deallocate(model%temper%flwa)
+    if (associated(model%temper%dissip)) &
+        deallocate(model%temper%dissip)
 
     ! velocity arrays
 

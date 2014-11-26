@@ -515,6 +515,7 @@ contains
     center = (model%general%ewn - 1) * 0.5
 
     !TODO - Change which_call to an integer?
+    !       Modify for Glissade? (dissip has smaller vertical dimension)
     if (which_call .eq. 0.d0 .or. which_call .eq. 2.d0) then
 
         !point by point call to the function 
@@ -535,7 +536,8 @@ contains
                             !H_0 = H0
                             H_0 = model%geometry%thck(center,center)
                             !TT = 0.d0
-                            TT = model%tempwk%dissip(lev,ew,ns)
+                            !WHL - For Glissade, dissip is defined only at levels 1:upn-1
+                            TT = model%temper%dissip(lev,ew,ns)
                             call model_exact(time,r,z,model%geometry%thck(ew,ns),H_0,TT,U,w,Sig,M,Sigc)
                         end if
                         model%tempwk%compheat(lev,ew,ns) = -Sigc*SperA*1.0d6 ! (10^(-3) deg mK/a) (*10^3)
@@ -562,7 +564,7 @@ contains
                         call testG(time,r,z,H,TT,U,w,Sig,M,Sigc)
                     else if (which_test .eq. 2.d0) then
                         H_0 = H0 !H_0 = model%geometry%thck(center,center)
-                        TT = 0.d0 !TT = model%tempwk%dissip(lev,ew,ns)
+                        TT = 0.d0 !TT = model%temper%dissip(lev,ew,ns)
                         call model_exact(time,r,z,model%geometry%thck(ew,ns),H_0,TT,U,w,Sig,M,Sigc)
                     end if
                     model%climate%acab(ew,ns) = M*SperA  !m/a

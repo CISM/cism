@@ -104,7 +104,8 @@ contains
     allocate(model%tempwk%initadvt(model%general%upn,model%general%ewn,model%general%nsn))
 
     allocate(model%tempwk%inittemp(model%general%upn,model%general%ewn,model%general%nsn))
-    allocate(model%tempwk%dissip(model%general%upn,model%general%ewn,model%general%nsn))
+      !WHL - Moved dissip to model%temper and allocated in glide_types.
+!!    allocate(model%tempwk%dissip(model%general%upn,model%general%ewn,model%general%nsn))
     allocate(model%tempwk%compheat(model%general%upn,model%general%ewn,model%general%nsn))
     model%tempwk%compheat = 0.0d0
     allocate(model%tempwk%dups(model%general%upn,3))
@@ -197,7 +198,7 @@ contains
     !
     !TODO - Remove halo parameters below, since uhalo = lhalo = 0 for Glide.
     !TODO - Make sure cells in the Glide temperature halo are initialized to reasonable values
-    !       (preferably not -999), e.g. if reading temps from input or restart file.
+    !       (not unphys_val), e.g. if reading temps from input or restart file.
 
     if (model%options%is_restart == RESTART_TRUE) then
 
@@ -209,10 +210,10 @@ contains
     elseif ( minval(model%temper%temp(1:model%general%upn, &
                     1+lhalo:model%general%ewn-lhalo, 1+uhalo:model%general%nsn-uhalo)) > &
                     (-1.0d0 * trpt) ) then    ! trpt = 273.15 K
-                                              ! Default initial temps in glide_types are -999
+                                              ! Default initial temps in glide_types are unphys_val = -999
 
        ! Temperature has already been initialized from an input file.
-       ! (We know this because the default initial temps have been overwritten.)
+       ! (We know this because the unphysical initial values have been overwritten.)
 
        call write_log('Initializing ice temperature from an input file')
 
@@ -284,7 +285,7 @@ contains
                            model%temper%flwa,           &
                            model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
                            model%geometry%thck,         &
-                           model%paramets%flow_factor,  &
+                           model%paramets%flow_enhancement_factor,  &
                            model%paramets%default_flwa, &
                            model%options%whichflwa) 
     else
@@ -367,7 +368,7 @@ contains
     !> of several alternative methods.
 
     use glimmer_utils, only: tridiag
-    use glimmer_paramets, only : thk0, GLC_DEBUG
+    use glimmer_paramets, only : thk0, tim0, GLC_DEBUG
     use glide_grid_operators, only: stagvarb
 
     !------------------------------------------------------------------------------------
@@ -417,7 +418,7 @@ contains
 
        model%tempwk%inittemp = 0.0d0
        model%tempwk%initadvt = 0.0d0
-       !*MH model%tempwk%dissip   = 0.0d0  is also set to zero in finddisp
+       !*MH model%temper%dissip   = 0.0d0  is also set to zero in finddisp
 
        ! ----------------------------------------------------------------------------------
 
@@ -643,6 +644,10 @@ contains
 
     end select   ! whichtemp
 
+    ! Rescale dissipation term to deg C/s (instead of deg C)
+    !WHL - Treat dissip above as a rate (deg C/s) instead of deg 
+    model%temper%dissip(:,:,:) =  model%temper%dissip(:,:,:) /  (model%numerics%dttem*tim0)
+
     ! Calculate Glen's A --------------------------------------------------------
 
     call glide_calcflwa(model%numerics%sigma,        &
@@ -650,7 +655,7 @@ contains
                         model%temper%flwa,           &
                         model%temper%temp(:,1:model%general%ewn,1:model%general%nsn), &
                         model%geometry%thck,         &
-                        model%paramets%flow_factor,  &
+                        model%paramets%flow_enhancement_factor,  &
                         model%paramets%default_flwa, &
                         model%options%whichflwa) 
 
@@ -838,7 +843,7 @@ contains
          - temp(1:model%general%upn-2) * subd(2:model%general%upn-1) &
          - temp(3:model%general%upn) * supd(2:model%general%upn-1) & 
          - model%tempwk%initadvt(2:model%general%upn-1,ew,ns) &
-         + model%tempwk%dissip(2:model%general%upn-1,ew,ns)
+         + model%temper%dissip(2:model%general%upn-1,ew,ns)
     
     if (float) then
        model%tempwk%inittemp(model%general%upn,ew,ns) = temp(model%general%upn) 
@@ -884,7 +889,7 @@ contains
             - model%tempwk%cons(4) * model%temper%bheatflx(ew,ns) * weff(model%general%upn) &        ! geothermal heat flux (adv)
             - model%tempwk%slide_f(2)*thck*slterm* weff(model%general%upn) &                         ! sliding heat flux    (adv)
             - model%tempwk%initadvt(model%general%upn,ew,ns)  &
-            + model%tempwk%dissip(model%general%upn,ew,ns)
+            + model%temper%dissip(model%general%upn,ew,ns)
     end if
 
   end subroutine findvtri_init
@@ -965,18 +970,18 @@ contains
                 ! OLD version
 !                newmlt = model%tempwk%f(4) * slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns) + model%tempwk%f(3) * &
 !                     model%tempwk%dupc(model%general%upn) * &
-!                     thck(ew,ns) * model%tempwk%dissip(model%general%upn,ew,ns)
+!                     thck(ew,ns) * model%temper%dissip(model%general%upn,ew,ns)
 
                 ! NEW version (sfp)
                 newmlt = slterm - model%tempwk%f(2)*model%temper%bheatflx(ew,ns)   &
                         + model%tempwk%f(3) * model%tempwk%dupc(model%general%upn) * &
-                          thck(ew,ns) * model%tempwk%dissip(model%general%upn,ew,ns)
+                          thck(ew,ns) * model%temper%dissip(model%general%upn,ew,ns)
 
                 up = model%general%upn - 1
 
                 do while (abs(temp(up,ew,ns)-pmptemp(up)) < 1.d-3 .and. up >= 3)
                    bmlt(ew,ns) = bmlt(ew,ns) + newmlt
-                   newmlt = model%tempwk%f(3) * model%tempwk%dupc(up) * thck(ew,ns) * model%tempwk%dissip(up,ew,ns)
+                   newmlt = model%tempwk%f(3) * model%tempwk%dupc(up) * thck(ew,ns) * model%temper%dissip(up,ew,ns)
                    up = up - 1
                 end do
 
@@ -1053,7 +1058,7 @@ contains
     ! 2. find dissipation at H-pts by averaging quantities from u-pts
     ! 2. works best for eismint divide (symmetry) but 1 likely to be better for full expts
 
-    model%tempwk%dissip(:,:,:) = 0.0d0
+    model%temper%dissip(:,:,:) = 0.0d0
 
     do ns = 2, model%general%nsn-1
        do ew = 2, model%general%ewn-1
@@ -1062,7 +1067,7 @@ contains
              c2 = (0.25*sum(stagthck(ew-1:ew,ns-1:ns)) * dsqrt((0.25*sum(dusrfdew(ew-1:ew,ns-1:ns)))**2 &
                   + (0.25*sum(dusrfdns(ew-1:ew,ns-1:ns)))**2))**p1
              
-             model%tempwk%dissip(:,ew,ns) = c2 * model%tempwk%c1(:) * ( &
+             model%temper%dissip(:,ew,ns) = c2 * model%tempwk%c1(:) * ( &
                   flwa(:,ew-1,ns-1) + flwa(:,ew-1,ns+1) + flwa(:,ew+1,ns+1) + flwa(:,ew+1,ns-1) + &
                   2*(flwa(:,ew-1,ns)+flwa(:,ew+1,ns)+flwa(:,ew,ns-1)+flwa(:,ew,ns+1)) + &
                   4*flwa(:,ew,ns)) 
@@ -1154,7 +1159,7 @@ contains
 
 !-------------------------------------------------------------------
 
-  subroutine glide_calcflwa(sigma, thklim, flwa, temp, thck, flow_factor, default_flwa_arg, flag)
+  subroutine glide_calcflwa(sigma, thklim, flwa, temp, thck, flow_enhancement_factor, default_flwa_arg, flag)
 
     !> Calculates Glen's $A$ over the three-dimensional domain,
     !> using one of three possible methods.
@@ -1178,7 +1183,7 @@ contains
     real(dp),dimension(:,:,:),  intent(out)   :: flwa      !> The calculated values of $A$
     real(dp),dimension(:,:,:),  intent(in)    :: temp      !> The 3D temperature field
     real(dp),dimension(:,:),    intent(in)    :: thck      !> The ice thickness
-    real(dp)                                  :: flow_factor !> Fudge factor in arrhenius relationship
+    real(dp)                                  :: flow_enhancement_factor !> flow enhancement factor in arrhenius relationship
     real(dp),                   intent(in)    :: default_flwa_arg !> Glen's A to use in isothermal case 
     integer,                    intent(in)    :: flag      !> Flag to select the method
                                                            !> of calculation:
@@ -1215,14 +1220,14 @@ contains
 !         vis0 = 3.17E-024 Pa-3 s-1 for old glide dycore = 1d-16 Pa-3 yr-1 / scyr
 !
 
-    default_flwa = flow_factor * default_flwa_arg / (vis0*scyr) 
+    default_flwa = flow_enhancement_factor * default_flwa_arg / (vis0*scyr) 
 
     !write(*,*)"Default flwa = ",default_flwa
 
     upn=size(flwa,1) ; ewn=size(flwa,2) ; nsn=size(flwa,3)
 
-    arrfact = (/ flow_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
-                 flow_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
+    arrfact = (/ flow_enhancement_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
+                 flow_enhancement_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
                  -actenh / gascon,        &       ! Value of -Q/R when T* is above -263K
                  -actenl / gascon/)               ! Value of -Q/R when T* is below -263K
 
@@ -1319,15 +1324,15 @@ contains
 
     !------------------------------------------------------------------------------------
 
-!       arrfact = (/ flow_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
-!                    flow_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
+!       arrfact = (/ flow_enhancement_factor * arrmlh / vis0, &   ! Value of a when T* is above -263K
+!                    flow_enhancement_factor * arrmll / vis0, &   ! Value of a when T* is below -263K
 !                    -actenh / gascon,        &       ! Value of -Q/R when T* is above -263K
 !                    -actenl / gascon/)               ! Value of -Q/R when T* is below -263K
 !       
 !       where arrmlh = 1.733d3 Pa-3 s-1
 !             arrmll = 3.613d-13 Pa-3 s-1
 !             and vis0 has units Pa-3 s-1
-!       The result calcga is a scaled flwa, multiplied by flow_factor
+!       The result calcga is a scaled flwa, multiplied by flow_enhancement_factor
 
     ! Actual calculation is done here - constants depend on temperature -----------------
 

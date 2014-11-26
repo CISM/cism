@@ -1103,6 +1103,8 @@ contains
 
   end function distributed_put_var_real8_2d
 
+  !TODO - Should we assume that ewn is the first index?
+  !       Typically it is the 2nd index.
   function distributed_put_var_real8_3d(ncid,varid,values,start)
 
     implicit none

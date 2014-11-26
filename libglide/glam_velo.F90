@@ -37,18 +37,21 @@
 module glam_velo
 
   use parallel
+  use glimmer_global, only : dp
 
   ! Driver for glam higher-order velocity solver
 
   implicit none
-    
+  
+  private
+  public :: glam_velo_driver, glam_basal_friction
+
 contains
         
-      subroutine glam_velo_driver(model)
+  subroutine glam_velo_driver(model)
 
         ! Glissade higher-order velocity driver
 
-        use glimmer_global, only : dp
         use glimmer_log
         use glide_types
         use glam_strs2, only: glam_velo_solver, JFNK_velo_solver
@@ -57,7 +60,6 @@ contains
         use glide_grid_operators, only: stagvarb
         use glide_mask
         use glide_stress
-
         use glimmer_paramets, only: tau0, vel0
         use glimmer_physcon, only: scyr
 
@@ -207,29 +209,6 @@ contains
                                   model%stress%efvs )
            call t_stopf('glam_velo_solver')
 
-           ! Compute internal stresses
-           call glide_calcstrsstr(model)
-
-           !WHL - debug - output internal stresses and velocity at a diagnostic point
-           if (verbose_glam_velo .and. this_rank==model%numerics%rdiag_local) then
-              i = model%numerics%idiag_local
-              j = model%numerics%jdiag_local
-              print*, ' '
-              print*, ' '
-              print*, 'i, j =', i, j
-              print*, 'k, tau_xz, tau_yz, tau_xx, tau_yy, tau_xy, tau_eff:'
-              do k = 1, model%general%upn-1
-                 print*, k, tau0*model%stress%tau%xz(k,i,j), tau0*model%stress%tau%yz(k,i,j), &
-                            tau0*model%stress%tau%xx(k,i,j), tau0*model%stress%tau%yy(k,i,j), &
-                            tau0*model%stress%tau%xy(k,i,j), tau0*model%stress%tau%scalar(k,i,j) 
-              enddo
-              print*, 'New velocity: rank, i, j =', this_rank, i, j
-              print*, 'k, uvel, vvel:'
-              do k = 1, model%general%upn
-                 print*, k, vel0*scyr*model%velocity%uvel(k,i,j), vel0*scyr*model%velocity%vvel(k,i,j)
-              enddo
-           endif
-
         else if ( model%options%which_ho_nonlinear == HO_NONLIN_JFNK ) then ! JFNK
 
            ! noxsolve could eventually go here 
@@ -242,8 +221,120 @@ contains
 
         else   
            call write_log('Invalid which_ho_nonlinear option.',GM_FATAL)
-        end if
+        end if    ! which_ho_nonlinear
+
+        ! Compute internal stresses
+        call glide_calcstrsstr(model)
+
+        !WHL - debug - output internal stresses and velocity at a diagnostic point
+        if (verbose_glam_velo .and. this_rank==model%numerics%rdiag_local) then
+           i = model%numerics%idiag_local
+           j = model%numerics%jdiag_local
+           print*, ' '
+           print*, ' '
+           print*, 'i, j =', i, j
+           print*, 'k, tau_xz, tau_yz, tau_xx, tau_yy, tau_xy, tau_eff:'
+           do k = 1, model%general%upn-1
+              print*, k, tau0*model%stress%tau%xz(k,i,j), tau0*model%stress%tau%yz(k,i,j), &
+                         tau0*model%stress%tau%xx(k,i,j), tau0*model%stress%tau%yy(k,i,j), &
+                         tau0*model%stress%tau%xy(k,i,j), tau0*model%stress%tau%scalar(k,i,j) 
+           enddo
+           print*, 'New velocity: rank, i, j =', this_rank, i, j
+           print*, 'k, uvel, vvel:'
+           do k = 1, model%general%upn
+              print*, k, vel0*scyr*model%velocity%uvel(k,i,j), vel0*scyr*model%velocity%vvel(k,i,j)
+           enddo
+        endif
 
       end subroutine glam_velo_driver
 
+!=======================================================================
+
+  subroutine glam_basal_friction (ewn,        nsn,             &
+                                  ice_mask,   floating_mask,   &
+                                  ubas,       vbas,            &
+                                  btraction,  bfricflx)
+
+    ! Compute frictional heat source due to sliding at the bed
+    ! Based on a subroutine that used to be in glissade_temp.F90
+    !  but now is used only by Glam
+
+    use glimmer_paramets, only: vel0, vel_scale
+
+    !-----------------------------------------------------------------
+    ! Input/output arguments
+    !-----------------------------------------------------------------
+
+    integer, intent(in) :: ewn, nsn         ! grid dimensions
+    integer, dimension(:,:), intent(in) ::   &
+         ice_mask,      & ! = 1 if thck > thklim, else = 0
+         floating_mask    ! = 1 if ice is floating, else = 0
+    real(dp), dimension(:,:), intent(in) :: ubas, vbas   ! basal velocity
+    real(dp), dimension(:,:,:), intent(in) :: btraction  ! basal traction
+    real(dp), dimension(:,:), intent(out) :: bfricflx    ! basal friction heat flux (W m-2)
+
+    !-----------------------------------------------------------------
+    ! Local arguments
+    !-----------------------------------------------------------------
+
+    real(dp) :: slterm       ! sliding friction
+    integer :: ew, ns, i, j
+    integer :: slide_count   ! number of neighbor cells with nonzero sliding
+
+    bfricflx(:,:) = 0.d0
+
+    ! compute heat source due to basal friction
+    ! Note: slterm and bfricflx are defined to be >= 0
+
+    do ns = 2, nsn-1
+       do ew = 2, ewn-1
+
+          slterm = 0.d0
+          slide_count = 0
+
+          ! Note: btraction is computed in glam_strs2.F90
+
+          !WHL - Using thklim instead of thklim_temp because ice thinner than thklim
+          !      is assumed to be at rest.
+
+          if (ice_mask(ew,ns)==1 .and. floating_mask(ew,ns)==0) then
+             do j = ns-1,ns
+                do i = ew-1,ew
+
+                   !SCALING - WHL: Multiplied ubas by vel0/vel_scale so we get the same result in these two cases:
+                   !           (1) With scaling:     vel0 = vel_scale = 500/scyr, and ubas is non-dimensional
+                   !           (2) Without scaling:  vel0 = 1, vel_scale = 500/scyr, and ubas is in m/s.
+
+!!!                   if (abs(ubas(i,j)) > 1.0d-6 .or.   &
+!!!                       abs(vbas(i,j)) > 1.0d-6) then
+                   if ( abs(ubas(i,j))*(vel0/vel_scale) > 1.0d-6 .or.   &
+                        abs(vbas(i,j))*(vel0/vel_scale) > 1.0d-6 ) then
+                      slide_count = slide_count + 1
+                      slterm = slterm + btraction(1,i,j)*ubas(i,j) + btraction(2,i,j)*vbas(i,j) 
+                   end if
+                end do
+             end do
+
+          endif  ! ice_mask = 1, floating_mask = 0
+
+          ! include sliding contrib only if temperature node is surrounded by sliding velo nodes
+          !NOTE - This may result in non-conservation of energy. 
+
+          if (slide_count == 4) then
+             slterm = 0.25d0 * slterm
+          else
+             slterm = 0.0d0
+          end if
+
+          bfricflx(ew,ns) = slterm
+
+       enddo    ! ns
+    enddo       ! ew
+
+  end subroutine glam_basal_friction
+
+!===============================================================================
+
 end module glam_velo
+
+!===============================================================================

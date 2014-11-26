@@ -85,8 +85,8 @@
   subroutine glissade_velo_sia_solve(model,                &
                                      nx,     ny,     nz)
 
-    use glissade_temp, only: glissade_calcbpmp
     use glissade_masks, only: glissade_get_masks
+    use glissade_therm, only: glissade_pressure_melting_point
 
     !TODO - Remove nx, ny, nz from argument list?
     !       Would then have to allocate some local arrays.
@@ -286,10 +286,12 @@
                              temp(nz,:,:), stagbtemp,  &
                              ice_mask,     stagger_margin_in = 1)
        
-       ! Note: glissade_calcbpmp expects dimensionless thickness
-
-       call glissade_calcbpmp(nx,             ny,    &
-                              thck(:,:)/thk0, bpmp(:,:))
+       ! Compute pressure melting point temp at bed
+       do j = 1, ny
+          do i = 1, nx
+             call glissade_pressure_melting_point(thck(i,j), bpmp(i,j))
+          enddo
+       enddo
 
        call glissade_stagger(nx,           ny,           &
                              bpmp(:,:),    stagbpmp(:,:), &

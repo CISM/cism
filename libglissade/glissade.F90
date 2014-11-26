@@ -74,6 +74,10 @@ module glissade
   real(dp), parameter :: thk_init = 500.d0         ! initial thickness (m) for test_transport
   logical, parameter :: test_halo = .false.        ! if true, call test_halo subroutine
 
+  !WHL - for trying glissade_therm in place of glissade_temp
+!!  logical, parameter :: call_glissade_therm = .false.
+  logical, parameter :: call_glissade_therm = .true.
+
 contains
 
 !=======================================================================
@@ -91,7 +95,9 @@ contains
     use glide_setup
     use glimmer_ncio
     use glide_velo, only: init_velo  !TODO - Remove call to init_velo?
+    !TODO - Remove glissade_temp
     use glissade_temp, only: glissade_init_temp
+    use glissade_therm, only: glissade_init_therm
     use glimmer_scales
     use glide_mask
     use isostasy
@@ -201,11 +207,32 @@ contains
 
     ! initialise glissade components
 
+    ! Update some variables in halo cells
+    ! Note: We need thck and artm in halo cells so that temperature will be initialized correctly (if not read from input file).
+    !       We do an update here for temp in case temp is read from an input file.
+    !       If temp is computed in glissade_init_therm (based on the value of options%temp_init),
+    !        then the halos will receive the correct values.
+    !TODO - Does anything else need an initial halo update?
+    call parallel_halo(model%geometry%thck)
+    call parallel_halo(model%climate%artm)
+    call parallel_halo(model%temper%temp)
+
     !TODO - Remove call to init_velo in glissade_initialise?
     !       Most of what's done in init_velo is needed for SIA only, but still need velowk for call to wvelintg
     call init_velo(model)
 
-    call glissade_init_temp(model) 
+    !TODO - Remove glissade_init_temp option
+    if (call_glissade_therm) then
+       call glissade_init_therm(model%options%temp_init,    model%options%is_restart,  &
+                                model%general%ewn,          model%general%nsn,         &
+                                model%general%upn,                                     &
+                                model%numerics%sigma,       model%numerics%stagsigma,  &
+                                model%geometry%thck*thk0,                              & ! m
+                                model%climate%artm,                                    & ! deg C
+                                model%temper%temp)                                       ! deg C
+    else
+       call glissade_init_temp(model)
+    endif
 
     ! Initialize basal hydrology model, if enabled
     call bwater_init(model)
@@ -238,7 +265,7 @@ contains
 
     ! If unstagbeta (i.e., beta on the scalar ice grid) was read from an input file,
     !  then interpolate it to beta on the staggered grid.
-    ! NOTE: unstagbeta is initialized to -999.d0, so its maxval will be > 0 only if
+    ! NOTE: unstagbeta is initialized to unphys_val = -999.d0, so its maxval will be > 0 only if
     !       the field is read in.
     ! We can make an exception for ISHOM case C; for greater accuracy we set beta in 
     !  subroutine calcbeta instead of interpolating from unstagbeta (one processor only).
@@ -328,7 +355,9 @@ contains
     use glimmer_paramets, only: tim0, len0, vel0, thk0
     use glimmer_scales, only: scale_acab
     use glimmer_physcon, only: scyr
+    !TODO - Remove glissade_temp option
     use glissade_temp, only: glissade_temp_driver
+    use glissade_therm, only: glissade_therm_driver, glissade_temp2enth, glissade_enth2temp
     use glide_mask, only: glide_set_mask, calc_iareaf_iareag
     use glide_ground, only: glide_marinlim
     use glide_grid_operators
@@ -367,6 +396,14 @@ contains
 
     integer :: i, j, k
     integer :: nx, ny
+    integer :: ewn, nsn, upn
+    
+    !WHL - debug
+    real(dp) :: thck_west, thck_east, dthck, u_west, u_east
+
+    ewn = model%general%ewn
+    nsn = model%general%nsn
+    upn = model%general%upn
 
     ! ========================
 
@@ -402,9 +439,41 @@ contains
 
     if ( model%numerics%tinc >  mod(model%numerics%time,model%numerics%dttem*tim0/scyr)) then
 
-      call t_startf('glissade_temp_driver')
-      call glissade_temp_driver(model, model%options%whichtemp)
-      call t_stopf('glissade_temp_driver')
+      call t_startf('glissade_therm_driver')
+
+      !TODO - Remove glissade_temp option
+      if (call_glissade_therm) then
+
+         if (main_task .and. verbose_glissade) print*, 'Call glissade_therm_driver'
+
+         ! Note: glissade_therm_driver uses SI units
+         !       Output arguments are temp, waterfrac and bmlt
+         call glissade_therm_driver (model%options%whichtemp,                                      &
+                                     model%numerics%dttem*tim0,                                    & ! s
+                                     model%general%ewn,          model%general%nsn,                &
+                                     model%general%upn,                                            &
+                                     model%numerics%idiag_local, model%numerics%jdiag_local,       &
+                                     model%numerics%rdiag_local,                                   &
+                                     model%numerics%sigma,       model%numerics%stagsigma,         &
+                                     model%numerics%thklim*thk0, model%numerics%thklim_temp*thk0,  & ! m
+                                     model%geometry%thck*thk0,                                     & ! m
+                                     model%geometry%topg*thk0,   model%climate%eus*thk0,           & ! m
+                                     model%climate%artm,                                           & ! deg C    
+                                     model%temper%bheatflx,      model%temper%bfricflx,            & ! W/m2
+                                     model%temper%dissip,                                          & ! deg/s
+                                     model%temper%bwat*thk0,                                       & ! m
+                                     model%temper%temp,                                            & ! deg C
+                                     model%temper%waterfrac,                                       & ! unitless
+                                     model%temper%bmlt)                                              ! m/s on output
+                                     
+         ! convert bmlt from m/s to scaled model units
+         model%temper%bmlt = model%temper%bmlt * tim0/thk0
+                                     
+      else
+         if (main_task .and. verbose_glissade) print*, 'Call glissade_temp_driver'
+         call glissade_temp_driver(model, model%options%whichtemp)
+      endif
+      call t_stopf('glissade_therm_driver')
 
       model%temper%newtemps = .true.
 
@@ -420,7 +489,7 @@ contains
                      GLIDE_IS_FLOAT(model%geometry%thkmask),   &
                      model%tempwk%wphi)
 
-    end if
+    end if  ! take a temperature time step
 
     !------------------------------------------------------------------------ 
     ! Halo updates
@@ -541,13 +610,19 @@ contains
              model%geometry%thck(:,:) = thck_unscaled(:,:) / thk0
              model%climate%acab(:,:) = acab_unscaled(:,:) / (thk0/tim0)
 
-          elseif (model%options%whichtemp == TEMP_ENTHALPY) then  ! Use IR to transport thickness, temperature,
-                                                                  ! and waterfrac.  Also set ntracer = 3.
+          elseif (model%options%whichtemp == TEMP_ENTHALPY) then  ! Use IR to transport thickness and enthalpy
 
-             ! BDM Set ntracer = 3 since temp and waterfrac need to be passed (and maybe ice age).
-             !     If no ice age is present, a dummy array will be used for tracer = 2
-             ntracer = 3
+             ! Derive enthalpy from temperature and waterfrac
+             ! Note: glissade_temp2enth expects SI units
+             do j = 1, model%general%nsn 
+                do i = 1, model%general%ewn
+                   call glissade_temp2enth (model%numerics%stagsigma(1:upn-1),        &
+                                            model%temper%temp(0:upn,i,j),     model%temper%waterfrac(1:upn-1,i,j),   &
+                                            model%geometry%thck(i,j)*thk0,    model%temper%enthalpy(0:upn,i,j))
+                enddo
+             enddo
 
+             ! Transport fields, with enthalpy as a tracer instead of temperature
              call glissade_transport_driver(model%numerics%dt_transport * tim0,                   &
                                             model%numerics%dew * len0, model%numerics%dns * len0, &
                                             model%general%ewn,         model%general%nsn,         &
@@ -558,8 +633,7 @@ contains
                                             thck_unscaled(:,:),                                   &
                                             acab_unscaled(:,:),                                   &
                                             bmlt_continuity(:,:),                                 &
-                                            model%temper%temp(:,:,:),                             & 
-                                            waterfrac = model%temper%waterfrac(:,:,:),            &
+                                            model%temper%enthalpy(:,:,:),                         & 
                                             upwind_transport_in = do_upwind_transport )
 
           else  ! Use IR to transport thickness only
@@ -610,12 +684,29 @@ contains
          call t_startf('after_remap_haloupds')
 
          call parallel_halo(model%geometry%thck)
-         call parallel_halo(model%temper%temp)
 
-          ! Halo updates of other tracers, if present, need to go here
          if (model%options%whichtemp == TEMP_ENTHALPY) then
-            call parallel_halo(model%temper%waterfrac)
-         endif
+
+             ! Update enthalpy in halo cells
+             call parallel_halo(model%temper%enthalpy)
+
+             ! Derive new temperature and waterfrac from enthalpy (will be correct in halo cells)
+             ! Note: glissade_enth2temp expects SI units
+             do j = 1, model%general%nsn 
+                do i = 1, model%general%ewn 
+                   call glissade_enth2temp(model%numerics%stagsigma(1:upn-1),                                    &
+                                           model%geometry%thck(i,j)*thk0,    model%temper%enthalpy(0:upn,i,j),   &
+                                           model%temper%temp(0:upn,i,j),     model%temper%waterfrac(1:upn-1,i,j))
+                enddo
+             enddo
+
+         else   ! update temperature in halo cells
+
+            call parallel_halo(model%temper%temp)
+
+         endif    ! TEMP_ENTHALPY
+
+         ! NOTE: Halo updates of other tracers, if present, should go here
 
          call t_stopf('after_remap_haloupds')
 
@@ -771,14 +862,17 @@ contains
 
     use parallel
 
-    use glimmer_paramets, only: tim0, len0, vel0
+    use glimmer_paramets, only: tim0, len0, vel0, thk0, vis0, tau0, evs0
     use glimmer_physcon, only: scyr
     use glide_thck, only: glide_calclsrf
     use glissade_temp, only: glissade_calcflwa
-    use glam_velo, only: glam_velo_driver
+    use glam_velo, only: glam_velo_driver, glam_basal_friction
     use glissade_velo, only: glissade_velo_driver
     use glide_velo, only: wvelintg
-
+    use glissade_masks, only: glissade_get_masks
+    use glissade_therm, only: glissade_interior_dissipation_sia,  &
+                              glissade_interior_dissipation_first_order, &
+                              glissade_flow_factor
     use glam_grid_operators, only: glam_geometry_derivs
     use felix_dycore_interface, only: felix_velo_driver
 
@@ -789,6 +883,9 @@ contains
     ! Local variables
 
     integer :: i, j, k
+    integer, dimension(model%general%ewn, model%general%nsn) :: &
+         ice_mask,     &! = 1 where thck > thklim, else = 0
+         floating_mask  ! = 1 where ice is floating, else = 0
 
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
@@ -798,53 +895,17 @@ contains
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
 
-    ! Calculate Glen's A --------------------------------------------------------
-    !
-    ! Note: because flwa is not a restart variable in glissade, no check is included 
-    !       here for whether to calculate it on initial time (as is done in glide).
-    ! 
-    ! Note: We are passing in only vertical elements (1:upn-1) of the temp array,
-    !       so that it has the same vertical dimensions as flwa.
-
-    ! TODO - Use a single call (with waterfrac) for either TEMP option?
-
-    if (model%options%whichtemp == TEMP_ENTHALPY) then
-
-       call glissade_calcflwa(model%numerics%stagsigma,    &
-                              model%numerics%thklim,       &
-                              model%temper%flwa,           &
-                              model%temper%temp(1:model%general%upn-1,:,:),  &
-                              model%geometry%thck,         &
-                              model%paramets%flow_factor,  &
-                              model%paramets%default_flwa, &
-                              model%options%whichflwa,      &
-                              model%temper%waterfrac(:,:,:))
-    else
-
-       call glissade_calcflwa(model%numerics%stagsigma,    &
-                              model%numerics%thklim,       &
-                              model%temper%flwa,           &
-                              model%temper%temp(1:model%general%upn-1,:,:),  &
-                              model%geometry%thck,         &
-                              model%paramets%flow_factor,  &
-                              model%paramets%default_flwa, &
-                              model%options%whichflwa)
-    endif
-
-    ! Halo update for flwa
-    call parallel_halo(model%temper%flwa)
-
     ! ------------------------------------------------------------------------
     ! Halo updates for ice topography and thickness
     !
-    !WHL - Note the optional argument periodic_offset_ew for topg.
-    !      This is for ismip-hom experiments. A positive EW offset means that 
-    !       the topography in west halo cells will be raised, and the topography 
-    !       in east halo cells will be lowered.  This ensures that the topography
-    !       and upper surface elevation are continuous between halo cells
-    !       and locally owned cells at the edge of the global domain.
-    !      In other cases (anything but ismip-hom), periodic_offset_ew = periodic_offset_ns = 0, 
-    !       and this argument will have no effect.
+    ! NOTE: There is an optional argument periodic_offset_ew for topg.
+    !       This is for ismip-hom experiments. A positive EW offset means that 
+    !        the topography in west halo cells will be raised, and the topography 
+    !        in east halo cells will be lowered.  This ensures that the topography
+    !        and upper surface elevation are continuous between halo cells
+    !        and locally owned cells at the edge of the global domain.
+    !       In other cases (anything but ismip-hom), periodic_offset_ew = periodic_offset_ns = 0, 
+    !        and this argument will have no effect.
     ! ------------------------------------------------------------------------
 
     call parallel_halo(model%geometry%thck)
@@ -869,10 +930,50 @@ contains
     !       However, some of the fields (stagthck, dusrfdew and dusrfdns) 
     !       are needed during the next timestep by glissade_temp
     !       if we're doing shallow-ice dissipation.
-    !TODO - Move this glam_geometry_derivs call to glissade_temp? 
+    !TODO - Replace this glam_geometry_derivs call with calls to Glissade subroutines?
     !       (The glam_velo driver includes its own call to glam_geometry_derivs.) 
 
     call glam_geometry_derivs(model)
+
+    ! ------------------------------------------------------------------------
+    ! Update some masks that are used by Glissade subroutines
+    ! ------------------------------------------------------------------------
+
+    call glissade_get_masks(model%general%ewn,   model%general%nsn,     &
+                            model%geometry%thck, model%geometry%topg,   &
+                            model%climate%eus,   model%numerics%thklim, &
+                            ice_mask,            floating_mask)
+
+    ! ------------------------------------------------------------------------ 
+    ! Calculate Glen's A
+    !
+    ! Notes:
+    ! (1) Because flwa is not a restart variable in Glissade, no check is included 
+    !      here for whether to calculate it on initial time (as is done in Glide).
+    ! (2) We are passing in only vertical elements (1:upn-1) of the temp array,
+    !       so that it has the same vertical dimensions as flwa.
+    ! (3) The flow enhancement factor is 1 by default.
+    ! (4) The waterfrac field is ignored unless whichtemp = TEMP_ENTHALPY.
+    ! (5) Inputs and outputs of glissade_flow_factor should have SI units.
+    ! ------------------------------------------------------------------------
+
+    call glissade_flow_factor(model%options%whichflwa,            &
+                              model%options%whichtemp,            &
+                              model%numerics%stagsigma,           &
+                              model%geometry%thck * thk0,         &  ! scale to m
+                              ice_mask,                           &
+                              model%temper%temp(1:model%general%upn-1,:,:),  &
+                              model%temper%flwa,                  &  ! Pa^{-n} s^{-1}
+                              model%paramets%default_flwa / scyr, &  ! scale to Pa^{-n} s^{-1}
+                              model%paramets%flow_enhancement_factor,   &
+                              model%temper%waterfrac(:,:,:))
+
+    ! Change flwa to model units (glissade_flow_factor assumes SI units of Pa{-n} s^{-1})
+    model%temper%flwa(:,:,:) = model%temper%flwa(:,:,:) / vis0
+
+    !TODO - flwa halo update not needed?
+    ! Halo update for flwa
+    call parallel_halo(model%temper%flwa)
 
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 
@@ -937,6 +1038,67 @@ contains
 
        end select
  
+       ! Compute internal heat dissipation
+       ! This is used in the prognostic temperature calculation during the next time step.
+       ! Note: These glissade subroutines assume SI units on input and output
+
+       model%temper%dissip(:,:,:) = 0.d0
+
+       if (model%options%which_ho_disp == HO_DISP_SIA) then
+
+          call glissade_interior_dissipation_sia(model%general%ewn,              &
+                                                 model%general%nsn,              &
+                                                 model%general%upn,              &
+                                                 model%numerics%stagsigma(:),    &
+                                                 ice_mask,                       &
+!                                                 model%geomderv%stagthck,     &
+!                                                 model%temper%flwa,           &
+!                                                 model%geomderv%dusrfdew,     &
+!                                                 model%geomderv%dusrfdns,     &
+                                                 model%geomderv%stagthck * thk0, & ! scale to m
+                                                 model%temper%flwa * vis0,       & ! scale to Pa^{-n} s^{-1}
+                                                 model%geomderv%dusrfdew * thk0/len0, & ! scale to m/m
+                                                 model%geomderv%dusrfdns * thk0/len0, & ! scale to m/m
+                                                 model%temper%dissip)
+          
+       else    ! first-order dissipation                                                                                                                                                               
+          call glissade_interior_dissipation_first_order(model%general%ewn,          &
+                                                         model%general%nsn,          &
+                                                         model%general%upn,          &
+                                                         ice_mask,                   &
+                                                         model%stress%tau%scalar * tau0,  &  ! scale to Pa
+                                                         model%stress%efvs * evs0,   &  ! scale to Pa s
+                                                         model%temper%dissip)
+          
+       endif    ! which_ho_disp
+          
+       ! If running Glam, compute the basal friction heat flux
+       ! (Glissade computes this flux as part of the velocity solution.)
+       
+       if (model%options%whichdycore == DYCORE_GLAM) then
+          call glam_basal_friction(model%general%ewn,                             &
+                                   model%general%nsn,                             &
+                                   ice_mask,                                      &
+                                   floating_mask,                                 &
+                                   model%velocity%uvel(model%general%upn,:,:),    &
+                                   model%velocity%vvel(model%general%upn,:,:),    &
+                                   model%velocity%btraction(:,:,:),               &
+                                   model%temper%bfricflx(:,:) )
+       endif
+       
+       if (this_rank==model%numerics%rdiag_local .and. verbose_glissade) then
+          i = model%numerics%idiag_local
+          j = model%numerics%jdiag_local
+          print*, 'k, dissip (deg/yr):'
+          do k = 1, model%general%upn-1
+             print*, k, model%temper%dissip(k,i,j)*scyr
+          enddo
+          print*, 'ubas, vbas =', model%velocity%uvel(model%general%upn,i,j),  &
+                                  model%velocity%vvel(model%general%upn,i,j)
+          print*, 'btraction =',  model%velocity%btraction(:,i,j)
+          print*, 'bfricflx =', model%temper%bfricflx(i,j)
+       endif
+
        if (main_task .and. verbose_glissade) then
           print*, ' '
           print*, 'After glissade velocity solve: uvel, k = 1:'

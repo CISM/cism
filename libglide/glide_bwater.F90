@@ -208,8 +208,7 @@ contains
 
     end select
 
-
-
+    !TODO - Switch to glissade version (glissade_stagger)
     ! now also calculate basal water in velocity (staggered) coord system
     call stagvarb(model%temper%bwat, &
                   model%temper%stagbwat ,&
