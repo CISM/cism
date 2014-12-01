@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! WARNING: this file was automatically generated on
-! Fri, 24 Oct 2014 17:39:40 +0000
+! Mon, 01 Dec 2014 22:56:51 +0000
 ! from ncdf_template.F90.in
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -733,25 +733,49 @@ contains
      end if
      end if
 
-    !     dissip -- dissipation divided by rhoi Ci
+    !     dissip -- dissipation rate (W m-3) divided by rhoi Ci
     pos = index(NCO%vars,' dissip ')
     status = parallel_inq_varid(NCO%id,'dissip',varid)
     if (pos.ne.0) then
       NCO%vars(pos+1:pos+6) = '      '
     end if
     if (pos.ne.0 .and. status.eq.nf90_enotvar) then
-    if (is_enabled(data%tempwk%dissip)) then
+    if (is_enabled(data%temper%dissip)) then
        call write_log('Creating variable dissip')
        status = parallel_def_var(NCO%id,'dissip',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, level_dimid, time_dimid/),varid)
        call nc_errorhandle(__FILE__,__LINE__,status)
-       status = parallel_put_att(NCO%id, varid, 'long_name', 'dissipation divided by rhoi Ci')
-       status = parallel_put_att(NCO%id, varid, 'units', 'deg C')
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(scyr))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'dissipation rate (W m-3) divided by rhoi Ci')
+       status = parallel_put_att(NCO%id, varid, 'units', 'deg C/yr')
        if (glimmap_allocated(model%projection)) then
           status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
           status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
        end if
      else
      call write_log('Variable dissip was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
+     end if
+
+    !     dissipstag -- dissipation rate (W m-3) divided by rhoi Ci
+    pos = index(NCO%vars,' dissipstag ')
+    status = parallel_inq_varid(NCO%id,'dissipstag',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+10) = '          '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%dissip)) then
+       call write_log('Creating variable dissipstag')
+       status = parallel_def_var(NCO%id,'dissipstag',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'scale_factor',(scyr))
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'dissipation rate (W m-3) divided by rhoi Ci')
+       status = parallel_put_att(NCO%id, varid, 'units', 'deg C/yr')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+       end if
+     else
+     call write_log('Variable dissipstag was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
      end if
      end if
 
@@ -864,6 +888,28 @@ contains
        end if
      else
      call write_log('Variable efvs was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
+     end if
+
+    !     enthalpy -- specific enthalpy
+    pos = index(NCO%vars,' enthalpy ')
+    status = parallel_inq_varid(NCO%id,'enthalpy',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+8) = '        '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%enthalpy)) then
+       call write_log('Creating variable enthalpy')
+       status = parallel_def_var(NCO%id,'enthalpy',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, stagwbndlevel_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'specific enthalpy')
+       status = parallel_put_att(NCO%id, varid, 'units', 'J/m^3')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+       end if
+     else
+     call write_log('Variable enthalpy was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
      end if
      end if
 
@@ -1997,6 +2043,28 @@ contains
      end if
      end if
 
+    !     waterfrac -- internal water fraction
+    pos = index(NCO%vars,' waterfrac ')
+    status = parallel_inq_varid(NCO%id,'waterfrac',varid)
+    if (pos.ne.0) then
+      NCO%vars(pos+1:pos+9) = '         '
+    end if
+    if (pos.ne.0 .and. status.eq.nf90_enotvar) then
+    if (is_enabled(data%temper%waterfrac)) then
+       call write_log('Creating variable waterfrac')
+       status = parallel_def_var(NCO%id,'waterfrac',get_xtype(outfile,NF90_FLOAT),(/x1_dimid, y1_dimid, staglevel_dimid, time_dimid/),varid)
+       call nc_errorhandle(__FILE__,__LINE__,status)
+       status = parallel_put_att(NCO%id, varid, 'long_name', 'internal water fraction')
+       status = parallel_put_att(NCO%id, varid, 'units', 'unitless [0,1]')
+       if (glimmap_allocated(model%projection)) then
+          status = parallel_put_att(NCO%id, varid, 'grid_mapping',glimmer_nc_mapvarname)
+          status = parallel_put_att(NCO%id, varid, 'coordinates', 'lon lat')
+       end if
+     else
+     call write_log('Variable waterfrac was specified for output but it is inappropriate for your config settings.  It will be excluded from the output.', GM_WARNING)
+     end if
+     end if
+
     !     wgrd -- Vertical grid velocity
     pos = index(NCO%vars,' wgrd ')
     status = parallel_inq_varid(NCO%id,'wgrd',varid)
@@ -2207,7 +2275,16 @@ contains
     if (status .eq. nf90_noerr) then
        do up=1,NCO%nlevel
           status = distributed_put_var(NCO%id, varid, &
-               data%tempwk%dissip, (/1,1,up,outfile%timecounter/))
+               data%temper%dissip(up,:,:), (/1,1,up,outfile%timecounter/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+       end do
+    end if
+
+    status = parallel_inq_varid(NCO%id,'dissipstag',varid)
+    if (status .eq. nf90_noerr) then
+       do up=1,NCO%nstaglevel
+          status = distributed_put_var(NCO%id, varid, &
+               data%temper%dissip(up,:,:), (/1,1,up,outfile%timecounter/))
           call nc_errorhandle(__FILE__,__LINE__,status)
        end do
     end if
@@ -2245,6 +2322,15 @@ contains
        do up=1,NCO%nstaglevel
           status = distributed_put_var(NCO%id, varid, &
                data%stress%efvs(up,:,:), (/1,1,up,outfile%timecounter/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+       end do
+    end if
+
+    status = parallel_inq_varid(NCO%id,'enthalpy',varid)
+    if (status .eq. nf90_noerr) then
+       do up=0,NCO%nstagwbndlevel
+          status = distributed_put_var(NCO%id, varid, &
+               data%temper%enthalpy(up,:,:), (/1,1,up+1,outfile%timecounter/))
           call nc_errorhandle(__FILE__,__LINE__,status)
        end do
     end if
@@ -2633,6 +2719,15 @@ contains
        do up=1,NCO%nlevel
           status = distributed_put_var(NCO%id, varid, &
                data%velocity%vvel_extend(up,:,:), (/1,1,up,outfile%timecounter/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+       end do
+    end if
+
+    status = parallel_inq_varid(NCO%id,'waterfrac',varid)
+    if (status .eq. nf90_noerr) then
+       do up=1,NCO%nstaglevel
+          status = distributed_put_var(NCO%id, varid, &
+               data%temper%waterfrac(up,:,:), (/1,1,up,outfile%timecounter/))
           call nc_errorhandle(__FILE__,__LINE__,status)
        end do
     end if
@@ -3081,6 +3176,56 @@ contains
 
     end if
 
+    status = parallel_inq_varid(NCI%id,'dissip',varid)
+    if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%dissip)) then
+       call write_log('  Loading dissip')
+       do up=1,NCI%nlevel
+          status = distributed_get_var(NCI%id, varid, &
+               data%temper%dissip(up,:,:), (/1,1,up,infile%current_time/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+          status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
+          if (status.ne.NF90_NOERR) then
+             scaling_factor = 1.0d0/(scyr)
+          else
+             scaling_factor = scaling_factor/(scyr)
+          end if
+          if (abs(scaling_factor-1.0d0).gt.1.d-17) then
+             call write_log("scaling dissip",GM_DIAGNOSTIC)
+             data%temper%dissip(up,:,:) = data%temper%dissip(up,:,:)*scaling_factor
+          end if
+       end do
+    else
+    call write_log('Variable dissip was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
+    end if
+
+    status = parallel_inq_varid(NCI%id,'dissipstag',varid)
+    if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%dissip)) then
+       call write_log('  Loading dissipstag')
+       do up=1,NCI%nstaglevel
+          status = distributed_get_var(NCI%id, varid, &
+               data%temper%dissip(up,:,:), (/1,1,up,infile%current_time/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+          status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
+          if (status.ne.NF90_NOERR) then
+             scaling_factor = 1.0d0/(scyr)
+          else
+             scaling_factor = scaling_factor/(scyr)
+          end if
+          if (abs(scaling_factor-1.0d0).gt.1.d-17) then
+             call write_log("scaling dissipstag",GM_DIAGNOSTIC)
+             data%temper%dissip(up,:,:) = data%temper%dissip(up,:,:)*scaling_factor
+          end if
+       end do
+    else
+    call write_log('Variable dissipstag was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
+    end if
+
     status = parallel_inq_varid(NCI%id,'effecpress',varid)
     if (status .eq. nf90_noerr) then
     if (is_enabled(data%basal_physics%effecpress)) then
@@ -3098,31 +3243,6 @@ contains
        end if
     else
     call write_log('Variable effecpress was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
-    end if
-
-    end if
-
-    status = parallel_inq_varid(NCI%id,'efvs',varid)
-    if (status .eq. nf90_noerr) then
-    if (is_enabled(data%stress%efvs)) then
-       call write_log('  Loading efvs')
-       do up=1,NCI%nstaglevel
-          status = distributed_get_var(NCI%id, varid, &
-               data%stress%efvs(up,:,:), (/1,1,up,infile%current_time/))
-          call nc_errorhandle(__FILE__,__LINE__,status)
-          status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
-          if (status.ne.NF90_NOERR) then
-             scaling_factor = 1.0d0/(scale_efvs)
-          else
-             scaling_factor = scaling_factor/(scale_efvs)
-          end if
-          if (abs(scaling_factor-1.0d0).gt.1.d-17) then
-             call write_log("scaling efvs",GM_DIAGNOSTIC)
-             data%stress%efvs(up,:,:) = data%stress%efvs(up,:,:)*scaling_factor
-          end if
-       end do
-    else
-    call write_log('Variable efvs was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
     end if
 
     end if
@@ -3282,31 +3402,6 @@ contains
        end if
     else
     call write_log('Variable surftemp was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
-    end if
-
-    end if
-
-    status = parallel_inq_varid(NCI%id,'tau_eff',varid)
-    if (status .eq. nf90_noerr) then
-    if (is_enabled(data%stress%tau%scalar)) then
-       call write_log('  Loading tau_eff')
-       do up=1,NCI%nstaglevel
-          status = distributed_get_var(NCI%id, varid, &
-               data%stress%tau%scalar(up,:,:), (/1,1,up,infile%current_time/))
-          call nc_errorhandle(__FILE__,__LINE__,status)
-          status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
-          if (status.ne.NF90_NOERR) then
-             scaling_factor = 1.0d0/(scale_tau)
-          else
-             scaling_factor = scaling_factor/(scale_tau)
-          end if
-          if (abs(scaling_factor-1.0d0).gt.1.d-17) then
-             call write_log("scaling tau_eff",GM_DIAGNOSTIC)
-             data%stress%tau%scalar(up,:,:) = data%stress%tau%scalar(up,:,:)*scaling_factor
-          end if
-       end do
-    else
-    call write_log('Variable tau_eff was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
     end if
 
     end if
@@ -3585,6 +3680,29 @@ contains
        end do
     else
     call write_log('Variable vvel was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
+    end if
+
+    end if
+
+    status = parallel_inq_varid(NCI%id,'waterfrac',varid)
+    if (status .eq. nf90_noerr) then
+    if (is_enabled(data%temper%waterfrac)) then
+       call write_log('  Loading waterfrac')
+       do up=1,NCI%nstaglevel
+          status = distributed_get_var(NCI%id, varid, &
+               data%temper%waterfrac(up,:,:), (/1,1,up,infile%current_time/))
+          call nc_errorhandle(__FILE__,__LINE__,status)
+          status = parallel_get_att(NCI%id, varid,'scale_factor',scaling_factor)
+          if (status.ne.NF90_NOERR) then
+             scaling_factor = 1.0d0
+          end if
+          if (abs(scaling_factor-1.0d0).gt.1.d-17) then
+             call write_log("scaling waterfrac",GM_DIAGNOSTIC)
+             data%temper%waterfrac(up,:,:) = data%temper%waterfrac(up,:,:)*scaling_factor
+          end if
+       end do
+    else
+    call write_log('Variable waterfrac was specified for input but it is inappropriate for your config settings.  It will be excluded from the input.', GM_WARNING)
     end if
 
     end if
