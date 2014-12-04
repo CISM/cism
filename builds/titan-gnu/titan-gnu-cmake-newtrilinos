@@ -78,7 +78,7 @@ cmake \
   -D CISM_USE_GPTL_INSTRUMENTATION:BOOL=ON \
   -D CISM_COUPLED:BOOL=OFF \
 \
-  -D CISM_TRILINOS_DIR=/ccs/proj/cli101/software/Trilinos/Trilinos_gptl/titan-gnu-ci-nophal//install \
+  -D CISM_TRILINOS_DIR=/ccs/proj/cli101/software/Trilinos/Trilinos_gptl/titan-gnu-ci-nophal/install \
   -D CISM_TRILINOS_GPTL_DIR=/ccs/proj/cli101/software/Trilinos/Trilinos_gptl/titan-gnu-ci-nophal/install \
   -D CISM_TRILINOS_ALBANY_DIR=/ccs/proj/cli101/software/Trilinos/trilinos_gptl/titan-gnu-ci-nophal/install \
 \

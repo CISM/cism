@@ -33,7 +33,6 @@ endif
 if (! -d $TEST_DIR) mkdir -p $TEST_DIR
 
 setenv TEST_SUITE_DEFAULT_LOC  http://oceans11.lanl.gov/cism/livv
-#setenv TEST_SUITE_DEFAULT_LOC /ccs/proj/cli062/test_suite
 
 setenv build_problem 0
 
@@ -66,11 +65,6 @@ echo
 echo 'See the LIVV documentation for instructions on setting up the test directory (TEST_DIR).'
 echo
 
-
-#echo 'The following environment variables must be set: TEST_DIR, GLIMMER_TRILINOS_DIR'
-#echo 'Examples (place in .cshrc or .bashrc):'
-#echo 'csh, tcsh:  setenv GLIMMER_TRILINOS_DIR "/Users/$USER/Trilinos/gcc-build/install"'
-#echo 'bash:       export GLIMMER_TRILINOS_DIR="/Users/$USER/Trilinos/gcc-build/install"'
 echo
 echo 'Setting TEST_DIR to the location: '
 echo 'TEST_DIR =' $TEST_DIR
@@ -132,7 +126,6 @@ if (!($no_copy_set)) then
    popd > /dev/null
  endif
 
- cp -rf ../../tests/higher-order/livv $TEST_DIR
 endif
 
  if (($1 == "skip-tests") || ($2 == "skip-tests") || ($3 == "skip-tests") || ($4 == "skip-tests")) then
@@ -186,27 +179,29 @@ endif
   qsub $CISM_RUN_SCRIPT
  endif
 
-  if ($PERF_TEST == 0 ) then
+# perf jobs are never submitted with serial script
+
+#  if ($PERF_TEST == 0 ) then
     echo "No performance suite jobs were submitted."
-  else
-    echo 'Submitting performance jobs to compute nodes.'
-    echo 'Go to rhea to complete Visualization and Verification (LIVV)'
-
-  #dome 60 test case
-    cd $TEST_DIR/perf_test/dome60
-    qsub $CISM_RUN_SCRIPT
-
-  #dome 120 test case
-    cd $TEST_DIR/perf_test/dome120
-    qsub $CISM_RUN_SCRIPT
-
-  #dome 240 test case
-    cd $TEST_DIR/perf_test/dome240
-    qsub $CISM_RUN_SCRIPT
-
-  #dome 500 test case
-    cd $TEST_DIR/perf_test/dome500
-    qsub $CISM_RUN_SCRIPT
+#  else
+#    echo 'Submitting performance jobs to compute nodes.'
+#    echo 'Go to rhea to complete Visualization and Verification (LIVV)'
+#
+#  #dome 60 test case
+#    cd $TEST_DIR/perf_test/dome60
+#    qsub $CISM_RUN_SCRIPT
+#
+#  #dome 120 test case
+#    cd $TEST_DIR/perf_test/dome120
+#    qsub $CISM_RUN_SCRIPT
+#
+#  #dome 240 test case
+#    cd $TEST_DIR/perf_test/dome240
+#    qsub $CISM_RUN_SCRIPT
+#
+#  #dome 500 test case
+#    cd $TEST_DIR/perf_test/dome500
+#    qsub $CISM_RUN_SCRIPT
 
   #dome 1000 test case - not operational currently
   #  cd $TEST_DIR/perf_test/dome1000
@@ -270,10 +265,10 @@ endif
   echo
 
   echo "Call disabled to: $CISM_VV_SCRIPT, which is located in:" 
-  echo "$TEST_DIR/livv"
+  echo "$TEST_DIR/LIVV"
   echo
   echo "Perform this step on rhea after the Test Suite jobs have completed."
-  # cd $TEST_DIR/livv
+  # cd $TEST_DIR/LIVV
   # bash $CISM_VV_SCRIPT from-script $1
  endif
 
