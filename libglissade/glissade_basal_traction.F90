@@ -261,8 +261,8 @@ contains
 
        ! beta is initialized to a negative value; we can use that fact to check whether
        ! it has been read correctly from the file
-       if (maxval(beta) <= 0.d0) then
-          call write_log('ERROR: Trying to use HO_BABC_EXTERNAL_BETA, but all beta values are <= 0,')
+       if (maxval(beta) < 0.d0) then
+          call write_log('ERROR: Trying to use HO_BABC_EXTERNAL_BETA, but all beta values are < 0,')
           call write_log('which implies that beta could not be read from the input file.')
           call write_log('Make sure that beta is in the cism input file,')
           call write_log('or change which_ho_babc to a different option.')
