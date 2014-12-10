@@ -29,7 +29,6 @@ endif
 if (! -d $TEST_DIR) mkdir -p $TEST_DIR
 
 setenv TEST_SUITE_DEFAULT_LOC  http://oceans11.lanl.gov/cism/livv
-#setenv TEST_SUITE_DEFAULT_LOC /ccs/proj/cli062/test_suite
 
 setenv build_problem 0
 
@@ -62,11 +61,6 @@ echo
 echo 'See the LIVV documentation for instructions on setting up the test directory (TEST_DIR).'
 echo
 
-
-#echo 'The following environment variables must be set: TEST_DIR, GLIMMER_TRILINOS_DIR'
-#echo 'Examples (place in .cshrc or .bashrc):'
-#echo 'csh, tcsh:  setenv GLIMMER_TRILINOS_DIR "/Users/$USER/Trilinos/gcc-build/install"'
-#echo 'bash:       export GLIMMER_TRILINOS_DIR="/Users/$USER/Trilinos/gcc-build/install"'
 echo
 echo 'Setting TEST_DIR to the location: '
 echo 'TEST_DIR =' $TEST_DIR
@@ -128,7 +122,6 @@ if (! ($no_copy_set)) then
    popd > /dev/null
  endif
 
- cp -rf ../../tests/higher-order/livv $TEST_DIR
 endif
 
 if ($skip_tests_set) then
@@ -136,7 +129,7 @@ if ($skip_tests_set) then
    exit
 endif
 
-csh $TEST_DIR/livv/run_livv_default_tests.csh $TEST_DIR $CISM_RUN_SCRIPT $PERF_TEST $CISM_VV_SCRIPT
+csh $TEST_DIR/LIVV/run_livv_default_tests.csh $TEST_DIR $CISM_RUN_SCRIPT $PERF_TEST $CISM_VV_SCRIPT
 echo "Back in build-and-test script, exiting."
 exit
 
