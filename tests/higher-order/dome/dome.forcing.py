@@ -15,7 +15,7 @@ nt=10
 # Parse options
 from optparse import OptionParser
 optparser = OptionParser()
-optparser.add_option("-c", "--config", dest="configfile", type='string', default='dome.forcincg.config', help="Name of .config file to use to setup and run the dome test case", metavar="FILE")
+optparser.add_option("-c", "--config", dest="configfile", type='string', default='dome.forcing.config', help="Name of .config file to use to setup and run the dome test case", metavar="FILE")
 options, args = optparser.parse_args()
 
 import sys, os, numpy
