@@ -710,6 +710,15 @@ standard_name: land_ice_temperature_stag
 load:          1
 coordinates:   lon lat
 
+[tempstag_pmp]
+dimensions:    time, stagwbndlevel, y1, x1
+units:         degree_Celsius
+long_name:     pressure melting point temperature on staggered vertical levels with boundaries
+data:          data%temper%temp_pmp(up,1:data%general%ewn,1:data%general%nsn)
+standard_name: pmp_temperature_stag
+load:          1
+coordinates:   lon lat
+
 [litho_temp]
 dimensions:    time, lithoz, y1, x1
 units:         degree_Celsius

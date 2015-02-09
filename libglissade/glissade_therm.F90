@@ -64,7 +64,7 @@ module glissade_therm
     private
     public :: glissade_init_therm, glissade_therm_driver, glissade_flow_factor, glissade_pressure_melting_point, &
               glissade_interior_dissipation_sia, glissade_interior_dissipation_first_order,                         &
-              glissade_enth2temp, glissade_temp2enth
+              glissade_enth2temp, glissade_temp2enth, glissade_pressure_melting_point_column
 
     ! time-stepping scheme
 

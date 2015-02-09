@@ -872,7 +872,9 @@ contains
     use glissade_masks, only: glissade_get_masks
     use glissade_therm, only: glissade_interior_dissipation_sia,  &
                               glissade_interior_dissipation_first_order, &
-                              glissade_flow_factor
+                              glissade_flow_factor, &
+                              glissade_pressure_melting_point_column, &
+                              glissade_pressure_melting_point
     use glam_grid_operators, only: glam_geometry_derivs
     use felix_dycore_interface, only: felix_velo_driver
 
@@ -974,6 +976,17 @@ contains
     !TODO - flwa halo update not needed?
     ! Halo update for flwa
     call parallel_halo(model%temper%flwa)
+
+    ! Calculate PMP temp for diagnostic purposes
+    do j = 1, model%general%nsn
+       do i = 1, model%general%ewn
+          call glissade_pressure_melting_point_column(model%geometry%thck(i,j) * thk0, &
+                  model%numerics%stagsigma, model%temper%temp_pmp(1:model%general%upn-1,i,j) )
+          call glissade_pressure_melting_point(0.0_dp, model%temper%temp_pmp(0,i,j) )
+          call glissade_pressure_melting_point(model%geometry%thck(i,j) * thk0, &
+                    model%temper%temp_pmp(model%general%upn,i,j) )
+       enddo
+    enddo
 
     ! ------------------------------------------------------------------------ 
     ! ------------------------------------------------------------------------ 

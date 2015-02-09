@@ -862,6 +862,7 @@ module glide_types
     real(dp),dimension(:,:),  pointer :: ucondflx => null()  !> conductive heat flux (W/m^2) at upper sfc (positive down)
     real(dp),dimension(:,:),  pointer :: lcondflx => null()  !> conductive heat flux (W/m^2) at lower sfc (positive down)
     real(dp),dimension(:,:),  pointer :: dissipcol => null() !> total heat dissipation rate (W/m^2) in column (>= 0)
+    real(dp),dimension(:,:,:),  pointer :: temp_pmp => null()  !< pressure melting temperature)
     integer  :: niter   = 0   
     real(dp) :: perturb = 0.d0
     real(dp) :: grid    = 0.d0 
@@ -1389,10 +1390,12 @@ contains
 
     if (model%options%whichdycore == DYCORE_GLIDE) then
        allocate(model%temper%temp(upn,0:ewn+1,0:nsn+1))
+       allocate(model%temper%temp_pmp(upn,0:ewn+1,0:nsn+1))
        call coordsystem_allocate(model%general%ice_grid, upn, model%temper%flwa)
        call coordsystem_allocate(model%general%ice_grid, upn, model%temper%dissip)
     else    ! glam/glissade dycore
        allocate(model%temper%temp(0:upn,1:ewn,1:nsn))
+       allocate(model%temper%temp_pmp(0:upn,1:ewn,1:nsn))
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%flwa)
        call coordsystem_allocate(model%general%ice_grid, upn-1, model%temper%dissip)
     endif
@@ -1400,6 +1403,7 @@ contains
     ! MJH - Set temp and flwa to physically unrealistic values so we can tell later if 
     !       arrays were initialized correctly
     model%temper%temp(:,:,:) = unphys_val  ! unphys_val = -999.d0
+    model%temper%temp_pmp(:,:,:) = unphys_val
     model%temper%flwa(:,:,:) = unphys_val
     model%temper%dissip(:,:,:) = 0.d0
 
@@ -1632,6 +1636,8 @@ contains
 
     if (associated(model%temper%temp)) &
         deallocate(model%temper%temp)
+    if (associated(model%temper%temp_pmp)) &
+        deallocate(model%temper%temp_pmp)
     if (associated(model%temper%bheatflx)) &
         deallocate(model%temper%bheatflx)
     if (associated(model%temper%bwat)) &
