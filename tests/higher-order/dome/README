@@ -4,15 +4,15 @@ This directory contains two Python scripts for running an experiment involving
 an ice sheet with an parabolic "dome" shape on a flat base.  To run the
 experiment, enter the following on a terminal command line:
 
-For a serial job: ./dome.py
+For a serial job: ./runDome.py
 
-For a parallel job: ./dome.py -m number_of_processors, for example:
+For a parallel job: ./runDome.py -m number_of_processors, for example:
 
-./dome.py -m 8 
+./runDome.py -m 8 
 
 ... will run the test case on 8 processors.
 
-Execute: ./dome.py --help
+Execute: ./runDome.py --help
 for a list of all options available.
 
 If you want to run in parallel, the configuration file and number of processors 
@@ -27,7 +27,7 @@ The script performs the following three steps:
 3. Move any additional files written by Glimmer to the "scratch" subdirectory.
 
 PREREQUISITES:
-In order to use the dome.py script, you will need to have Python and one of the
+In order to use the runDome.py script, you will need to have Python and one of the
 following Python modules installed:
 Scientific.IO.NetCDF, netCDF4, or pycdf
 
@@ -36,12 +36,13 @@ To view the results use ncview or another utility for viewing netCDF files.
 ------
 
 This directory also includes example files for how to use time-dependent forcing 
-with CISM.  Run the script ./dome.forcing.py to generate a file called dome.forcing.nc
-that contains time-varying fields for acab, artm, uvel, vvel, and kinbcmask.
+with CISM.  Run the script ./setupDomeForcing.py to generate a file called 
+dome.forcing.nc that contains time-varying fields for acab, artm, uvel, vvel, and 
+kinbcmask.
 
 Then run CISM using the dome.forcing.config file which includes a forcing section
 that uses this new .nc file.  This can be done with, e.g.:
-./dome.py -c dome.forcing.config
+./runDome.py -c dome.forcing.config
 
 After the simulation completes, you can view the output in ncview or some other 
 tool to confirm that the forcing fields have indeed changed over the simulation

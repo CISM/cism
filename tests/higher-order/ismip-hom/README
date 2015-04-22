@@ -32,7 +32,7 @@ the scripts will be written.
 
 STEP 1. Modify the default configuration file if desired:
 
-All tests use ishom.config as a template for creating the .config file
+All tests use ismip-hom.config as a template for creating the .config file
 that is actually used to perform the model run.  If you wish to adjust
 any model settings, you should adjust them in this file.  Most users
 will not have any reason to modify settings.
@@ -112,7 +112,7 @@ When you run the ISMIP-HOM scripts, they create files in the "output"
 subdirectory.  These files are described below.
 
 Files whose names end ".config" are configuration files read by CISM.  They
-are created by copying the base configuration files ("ishom.config") 
+are created by copying the base configuration files ("ismip-hom.config") 
 and making changes based on the command line arguments passed to runISMIPHOM.py.  
 Configuration files are text files and can be viewed using a text editor.
 

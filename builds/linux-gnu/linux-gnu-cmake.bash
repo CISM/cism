@@ -1,14 +1,9 @@
-# run this script by typing: source mac-gnu-cmake
-# After this script completes, type: make -j 8
+#!/usr/bin/env bash
 
-# This cmake configuration script builds cism_driver on a Mac using the Gnu compiler suite.
-# If Trilinos is used, it relies on a build of Trilinos located in $CISM_TRILINOS_DIR (set below).
-# If BISICLES is used, it relies on a build of BISICLES located in $BISICLES_INTERFACE_DIR (set below).
-
-# This script should be run from the builds/mac-gnu subdirectory
-# of the main CISM repository (reflected in the two instances
-# of "../.." below).
-
+# cmake configuration script that works on the Linux box in Matt's office (blueskies) with GCC
+# Others will need to modify the Netcdf path.
+# This config script is setup to perform a parallel build with Trilinos.
+#
 # BUILD OPTIONS:
 # The call to cmake below includes several input ON/OFF switch parameters, to
 # provide a simple way to select different build options.  These are:
@@ -21,13 +16,26 @@
 # CISM_USE_GPTL_INSTRUMENTATION -- ON by default, set to OFF to not use GPTL instrumentation.
 # CISM_COUPLED -- OFF by default, set to ON to build with CESM.
 
-# Serial Build Notes:  Setting CISM_USE_TRILINOS=OFF, CISM_MPI_MODE=OFF, CISM_SERIAL_MODE=ON will
-# configure for a serial build.  (Note that the openmpi compilers will be used, but act as
-# pass-throughs to the underlying serial compilers in this case.  If MPI is not installed,
-# set the serial compilers directly.)
+# After this executes, do:
+#   make -j 8
+
+# Set path to top cism directory
+# Note, this is an easy way to build out of source.
+# In directory you want to build in, run:
+#   $ source $CISM/builds/linux-gnu-cism/linux-gnu-cism-cmake $CISM
+# where $CISM is the path to the top level cism directory.
+if [ $# -eq 0 ]
+then
+    cism_top="../.." 
+else
+    cism_top=${1}
+fi
+
+
+echo CISM: ${cism_top}
 
 echo
-echo Run this script by typing: source mac-gnu-cmake
+echo Run this script by typing: source linux-gnu-cism-cmake
 echo
 echo Set CISM_TRILINOS_DIR to your Trilinos installation directory.
 echo
@@ -54,23 +62,20 @@ cmake \
   -D CISM_GNU=ON \
 \
   -D CISM_TRILINOS_DIR=$CISM_TRILINOS_DIR \
-  -D CISM_NETCDF_DIR=/opt/local \
-  -D CISM_MPI_BASE_DIR=/opt/local \
-  -D CISM_MPI_INC_DIR=/opt/local/lib \
-  -D CISM_EXTRA_LIBS="-lblas" \
+  -D CISM_NETCDF_DIR="/usr" \
+  -D CISM_NETCDF_LIBS="netcdff" \
 \
-  -D CMAKE_INSTALL_PREFIX:PATH=$PWD/install \
-  -D CMAKE_VERBOSE_MAKEFILE:BOOL=ON \
-  -D CMAKE_VERBOSE_CONFIGURE:BOOL=ON \
+  -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none -fPIC -fno-range-check" \
 \
   -D CMAKE_CXX_COMPILER=mpicxx \
   -D CMAKE_C_COMPILER=mpicc \
   -D CMAKE_Fortran_COMPILER=mpif90 \
 \
-  -D CMAKE_CXX_FLAGS="" \
-  -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none" \
+  -D CISM_EXTRA_LIBS:STRING="-lblas" \
 \
-  -D BISICLES_INTERFACE_DIR=~/BISICLES/CISM-interface/interface \
-  ../..
+  -D CISM_MPI_INC_DIR=/usr/lib/openmpi/lib \
+  -D CISM_MPI_LIB_DIR=/usr/lib/openmpi/lib \
+\
+  -D CMAKE_VERBOSE_MAKEFILE=OFF \
+  ${cism_top}
 
-# Note: last argument above  "../.."  is path to top CISM directory

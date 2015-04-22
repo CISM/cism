@@ -15,25 +15,25 @@ To run the confined shelf experiment, enter the following on a terminal
 command line:
 
 For a serial job: 
-python confined-shelf.py 
+python runShelfConfined.py 
 
 For a parallel job: 
-python confined-shelf.py -m number_of_processors, for example:
+python runShelfConfined.py -m number_of_processors, for example:
 
-python confined-shelf.py -m 8
+python runShelfConfined.py -m 8
 
 ... will run the test case on 8 processors.
 
-Note that parallel support in the current "confined-shelf.py" script attempts to 
+Note that parallel support in the current "runShelfConfined.py" script attempts to 
 determine how an mpi job is executed on your machine, but if you see an error
 you may need to make minor alterations to the relevant lines of code that make the call
 to MPI.
 
 If there are problems with running in serial on a multicore machine, try:
-python confined-shelf.py -m 1
+python runShelfConfined.py -m 1
 
 For details of options for running the script use:
-python confined-shelf.py --help
+python runShelfConfined.py --help
 
 Unlike in previous releases, there is only one configuration file which uses
 the Payne/Price higher-order dynamical core (the Pattyn/Bocek/Johnson higher-
@@ -46,21 +46,21 @@ The script performs the following three steps:
 
 The netCDF files are written in the current subdirectory. This is controlled
 by a parameter in the configuration file so if you use your own configuration
-file the output may be written elsewhere. The file "confined-shelf.config"  
+file the output may be written elsewhere. The file "shelf-confined.config"  
 includes the lines:
 
 [CF input]
-name = confined-shelf.nc
+name = shelf-confined.nc
 
 and
 
 [CF output]
-name = confined-shelf.out.nc
+name = shelf-confined.out.nc
 
 which are what specify the name and location of the files.
 
 PREREQUISITES:
-In order to use the confined-shelf.py script, you will need to have Python and 
+In order to use the runShelfConfined.py script, you will need to have Python and 
 one of the following Python modules installed:
 Scientific.IO.NetCDF, netCDF4, or pycdf
 
@@ -77,17 +77,17 @@ command line:
 
 For a serial job: 
 
-python circular-shelf.py
+python runShelfCircular.py
 
 For a parallel job: 
-python circular-shelf.py -m number_of_processors, for example:
+python runShelfCircular.py -m number_of_processors, for example:
 
-python circular-shelf.py -m 8
+python runShelfCircular.py -m 8
 
 ... will run the test case on 8 processors.
 
 For details of options for running the script use:
-python circular-shelf.py --help
+python runShelfCircular.py --help
 
 This script has a few more options:
 
@@ -112,21 +112,21 @@ The script performs the following three steps:
 
 The netCDF files are written in the current subdirectory. This is controlled
 by a parameter in the configuration file so if you use your own configuration
-file the output may be written elsewhere. The file "confined-shelf.config"  
+file the output may be written elsewhere. The file "shelf-circular.config"  
 includes the lines:
 
 [CF input]
-name = circular-shelf.nc
+name = shelf-circular.nc
 
 and
 
 [CF output]
-name = circular-shelf.out.nc
+name = shelf-circular.out.nc
 
 which are what specify the name and location of the files.
 
 PREREQUISITES:
-In order to use the circular-shelf.py script, you will need to have Python and 
+In order to use the runShelfCircular.py script, you will need to have Python and 
 one of the following Python modules installed:
 Scientific.IO.NetCDF, netCDF4, or pycdf
 
