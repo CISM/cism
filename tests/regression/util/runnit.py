@@ -1,7 +1,7 @@
 """The run CISM commands.
 
-   A set of functions to run the tests on personal computers (PC) or high 
-   performance computers (HPC). 
+   A set of functions to run the tests on personal computers (PCs) or high 
+   performance computers (HPCs). 
 """
 
 import os
@@ -14,7 +14,7 @@ from util import dicts
 
 def personal(args, cism_driver, data_dir, test_dict):
     """
-    Run commands for personal computers (PC)
+    Run commands for personal computers (PCs)
     """
     
     test_run = {}
@@ -84,7 +84,6 @@ def personal(args, cism_driver, data_dir, test_dict):
         print(  "   Checking processes:")
         running = 0
         for pros in test_run:
-            #print("   Checking "+pros)
             if test_run[pros].poll() is None:
                 print("      Still waiting on "+pros)
                 running += 1
@@ -122,14 +121,12 @@ def create_job(args, job_name, p_replace, run_commands):
 
 def hpc(args, cism_driver, data_dir, test_dict):
     """
-    Run commands for high performance computers (HPC).
+    Run commands for high performance computers (HPCs).
     """
    
     # ----------------------
     # Setup all run commands
     # ----------------------
-    print("\n   Setting up all the tests and writing the batch job scripts.\n")
-
     platform_dict = dicts.hpc_dict[args.platform]
     perf_large_dict = dicts.perf_dict
 
@@ -153,7 +150,7 @@ def hpc(args, cism_driver, data_dir, test_dict):
         run_script, mod_dict = test_dict[case]
         
 
-        print("   Setting up "+case+" tests...")
+        print("   Setting up "+case+" tests")
         test_commands = ["cd "+cism_test_dir,
                 "export PYTHONPATH=$PYTHONPATH:"+cism_test_dir,
                "./"+run_script+" -q -e "+cism_driver+" -o "+case_data_dir+mod_arg+" -s -n 1 --hpc",
@@ -175,9 +172,9 @@ def hpc(args, cism_driver, data_dir, test_dict):
 
         # get info to setup timing runs.
         if args.timing and mod_dict:
-            print("   Setting up timing "+case+" tests...")
             timing_dir = case_data_dir+os.sep+'timing'
             for rnd in range(10):
+                print("   Setting up "+case+" small timing test "+str(rnd))
                 if mod_arg:
                     timing_mod = mod_arg+'-t'+str(rnd)
                 else:
@@ -239,9 +236,9 @@ def hpc(args, cism_driver, data_dir, test_dict):
         
         # get info to setup timing runs.
         if args.timing and mod_dict:
-            print("   Setting up timing "+case+" tests...")
             timing_dir = case_data_dir+os.sep+'timing'
             for rnd in range(10):
+                print("   Setting up "+case+" large timing test "+str(rnd))
                 if mod_arg:
                     timing_mod = mod_arg+'-t'+str(rnd)
                 else:
@@ -336,12 +333,9 @@ def hpc(args, cism_driver, data_dir, test_dict):
         all_run_files = paths.recursive_glob(data_dir,"*.run")
         large_timing_run_files = list( set(small_run_files + large_run_files + small_timing_run_files) ^ set(all_run_files) )   # get the new run files
        
-        print(large_timing_run_files)
-
         large_timing_jobs = set()
         for rnd in range(10):
             subset_run_files = [f for f in large_timing_run_files if '-t'+str(rnd) in f]
-            print(subset_run_files)
 
             # get the large timing run commands
             large_timing_run_commands = []

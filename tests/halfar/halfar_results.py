@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # A script to compare CISM model output to the Halfar analytic solution of SIA evolution of a dome.
+
 # Matt Hoffman, LANL, October 2013
+# Confirmed working with regression testing by Joseph H Kennedy at ORNL on August 7, 2015
+#     NOTE: Did not adjust -- only works with default `-o/--output-dir` and
+#     `-m/--modifier` options. 
 
 import sys
 import datetime
@@ -22,7 +26,7 @@ from ConfigParser import ConfigParser
 import numpy as np
 import numpy.ma as ma
 import matplotlib.pyplot as plt
-from halfarDome import halfarDome   # located in current directory
+from runHalfar import halfarDome   # located in current directory
 
 parser = OptionParser()
 parser.add_option("-f", "--file", dest="filename", help="file to test", metavar="FILE")
@@ -31,8 +35,8 @@ parser.add_option("-c", "--config", dest="configfile", help="name of config file
 
 options, args = parser.parse_args()
 if not options.filename:
-   options.filename = 'halfar.out.nc'
-   print 'No file specified.  Attempting to use halfar.out.nc'
+   options.filename = 'output/halfar.0031.out.nc'
+   print 'No file specified.  Attempting to use output/halfar.0031.out.nc'
 if options.t:
    timelev = int(options.t)
 else:
@@ -41,8 +45,8 @@ else:
 if options.configfile:
    configfile = options.configfile
 else:
-   configfile = 'halfar.config'
-   print 'No config file specified.  Attempting to use halfar.config.'
+   configfile = 'output/halfar.0031.config'
+   print 'No config file specified.  Attempting to use output/halfar.0031.config.'
 
 # Open config file for reading
 conparser = ConfigParser()

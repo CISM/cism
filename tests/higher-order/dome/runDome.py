@@ -9,7 +9,7 @@ Run an experiment with an ice "dome".
 # -------
 # Written by Glen Granzow at the University of Montana on April 13, 2010
 # Slight alterations by SFP on 2-3-11 for Glimmer-CISM 2.0 relase
-# Reconfigued by Joseph H Kennedy at ORNL on April 27, 2015 to work with the regression testing
+# Reconfigured by Joseph H Kennedy at ORNL on April 27, 2015 to work with the regression testing
 
 import os
 import sys
@@ -49,10 +49,10 @@ parser.add_argument('-o', '--output-dir', default='./output',
 parser.add_argument('-q', '--quiet', action='store_true',
         help="Run the CISM process quietly.")
 parser.add_argument('-s','--setup-only', action='store_true',
-        help="Set up the test, but don't actully run it.")
+        help="Set up the test, but don't actually run it.")
 
 
-# Additional test specific opions:
+# Additional test specific options:
 parser.add_argument('--scale', type=unsigned_int, default=0, 
         help="Scales the problem size by 2**SCALE. SCALE=0 creates a 31x31 grid, SCALE=1 " 
             +"creates a 62x62 grid, and SCALE=2 creates a 124x124 grid.")
@@ -96,7 +96,7 @@ def prep_commands(args, config_name):
             mpiexec = 'mpirun.lsf '
         else:
             print("Unable to execute parallel run!")
-            print("   Please edit the script to use your MPI run command, or run the model mannually with")
+            print("   Please edit the script to use your MPI run command, or run the model manually with")
             print("   something like: mpirun -np 4 ./cism_driver dome.config")
             sys.exit(1)
     else:

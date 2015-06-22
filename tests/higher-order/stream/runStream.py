@@ -8,7 +8,7 @@ Run an experiment with an ice "stream".
 # Authors
 # -------
 # Original author unlisted.
-# Reconfigued by Joseph H Kennedy at ORNL on April 27, 2015 to work with the regression testing
+# Reconfigured by Joseph H Kennedy at ORNL on April 27, 2015 to work with the regression testing
 
 import os
 import sys
@@ -47,12 +47,12 @@ parser.add_argument('-n','--parallel', metavar='N', type=unsigned_int, default=0
 parser.add_argument('-o', '--output-dir', default='./output',
         help="Write all created files here.")
 parser.add_argument('-q', '--quiet', action='store_true',
-        help="Run the cism process quietly.")
+        help="Run the CISM process quietly.")
 parser.add_argument('-s','--setup-only', action='store_true',
-        help="Set up the test, but don't actully run it.")
+        help="Set up the test, but don't actually run it.")
 
 
-# Additional test specific opions:
+# Additional test specific options:
 #parser.add_argument('--scale', type=unsigned_int, default=0, 
 #        help="Scales the problem size by 2**SCALE. SCALE=0 creates a 31x31 grid, SCALE=1 " 
 #            +"creates a 62x62 grid, and SCALE=2 creates a 124x124 grid.")
@@ -104,7 +104,7 @@ def prep_commands(args, config_name):
             mpiexec = 'mpirun.lsf '
         else:
             print("Unable to execute parallel run!")
-            print("   Please edit the script to use your MPI run command, or run the model mannually with")
+            print("   Please edit the script to use your MPI run command, or run the model manually with")
             print("   something like: mpirun -np 4 ./cism_driver stream.config")
             sys.exit(1)
     else:
@@ -224,7 +224,7 @@ def main():
     dy = 2.0 * streamHalfWidth / float(nStream)
     dx = dy  # always want this
     
-    # Figure out the number of cells we need to add to get as close the the 
+    # Figure out the number of cells we need to add to get as close t0 the 
     # desired width of the strong region as possible (note: may want to use 
     # ceil() instead of round() here)
     nStrongStrip = int(round(strongWidth / dy))  
@@ -378,7 +378,7 @@ def main():
 
 
     # =================================================================
-    # fill both uvel and vvel at the upstrean and downstream domain ends
+    # fill both uvel and vvel at the upstream and downstream domain ends
 
         # Fill first column
 #        i = 0
@@ -393,7 +393,7 @@ def main():
 #        kinbcmask[0,:,i] = 1
 
     # =================================================================
-    # fill both uvel and vvel at the upstrean and downstream domain ends
+    # fill both uvel and vvel at the upstream and downstream domain ends
         # Fill just a single across-flow profile in domain interior
         i = 2
         uvel[0,:,:,i] = numpy.tile(uvelProfile, [nz, 1])  # uniform in the vertical

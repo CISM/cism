@@ -1,208 +1,161 @@
 ========================
-Regression testing suite
+Build and test structure
 ========================
 
-The regression testing suite primarily intended to allow users and developers to
+The build and test structure (BATS) is primarily intended to allow users and developers to
 quickly generate a set of regression tests for use with the Land Ice Validation
 and Verification (LIVV) toolkit. 
 
-Typically, this test suit will be used to either test a new installation of this
-Community Ice Sheet Model (CISM) by users, or to test new features by
-developers. In either case, the workflow is essentially the same. 
+BATS is a [Python 2.7](https://www.python.org/) module that is primarily
+controlled by command line options. 
+BATS requires:
 
-============================
-A few notes on building CISM
-============================
+Python Packages 
+* [python-numpy](https://pypi.python.org/pypi/numpy) 
+* [python-scipy](https://pypi.python.org/pypi/scipy) 
+* [python-netCDF4](https://pypi.python.org/pypi/netCDF4) 
+* [python-matplotlib](https://pypi.python.org/pypi/matplotlib)
 
-In order for this test suite to work, you need a copy of CISM and all of CISM's
-dependencies installed on your system. Throughout this document, we will assume
-the CISM version you want to test is located at `$CISM`.  This test suite then
-lives at `$CISM/tests/regression/`. 
+External Packages
+* [NetCDF 4.3.0+](http://www.unidata.ucar.edu/software/netcdf/)
+* [NCO (NetCDF Operators) 4.4.0](http://nco.sourceforge.net/)
+* [HDF5 1.8.6](https://www.hdfgroup.org/HDF5/)
 
-It is recommended that you follow the 
-[installation instructions](http://oceans11.lanl.gov/cism/documentation.html) 
-as they are written in the manual at least once before using this suite. The
-CISM build scripts are located in the directory
-`$CISM/builds/PLATFORM-COMPILER[-DYCORE]` where `PLATFORM` is the computing
-platform you are building on, `COMPILER` is the compiler you are using to build
-CISM, and `DYCORE` is an optional specifier for any additional dycores to build
-CISM with. Example:
+If you have a working install of CISM, and you installed the suggested packages
+in the [CISM](http://oceans11.lanl.gov/cism/documentation.html) users manual,
+you'll likely already have everything you need. If you haven't previously built
+CISM on your machine, we suggest following the installation instructions as they
+are laid out in the users manual first.
 
+(Note: on some High Performance Computing platforms, a
+`setup_PLATFORM.bash` script has been provided which will attempt to load the
+needed modules.)
+
+If you are having any troubles with dependencies, open an issue on the 
+[LIVVkit issue tracker](https://github.com/LIVVkit/LIVVkit/issues)!
+
+===========
+   Usage
+===========
+
+If the location of your CISM source
+code is stored in the environment variable `CISM`, you can go to the BATS
+location by:
+
+```sh
+cd $CISM/tests/regression/
 ```
-$CISM/builds/mac-gnu-biscicles/
+
+There you will find the main BATS run script `build_and_test.py`. BATS is
+primarily controlled via options specified at the command line.  To see the full
+list of options, run:
+
+```sh
+./build_and_test.py -h
 ```
 
-would be the location of the build scripts used to build CISM on a Mac computer
-using the `gnu` compiler and the biscicles dycore. Within that directory there
-will likely be a number of build scripts that follow the forms
+or 
 
-```
-PLATFORM-COMPILER[-DYCORE][-DYCORE-SPEC]-cmake
-PLATFORM-COMPILER[-DYCORE][-DYCORE-SPEC]-cmake.bash
-PLATFORM-COMPILER[-DYCORE][-DYCORE-SPEC]-serial-cmake
+```sh
+python build_and_test.py -h
 ```
 
-where DYCORE-SPEC may be a dash separated list of optional specifiers, and the
-`-serial` specifies a serial build. 
+Each LIVVkit workflow, listed on the 
+[LIVVkit usage](https://github.com/LIVVkit/LIVVkit/wiki/Usage) page, shows how
+BATS is used to generate data for LIVVkit, and the commands used. We suggest
+looking at the workflows first to get a general idea of how BATS will be used.  
 
-NOTE: Currently, additional dycores are NOT supported by this test suit, but is
-planned for future development. Serial builds are NOT supported by this test
-suite, and there is no plan to support them. 
+====================
+   How BATS works
+====================
 
-This test suite only makes use of the `PLATFORM-COMPILER-cmake.bash` scripts. If
-there isn't a `*-cmake.bash` script for your `PLATFORM-COMPILER` combination,
-then your combination is not yet supported. If you would like your combination
-supported, contact the development team, or open an issue on the CISM github
-page. 
+BATS works very similar to how you would build CISM and then run one or more CISM
+tests. BATS will build a version of CISM, and then either run a set of
+regression tests if you are using a personal computer (PC), or setup a series of
+regression tests and generate a job submission script if you are using a high
+performance computer (HPC). 
 
-NOTE:
------
-The `*-cmake.bash` build scripts should only differ slightly from the `*-cmake`
-build scripts (that are referenced in the user manual) and add support for out
-of source builds. If you use bash as your terminal, they should essentially be
-drop in replacements. 
+That is, if CISM is located in `$CISM`  on ORNL's HPC
+platform titan, for example, and you want to run the `$CISM/higher-order/dome`
+test using the gnu compiler, you would typically build CISM by:
 
-If you needed to change any of the variables in the `*-cmake` build script when
-doing an initial build following the manual, you will also have to mirror those
-changes in the equivilent `*-cmake.bash` script!
-
-==================================
-Additional test suite dependencies
-==================================
-
-This test suite requires you to have python 2.7 or greater, numpy, and
-netcdf4-python installed (or loaded). Installing matplotlib and scipy is also
-recommended but not required. 
-
-
-======================
-Running the test suite
-======================
-
-The test suite is accessed by running the `build_and_test.py` script in the
-`$CISM/tests/regression/` directory.
-
-The default run
----------------
-
-By default, if you run `build_and_test.py` without any options, it will assume
-you are on linux machine, want to use the `gnu` compiler, `$CISM` is `../..`
-from your current working directory, and will then look for a build script named
-`linux-gnu-cmake.bash` in `$CISM/builds/linux-gnu/`. 
-
-NOTE: It is typically best to run the test suite from its own directory, and
-hereafter `./` will refere to `$CISM/tests/regression/`.
-
-The test suite will then create the directory `./build` and build CISM into it.
-The CISM executable will then be located at `./build/cism_driver/cism_driver`. 
-
-Next, the test suite will create the directory
-`./reg_test/linux-gnu/` and will run the default tests and copy
-their data to a `TEST` subdirectory(ies). 
-
-reg test will have the structure:
-
+```sh
+cd $CISM/builds/titan-gnu/
+source titan-gnu-cmake
+make -j 8
 ```
+
+which would build a parallel version of CISM into the
+`$CISM/builds/titan-gnu/cism_driver/`
+directory. Then you would go to the dome test directory, create a link to the
+CISM driver, and run the test:
+
+```sh
+cd $CISM/tests/higher-order/dome
+ls -s $CISM/builds/titan-gnu/cism_driver/cism_driver cism_driver
+./runDome.py
+```
+
+You would have to repeat this process for each individual test you'd like
+to run. BATS, however, automates these steps. On titan, running BATS like so
+
+```sh
+cd $CISM/tests/regression/
+source setup_titan.bash
+./build_and_test.py -p titan -c gnu -o ./build
+```
+
+will result in BATS generating all the CMake build file into a new directory
+called `build`, and building CISM into the directory `build/cism_driver/`. BATS
+will then run a set of CISM's higher-order tests:
+
+* Dome (at a variety of resolutions and processor counts)
+* Circular Shelf
+* Confined Shelf
+* ISMIP-HOM a and c (at 20 and 80 km resolutions)
+* ISMIP-HOM f
+* Stream
+
+All of the files associated with each test will be output to a directory called
+`reg_test/titan-gnu/` which has a directory structure that mirrors CISM's test
+directory structure: 
+
+```sh
 reg_test
-└── linux-gnu
+└── titan-gnu
     └── higher-order
-    ├── dome
-    │   ├── dome.RESO.pPRC.*
-    │   ├── dome.RESO.pPRC.*
-    ├── ismip-hom
-    │   ├── ismip-hom-a.RESO.pPRC.*
-    │   ├── ismip-hom-c.RESO.pPRC.*
-    │   ├── ismip-hom-f.0100.pPRC.*
-    ├── shelf
-    │   ├── shelf-circular.RESO.pPRC.*
-    │   ├── shelf-confined.RESO.pPRC.*
-    └── stream
-        └── stream.RESO.pPRC.*
+        ├── dome
+        │   └── dome.RESO.pPRC.*
+        ├── ismip-hom
+        │   ├── ismip-hom-a.RESO.pPRC.*
+        │   ├── ismip-hom-c.RESO.pPRC.*
+        │   └── ismip-hom-f.0100.pPRC.*
+        ├── shelf
+        │   ├── shelf-circular.RESO.pPRC.*
+        │   └── shelf-confined.RESO.pPRC.*
+        └── stream
+            └── stream.RESO.pPRC.*
 ```
 
 where `RESO` is a four-digit number indicating the model resolution (units are
 test specific), and `pPRC` is an optional three-digit number, prefixed by a `p`,
-indicating the number of processors used to run the model.
+indicating the number of processors used to run the model. This 
+`reg_test/titan-gnu/` directory is formatted to be used with LIVVkit directly. 
 
-NOTE: `RESO` will always equal `0100` for ISMIP-HOM test F as it is always run
-at a 100 km resolution.
-
-Detailed options
-----------------
-
-This script takes a few options:
-
-```
-
-  -h, --help            show the help message and exit.
-
-  -p PLATFORM, --platform PLATFORM
-                        Your computer platform. 
-                        (default: linux)
-  
-  -c COMPILER, --compiler COMPILER
-                        Your compiler. 
-                        (default: gnu)
-  
-  -i CISM_DIR, --cism-dir CISM_DIR
-                        Location of the CISM source code. 
-                        (default: ../..)
-  
-  -b BUILD_DIR, --build-dir BUILD_DIR
-                        Location to build CISM. 
-                        (default: ./build)
-
-  -j J                  Number of processors to use when making CISM. 
-                        (default: 8)
-  
-  -s, --skip-build      Skip build, and look for the cism driver:
-                            BUILD_DIR/cism_driver/cism_driver
-                        (default: False)
-
-  -o OUT_DIR, --out-dir OUT_DIR
-                        Location of the directoy to output the test data.
-                        (default: reg_test)
-
-  -f, --force           Supress any warning about possibly overwriting test data.
-                        (default: False)
-  
-  --timing              Run the timing test. This is needed for creating a new
-                        benchmark dataset. 
-                        (default: False)
-  
-  --performance         Run the performance tests. 
-                        (default: False -- unless HPC system is detected, then
-                                           will be forced to true always)
-
-  --sleep SLEEP         Number of seconds to sleep between checks on running
-                        tests. Only used on personal machines, when HPC systems 
-                        are detected,it does not run the tests and just creates 
-                        the batch jobs.
-                        (default: 30)
-```
-
-You can see these options anytime by running `./build_and_test.py -h`. 
-
-Multiple version runs
----------------------
-
-If you would like to run the regression tests for a variety of different CISM
-commits or versions, you can use the `-o/--out-dir` option to specify a different
-`reg_test` directory to output the test data to. For example:
-
-```
-./build_and_test.py --platform mac \
-                    --cism-dir CISM \
-                    --build-dir build_VERSION \
-                    --test_dir reg_test_VERSION
-```
-
-Will build CISM on a Mac, using the CISM code found in `CISM`,
-into a directory named `build_VERSION` and output the data to
-`reg_test_VERSION`. 
+BATS is designed to be flexible and work with any LIVVkit usage scenario. In
+order to do that, BATS provides a number of options to configure which system
+you are using, when/where/how CISM is built, the destination of the output
+directory, and which tests are run. For more information on these topics, see:
 
 
-Authors
-=======
+* Detailed discussion of [BATS options](https://github.com/LIVVkit/LIVVkit/wiki/BATS-options)
+* [Out-of-source builds](https://github.com/LIVVkit/LIVVkit/wiki/CISM-out-of-source-builds)
+* [The reg_test directory](https://github.com/LIVVkit/LIVVkit/wiki/BATS-reg-test) structure
+* [LIVVkit usage](https://github.com/LIVVkit/LIVVkit/wiki/Usage)
+
+=============
+   Authors
+=============
+
 Joseph H. Kennedy, ORNL 
     github : jhkennedy

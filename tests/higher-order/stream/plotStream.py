@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 # Script to plot results of stream test case
 
+# Confirmed working with regression testing by Joseph H Kennedy at ORNL on August 7, 2015
+#     NOTE: Did no adjust -- if the `-o/--output-dir`, `-m/--modifier`, or
+#     `-z/--stream-size` options are used, you will need to pass apropriate filename. 
 # Import modules
+
 import sys, os, numpy
 from netCDF import *
 from runStream import *  # Get all the parameter values and functions defined in the run script
@@ -10,7 +14,7 @@ from matplotlib import pyplot as plt
 # Parse options
 from optparse import OptionParser
 optparser = OptionParser()
-optparser.add_option("-f", "--file", dest="filename", default="stream.out.nc", help="file to test", metavar="FILE")
+optparser.add_option("-f", "--file", dest="filename", default="stream.0025.out.nc", help="file to test", metavar="FILE")
 for option in optparser.option_list:
     if option.default != ("NO", "DEFAULT"):
         option.help += (" " if option.help else "") + "[default: %default]"
@@ -22,7 +26,7 @@ options, args = optparser.parse_args()
 # Start actual script here.
 
 # Open file and get needed vars
-f = NetCDFFile(options.filename, 'r')
+f = NetCDFFile(os.path.join('output',options.filename), 'r')
 y0 = f.variables['y0'][:]
 ny = y0.shape[0] + 1  # the actual ny dimension, not the size of y0
 dy = y0[1]-y0[0]

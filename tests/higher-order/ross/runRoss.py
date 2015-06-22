@@ -8,7 +8,7 @@ Run an experiment with an ice "Ross".
 # Authors
 # -------
 # Written March 18, 2010 by Glen Granzow at the University of Montana.
-# Reconfigued by Joseph H Kennedy at ORNL on April 27, 2015 to work with the regression testing
+# Reconfigured by Joseph H Kennedy at ORNL on April 27, 2015 to work with the regression testing
 
 import os
 import sys
@@ -48,9 +48,9 @@ parser.add_argument('-o', '--output-dir', default='./output',
 parser.add_argument('-q', '--quiet', action='store_true',
         help="Run the cism process quietly.")
 parser.add_argument('-s','--setup-only', action='store_true',
-        help="Set up the test, but don't actully run it.")
+        help="Set up the test, but don't actually run it.")
 
-# Additional test specific opions:
+# Additional test specific options:
 
 #optparser.add_option("-r", "--run", dest="doRun", default=False, action="store_true", help="Including this flag will run CISM.  Excluding it will cause the script to only setup the initial condition file")
 
@@ -94,7 +94,7 @@ def prep_commands(args, config_name):
             mpiexec = 'mpirun.lsf '
         else:
             print("Unable to execute parallel run!")
-            print("   Please edit the script to use your MPI run command, or run the model mannually with")
+            print("   Please edit the script to use your MPI run command, or run the model manually with")
             print("   something like: mpirun -np 4 ./cism_driver ross.config")
             sys.exit(1)
     else:
@@ -116,7 +116,7 @@ use_inlets   = (False, True, 'reverse')[1]
 # Test specific functions
 # -----------------------
 
-# raymond yield stress
+# Raymond yield stress
 def createArray(nx,ny,data,dtype):
     # nx and ny dimensions are one more than the raw data, 
     # because we are choosing to use the raw data on the velocity grid.
@@ -454,6 +454,8 @@ def main():
     nc_file.createVariable('vvel','f',('time','level','y0','x0'))[:] = vvel
     nc_file.createVariable('kinbcmask','i',('time','y0','x0'))[:] = kinbcmask
     nc_file.createVariable('beta','f',('time','y0','x0'))[:] = beta 
+    nc_file.createVariable('thk' ,'f',('time','y1','x1'))[:] = thk
+    nc_file.createVariable('topg','f',('time','y1','x1'))[:] = topg
   
 
     ##NOTE: optional plot of kinematic bc positions

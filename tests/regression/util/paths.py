@@ -75,7 +75,7 @@ def mkdir_test(args, test_dict):
     # clean up run files, if the exist
     # NOTE: this is needed because runnit.hpc uses recursive_globs over the created
     #       run files in order to determine what run files are new. With force, all 
-    #       run files will apear to be old. 
+    #       run files will appear to be old. 
     if args.force:
         all_run_files = recursive_glob(data_dir,"*.run")
         for rf in all_run_files:

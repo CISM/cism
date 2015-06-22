@@ -6,11 +6,12 @@ to each test. See descriptions of each dictionary.
 
 # SPECIFIC TESTS DICTIONARIES
 # ===========================
-# These dictionaries describe the NON DEFAULT options to pass to the test run script found within
-# the testing directory. These modified test cases are only called if the performance option is
+# These dictionaries describe the NON DEFAULT options to pass to the test run scripts found within
+# the CISM tests directory. These modified test cases are only called if the performance option is
 # specified.
 # 
-# See MAIN TEST DICTIONARY at bottom. They should consist of key-value pairs like:
+# Dictionaries for use in the MAIN TEST DICTIONARY (at bottom). They should
+# consist of key-value pairs like:
 #   key: anything descriptive -- used only internally
 #   value: a string containing the options to pass to the script. 
 # See the dictionaries below for an example.
@@ -40,19 +41,19 @@ dome_perf_large = {
 
 # The higher-order/shelf tests
 # ----------------------------
-# NOTE: empty dict because no perormance testing for confined shelf. Leaving here for possible
+# NOTE: empty dict because no performance testing for confined shelf. Leaving here for possible
 #       future expansion. 
 shelfConfined_perf_small = {}
 
-# NOTE: empty dict because no perormance testing for circular shelf. Leaving here for possible
+# NOTE: empty dict because no performance testing for circular shelf. Leaving here for possible
 #       future expansion. 
 shelfCircular_perf_small = {}
 
-# NOTE: empty dict because no perormance testing for ISMIP-HOM. Leaving here for possible
+# NOTE: empty dict because no performance testing for ISMIP-HOM. Leaving here for possible
 #       future expansion. 
 ismip_perf_small = {}
 
-# NOTE: empty dict because no perormance testing for stream. Leaving here for possible
+# NOTE: empty dict because no performance testing for stream. Leaving here for possible
 #       future expansion. 
 stream_perf_small = {}
 
@@ -60,9 +61,9 @@ stream_perf_small = {}
 # ====================
 # This is the main dictionary that describes what tests to run.
 # Each dictionary item should consist of key-value pairs like:
-#   key: path_to_test_from_cism/tests
+#   key: path to test from $CISM/tests
 #       example: 'higher-order/dome'
-#       NOTE: key can be a space seperated list with the first entry the path to the test directory
+#       NOTE: key can be a space separated list with the first entry the path to the test directory
 #             and the rest of the list used to define uniqueness. This is useful for tests that have
 #             multiple run scripts like shelf.
 #           example: 'higher-order/shelf Confined'
@@ -70,13 +71,13 @@ stream_perf_small = {}
 #   value: tuple of (run_script, options_dict) where run_script is the test run
 #          script that can be found within the directory specified by the key
 #          and options_dict is a dictionary containing the options to pass to the
-#          run_script (as desibed above)
+#          run_script (as described above)
 #        example: ('runDome.py', dome_perf_small)
 test_dict = {
         'higher-order/dome': ('runDome.py', dome_perf_small),
         'higher-order/shelf Confined': ('runShelfConfined.py', shelfConfined_perf_small),
         'higher-order/shelf Circular': ('runShelfCircular.py', shelfConfined_perf_small),
-        'higher-order/ismip-hom': ('runISMIP-HOM.py -r a c f', ismip_perf_small),
+        'higher-order/ismip-hom': ('runISMIP_HOM.py -r a c f', ismip_perf_small),
         'higher-order/stream': ('runStream.py', stream_perf_small),
         }
 
@@ -86,6 +87,8 @@ perf_dict = {
 
 # HPC PLATFORM DICTIONARIES
 # =========================
+# There should be a dictionary for each supported HPC platform which specifies 
+# the default batch scheduler options to use. 
 hopper_dict = {
         'PBS_A': 'm1795',
         'PBS_q': 'regular',
@@ -108,6 +111,7 @@ titan_dict = {
 
 # MAIN HPC DICTIONARY
 # ===================
+# Collection of all the HPC platform dictionaries. 
 hpc_dict = {
         'titan': titan_dict,
         'hopper': hopper_dict,

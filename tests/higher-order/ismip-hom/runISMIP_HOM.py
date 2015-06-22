@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
-#FIXME: More detailed description of this test case!!!
 """
-Run the ISMIP-HOM experiments. 
+Script to run the Ice Sheet Model Intercomparison Project for Higher-Order
+Models (ISMIP-HOM) experiments. For more information, see the README and/or
+http://homepages.ulb.ac.be/~fpattyn/ismip/. 
 """
 
 # Authors
 # -------
 # Written March 2, 2010 by Glen Granzow at the University of Montana.
-# Reconfigued by Joseph H Kennedy at ORNL on April 27, 2015 to work with the regression testing
+# Reconfigured by Joseph H Kennedy at ORNL on April 27, 2015 to work with the regression testing
 
 import os
 import sys
@@ -20,14 +21,19 @@ import numpy
 import netCDF
 from math import tan, sin, pi, exp
 
+defaultSizes=[20,80]
+defaultExperiments=['a','c']
+
 # Parse the command line options
 # ------------------------------
 import argparse
 parser = argparse.ArgumentParser(description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-# small helper function so argparse will understand unsigned integers
 def unsigned_int(x):
+    """
+    Allows argparse to understand unsigned integers. 
+    """
     x = int(x)
     if x < 1:
         raise argparse.ArgumentTypeError("This argument is an unsigned int type! Should be an integer greater than zero.")
@@ -48,10 +54,10 @@ parser.add_argument('-o', '--output-dir', default='./output',
 parser.add_argument('-q', '--quiet', action='store_true',
         help="Run the cism process quietly.")
 parser.add_argument('-s','--setup-only', action='store_true',
-        help="Set up the test, but don't actully run it.")
+        help="Set up the test, but don't actually run it.")
 
 
-# Additional test specific opions:
+# Additional test specific options:
 def lower_case(mixed):
     """
     Converts a string to all lower cased. If used for a type in argparse, this 
@@ -60,28 +66,19 @@ def lower_case(mixed):
     return mixed.lower()
 
 parser.add_argument('--cyclic', action='store_true', 
-        help="If specified, all fields (including scalars) are truely periodic across the domain. This will only be applied to experiments a and b. "
-            +"Note: this model setup should NOT be compaired to ISMIP-HOM results.")
-  #parser.add_option('-c','--cyclic',dest='cyclic',action='store_true',default=False,help='if specified then all fields, including scalars, are truly periodic across the domain (NOT true for ismip-hom)')
-
-parser.add_argument('-r','--experiments', nargs='*', default=['a','c'], choices=['a','b','c','d','e','f'], type=lower_case, metavar='{a b c d e f}',
-        help="List (seperated by spaces) the ISMIP-HOM experiments to run.")
-  #parser.add_option('-e','--exp',dest='experiments',type='string',action='callback',callback=appendToList,help='Specify ISMIP-HOM experiments to run')
-
+        help="If specified, all fields (including scalars) are truly periodic across the domain. This will only be applied to experiments a and b. "
+            +"Note: this model setup should NOT be compared to ISMIP-HOM results.")
+parser.add_argument('-r','--experiments', nargs='*', default=defaultExperiments, choices=['a','b','c','d','e','f'], type=lower_case, metavar='{a b c d e f}',
+        help="List (separated by spaces) the ISMIP-HOM experiments to run.")
 parser.add_argument('--scale', type=unsigned_int, default=0, 
         help="Scales the problem size by 2**SCALE. SCALE=0 creates a 40x40 grid, SCALE=1 " 
             +"creates a 80x80 grid, and SCALE=2 creates a 160x160 grid.")
-  #parser.add_option('-g','--grid-size',dest='horizontal_grid_size',type='int',help='overrides ewn and nsn in config file')
-
 #FIXME: do we need a valid range here?
-parser.add_argument('--sizes', nargs='*', default=[20,80], type=unsigned_int, metavar='KM', 
-        help="List (seperated by spaces) the domain sizes to run. Recommended sizes: 5, 10, 20, 40, 80 and 160 km. "
+parser.add_argument('--sizes', nargs='*', default=defaultSizes, type=unsigned_int, metavar='KM', 
+        help="List (separated by spaces) the domain sizes to run. Recommended sizes: 5, 10, 20, 40, 80 and 160 km. "
             +"Note: sizes will only be applied to experiments a though e. Experiment f has only one size (100 km). ")
-  #parser.add_option('-s','--size',dest='sizes',type='string',action='callback',callback=appendToList,help='Specify domain sizes to run')
-
 parser.add_argument('--vertical', type=unsigned_int,
         help="Override the vertical grid size (upn) in the config file.")
-  #parser.add_option('-v','--vert-grid-size',dest='vertical_grid_size',type='int',help='overrides upn in config file')
 
 
 # Some useful functions
@@ -239,7 +236,7 @@ def main():
                 # Not sure yet how much longer than that to eliminate those.
                 config_parser.set('time', 'tend', '400.0')
                 # Include flwa, efvs and the CFL variables to the output file
-                config_parser.set('CF output', 'variables', 'uvel vvel uvel_icegrid vvel_icegrid topg thk usurf wvel_ho velnorm efvs adv_cfl_dt diff_cfl_dt')  
+                config_parser.set('CF output', 'variables', 'uvel vvel uvel_extend vvel_extend uvel_icegrid vvel_icegrid topg thk usurf wvel_ho velnorm efvs adv_cfl_dt diff_cfl_dt')  
                 # we don't want to output a whole lot of time levels, but want to be able to see we've reached SS.
                 config_parser.set('CF output', 'frequency', '25.0')  
 
@@ -253,7 +250,7 @@ def main():
             # ----------------------------
             #FIXME: This whole section could use a clean up. -JHK
             if not args.quiet: 
-                print("Creating dome netCDF file: "+file_name)
+                print("Creating input netCDF file: "+file_name)
             try:
                 nc_file = netCDF.NetCDFFile(file_name,'w',format='NETCDF3_CLASSIC')
             except TypeError:

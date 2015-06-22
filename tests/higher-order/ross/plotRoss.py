@@ -4,7 +4,11 @@
 # Ross Ice Shelf Geophysical and Glaciological Survey 1973-78 (RIGGS).
 # Before running this script run runGlimmer.py to generate the model output.
 # See the accompanying README file for more information.
+
 # Written April 5, 2010 by Glen Granzow at the University of Montana.
+# Confirmed working with regression testing by Joseph H Kennedy at ORNL on August 7, 2015
+#     NOTE: Did not adjust -- only works with default `-o/--output-dir` and
+#     `-m/--modifier` options. 
 
 import os
 import numpy
@@ -46,15 +50,17 @@ def cmap_discretize(cmap, N):
 ########## PART I: READ THE INPUT FILES ##########
 
 # Read the Glimmer output file
-filename = os.path.join('output','ross.out.nc')
+filename = os.path.join('output','ross.0148.out.nc')
 inputfile1 = NetCDFFile(filename,'r')
 velnorm = numpy.array(inputfile1.variables['velnorm'][0,0,:,:])
 if netCDF_module == 'Scientific.IO.NetCDF':
    velnorm = velnorm * inputfile1.variables['velnorm'].scale_factor
 inputfile1.close()
 
+print(velnorm)
+
 if options.use_mask:
-  filename = os.path.join('output','ross.nc')
+  filename = os.path.join('output','ross.0148.nc')
   inputfile2 = NetCDFFile(filename,'r')
   mask = numpy.array(inputfile2.variables['kinbcmask'][0,:,:])
   inputfile2.close()
@@ -94,6 +100,9 @@ for line in inputfile4:
     beta  = (lat-y[j])/(y[j+1]-y[j])
     v = (1-alpha)*((1-beta)*velnorm[j,i]  +beta*velnorm[j+1,i]) \
        +   alpha *((1-beta)*velnorm[j,i+1]+beta*velnorm[j+1,i+1])
+    #print(alpha)
+    #print(beta)
+    #print(v)
     if v != 0:
       latitude.append(lat)
       longitude.append(lon)
