@@ -171,6 +171,7 @@ def main():
 
     config_parser.set('CF input', 'name', file_name)
     config_parser.set('CF output', 'name', out_name)
+    config_parser.set('CF output', 'xtype', 'double')
    
     if forcing_name:
         forcing_name = forcing_root+mod+forcing_ext

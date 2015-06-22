@@ -209,6 +209,7 @@ def main():
             config_parser.set('CF default', 'title', 'ISMIP-HOM Experiment '+experiment.upper() )
             config_parser.set('CF input', 'name', file_name)
             config_parser.set('CF output', 'name', out_name)
+            config_parser.set('CF output', 'xtype', 'double')
             
             if not args.cyclic:
                 if experiment in ('a','b'):

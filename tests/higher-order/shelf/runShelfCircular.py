@@ -176,6 +176,7 @@ def main():
 
     config_parser.set('CF input', 'name', file_name)
     config_parser.set('CF output', 'name', out_name)
+    config_parser.set('CF output', 'xtype', 'double')
     
     with open(config_name, 'wb') as config_file:
         config_parser.write(config_file)
