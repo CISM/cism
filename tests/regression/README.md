@@ -102,7 +102,7 @@ to run. BATS, however, automates these steps. On titan, running BATS like so
 ```sh
 cd $CISM/tests/regression/
 source setup_titan.bash
-./build_and_test.py -p titan -c gnu -o ./build
+./build_and_test.py -p titan -c gnu -b ./build
 ```
 
 will result in BATS generating all the CMake build file into a new directory
@@ -121,25 +121,40 @@ All of the files associated with each test will be output to a directory called
 directory structure: 
 
 ```sh
-reg_test
-└── titan-gnu
-    └── higher-order
-        ├── dome
-        │   └── dome.RESO.pPRC.*
-        ├── ismip-hom
-        │   ├── ismip-hom-a.RESO.pPRC.*
-        │   ├── ismip-hom-c.RESO.pPRC.*
-        │   └── ismip-hom-f.0100.pPRC.*
-        ├── shelf
-        │   ├── shelf-circular.RESO.pPRC.*
-        │   └── shelf-confined.RESO.pPRC.*
-        └── stream
-            └── stream.RESO.pPRC.*
+ reg_test/
+    └── PLATFORM-COMPILER/
+        ├── CMakeCache.txt
+        ├── higher-order/
+        │    ├── dome/
+        │    │   ├── dome.RESO.pPRC.*
+        │    │   └── timing/
+        │    │       └── dome-t?.RESO.pPRC.*
+        │    ├── ismip-hom
+        │    │   ├── ismip-hom-a.RESO.pPRC.*
+        │    │   ├── ismip-hom-c.RESO.pPRC.*
+        │    │   └── ismip-hom-f.0100.pPRC.*
+        │    ├── shelf
+        │    │   ├── shelf-circular.RESO.pPRC.*
+        │    │   └── shelf-confined.RESO.pPRC.*
+        │    └── stream
+        │        └── stream.RESO.pPRC.*
+    --------------------------------------------
+        ├── Jobs/
+        │    ├── platform_job.small
+        │    ├── platform_job.small_timing_?
+        │    ├── platform_job.large
+        │    └── platform_job.large_timing_?
+        ├── submit_all_jobs.bash
+        └── clean_timing.bash
 ```
 
 where `RESO` is a four-digit number indicating the model resolution (units are
-test specific), and `pPRC` is an optional three-digit number, prefixed by a `p`,
-indicating the number of processors used to run the model. This 
+test specific), and `pPRC` is an optional three-digit number, prefixed by a
+`p`, indicating the number of processors used to run the model. Everything
+below the dashed line will only appear on HPC systems. `submit_all_jobs.bash`
+will submit all the jobs in the `jobs/` directory and `clean_timing.bash` will
+clean out any `higher-order/*/timing/` directory such that only the timing
+files remain (to be used once all jobs have finished). This
 `reg_test/titan-gnu/` directory is formatted to be used with LIVVkit directly. 
 
 BATS is designed to be flexible and work with any LIVVkit usage scenario. In
