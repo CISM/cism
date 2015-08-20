@@ -52,17 +52,17 @@ To view the results use ncview or another utility for viewing netCDF files.
 --------------------------------------------------------------------------------
 
 This directory also includes example files for how to use time-dependent forcing
-with CISM. If the `dome.forcing.config` file is passed to the `runDome.py`
+with CISM. If the `dome-forcing.config` file is passed to the `runDome.py`
 script using the `-c/--config` option (or, if any passed `*.config` file has a
 [CF Forcing] section) it will generate a file called `dome.forcing.nc` that
 contains time-varying fields for `acab`, `artm`, `uvel`, `vvel`, and
 `kinbcmask`.
 
-Then CISM will be run using the `dome.forcing.config` file which includes a
+Then CISM will be run using the `dome-forcing.config` file which includes a
 forcing section that uses this new `*.nc` file.  This can be done with, e.g.:
 
 ```sh
-./runDome.py -c dome.forcing.config
+./runDome.py -c dome-forcing.config
 ```
 
 After the simulation completes, you can view the output in ncview or some other
