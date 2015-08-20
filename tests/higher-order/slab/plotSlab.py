@@ -18,8 +18,6 @@ in preparation.
 #     NOTE: Did not adjust inner workings except where needed.
 
 
-print "WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!"
-
 # Note this script is assuming n=3, but more general solutions are available.
 
 import os
@@ -31,7 +29,7 @@ import matplotlib.pyplot as plt
 
 from netCDF import *
 from math import tan, pi, sin, cos
-from slab import n, rhoi, grav, theta, beta, efvs, thickness  # Get the values used to run the experiment
+from runSlab import n, rhoi, grav, theta, beta, efvs, thickness  # Get the values used to run the experiment
 
 import argparse
 parser = argparse.ArgumentParser(description=__doc__,
@@ -67,11 +65,13 @@ def main():
     Plot the slab test results.
     """
 
+    print("WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!")
+
     # check that file name modifier, if it exists, starts with a '-'
     if not (args.modifier == '') and not args.modifier.startswith('-') :
         args.modifier = '-'+args.modifier
 
-    mod = '-'+experiment+args.modifier+'.'+str(size).zfill(4)
+    mod = args.modifier+'.'+str(size).zfill(4)
     filebase = 'slab'+mod
 
 
@@ -198,7 +198,7 @@ def main():
 
     filein.close()
 
-    print "WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!"
+    print("WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!")
 
 # Run only if this is being run as a script.
 if __name__=='__main__':

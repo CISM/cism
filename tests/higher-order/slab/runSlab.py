@@ -13,8 +13,6 @@ Run an experiment with an ice "slab".
 #    more efficient computational solution. The Cryosphere, 6, 21-34. www.the-cryosphere.net/6/21/2012/
 # Reconfigured by Joseph H Kennedy at ORNL on April 27, 2015 to work with the regression testing
 
-print "WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!"
-
 import os
 import sys
 import errno
@@ -141,6 +139,8 @@ def main():
     """
     Run the slab test.
     """
+
+    print("WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!")
 
     # check that file name modifier, if it exists, starts with a '-'
     if not (args.modifier == '') and not args.modifier.startswith('-') :
@@ -304,7 +304,7 @@ def main():
             print(  "======================================")
             print(  "   To run the test, use: "+run_script)
 
-    print "WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!"
+    print("WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!")
 
 # Run only if this is being run as a script.
 if __name__=='__main__':
