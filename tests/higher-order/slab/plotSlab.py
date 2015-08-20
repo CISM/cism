@@ -18,6 +18,8 @@ in preparation.
 #     NOTE: Did not adjust inner workings except where needed.
 
 
+print "WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!"
+
 # Note this script is assuming n=3, but more general solutions are available.
 
 import os
@@ -31,6 +33,7 @@ from netCDF import *
 from math import tan, pi, sin, cos
 from slab import n, rhoi, grav, theta, beta, efvs, thickness  # Get the values used to run the experiment
 
+import argparse
 parser = argparse.ArgumentParser(description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -194,6 +197,8 @@ def main():
     plt.show()
 
     filein.close()
+
+    print "WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!"
 
 # Run only if this is being run as a script.
 if __name__=='__main__':
