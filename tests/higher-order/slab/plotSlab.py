@@ -18,12 +18,12 @@ in preparation.
 #     NOTE: Did not adjust inner workings except where needed.
 
 
-# Note this script is assuming n=3, but more general solutions are available.
+#NOTE: this script is assuming n=3, but more general solutions are available.
 
 import os
 import sys
 import glob
-import shutil
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -37,11 +37,14 @@ parser = argparse.ArgumentParser(description=__doc__,
 
 # The command line options
 # ------------------------
-# args.to be mirrored from runSlab.py
-parser.add_argument('-m', '--modifier', metavar='MOD', default='',
-        help="Add a modifier to file names. FILE.EX will become FILE.MOD.EX")
 parser.add_argument('-o', '--output-dir', default='./output',
-        help="Directory containing the run output files.")
+        help="Directory containing the tests output files. Warning: if there is a" \
+        +"path passed via the -f/--out-file option, this argument will be" \
+        +"ignored.")
+
+parser.add_argument('-f', '--output-file',
+        help="The tests output file you would like to plot. If a path is" \
+        +"passed via this option, the -o/--output-dir option will be ignored.")
 
 
 # ===========================================================
@@ -53,9 +56,44 @@ eta = beta * thickness * efvs**-n * (rhoi * grav * thickness)**(n-1)
 velscale = (rhoi * grav * thickness / efvs)**n * thickness
 thetar = theta * pi/180.0  # theta in radians
 
-# the size NOTE:is defined by variable `ewn` in slab.config, should probably
-#               parse this file here 
-size = 30
+def get_in_file():
+    if args.output_file:
+        out_d, out_f = os.path.split(args.output_file)
+        if out_d:
+            args.output_dir = out_d
+            args.output_file = out_f
+    
+        print("\nUsing "+os.path.join(args.output_dir, args.output_file)+"\n")
+        
+    else:
+        outpath = os.path.join(args.output_dir, '*.out.nc')
+        matching = glob.glob(outpath)
+        if len(matching) == 1:
+            newest = matching[0]
+            print("\nUsing "+newest+"\n")
+       
+        elif len(matching) > 1:
+            newest = max(matching, key=os.path.getmtime)
+            print("\nWARNING: MULTIPLE *.out.nc FILES DETECTED!")
+            print(  "==========================================")
+            print(  "Ploting the most recently modified file in the output directory:")
+            print(  "    "+newest)
+            print(  "To plot another file, specify it with the -f/--outfile option.\n")
+            
+        else:
+            print("\nERROR: NO *.out.nc FILES DETECTED!")
+            print(  "==================================")
+            print(  "Either specify a location to look for the test output")
+            print(  "files with the -o/--output-dir option, or the test output")
+            print(  "file with the -f/--output-file option.\n")
+            sys.exit(1)
+
+        args.output_file = os.path.basename(newest)
+
+    filein = NetCDFFile(os.path.join(args.output_dir, args.output_file),'r')
+     
+    return filein
+
 
 # =========================
 # Actual script starts here
@@ -67,16 +105,10 @@ def main():
 
     print("WARNING: THIS TEST CASE IS IN DEVELOPMENT. USE AT YOUR OWN RISK!")
 
-    # check that file name modifier, if it exists, starts with a '-'
-    if not (args.modifier == '') and not args.modifier.startswith('-') :
-        args.modifier = '-'+args.modifier
 
-    mod = args.modifier+'.'+str(size).zfill(4)
-    filebase = 'slab'+mod
-
+    filein = get_in_file()    
 
     # Get needed variables from the output file
-    filein = NetCDFFile(os.path.join(args.output_dir, filebase+'.out.nc'),'r')
     x1 = filein.variables['x1'][:]
     y1 = filein.variables['y1'][:]
     x0 = filein.variables['x0'][:]
