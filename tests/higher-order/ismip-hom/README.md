@@ -87,22 +87,22 @@ to see all of the possible command line arguments.
 ./plotISMIP_HOM.py
 ```
 
-If you used command line arguments to specify the experiment (or experiments)
-and domain size (or sizes) when running CISM you should include these same
-arguments plotting the results.  For example
+This will automatically plot the newest set of tests that were run (all sizes
+and experiments).
+
+If you have multiple sets of tests (e.g., via the `-m` or `-n` option) in the
+same output directory, `plotISMIP_HOM.py` will automatically plot the newest set
+(see the OUTPUT FILES section below for a discussion on sets). To plot an older
+set, pass any of the output (`*.out.nc`) files from the older set via the `-f`
+option.  
+
+
+By default,  if there is more than one domain size for an experiment within a
+set, they are all plotted as small plots in one file.  You may override the
+sizes, and plotting one domain size at a time results in larger plots; for example
 
 ```sh
-./plotISMIP_HOM.py -r a c --sizes 40 80 160
-```
-
-would plot the results from running experiments a and c with domain sizes 40,
-80, and 160 km.  If you request more than one domain size for an experiment,
-they are all plotted as small plots in one file.  (The above command creates two
-files, one for experiment a and one for experiment c, each containing three
-plots.)  Plotting one domain size at a time results in larger plots; for example
-
-```sh
-./plotISMIP_HOM.py -r a c --sizes 40
+./plotISMIP_HOM.py --sizes 40
 ```
 
 creates two files, each containing one (large) plot.
@@ -130,6 +130,26 @@ OUTPUT FILES:
 When you run the ISMIP-HOM scripts, they create files in the `output`
 subdirectory.  These files are described below.
 
+The files will all follow this naming pattern:
+
+```sh
+ismip-hom-?[-MOD].RESO.[pPROC.].EXT
+```
+
+Where `?` is a stand-in for the experiment (e.g. `a`), `[-MOD]` is an optionally
+user specified filename modifier, `RESO` is the size of the experiment, `[pPROC.]`
+is the number of processors the test was run with (appears only if the `-n`
+option was passed to `runISMIP_HOM.py`), and `EXT` is the file extension. A set
+of experiment files consist of all files that match the pattern:
+
+```sh
+ismip-hom-?[-MOD].????.[pPROC.].EXT
+```
+
+where here the `?` is a POSIX metacharacter. That is, all experiments and sizes
+are grouped into sets defined by `[-MOD]` and `[pPROC]` arguments (or lack
+thereof). 
+
 Files whose names end in `.config` are configuration files read by CISM.  They
 are created by copying the base configuration files (`ismip-hom.config`) and
 making changes based on the command line arguments passed to `runISMIP_HOM.py`.
@@ -139,9 +159,8 @@ Files whose names end in `.nc` are netCDF files.  The contents of these files
 can be examined using a tool such as ncview.  There are two different netCDF
 files created each time CISM is run: 1. An input file created by
 `runISMIP_HOM.py` which provides the ice thickness, bed topography, and
-(sometimes) basal friction coefficient.  2. An output file created by CISM.
-Each input file for CISM has a name like `ismip-hom-?.????.nc` while the output
-files from CISM have a names ending in `.out.nc`.  
+(sometimes) basal friction coefficient.  2. An output file created by CISM will
+have a name ending in `.out.nc`.   
 
 Files whose names end in `.txt` are output files written in a format used by all
 models participating in the ISMIP-HOM experiment.  As their name implies these
@@ -165,7 +184,5 @@ poor). The provided configuration files have reasonable default values for the
 grid spacing in order to "pass" the ISMIP-HOM tests at *most* of the
 wavelengths. In some cases these may need to be adjusted.
 
-If you pass `plotISMIP_HOM.py` X different sizes in combination with experiment
-f, which is always only run at 100 km, the f subplot will be duplicated X times
-in the `ismip-hom-f.png` plot.
-
+When multiple sizes are found by `plotISMIP_HOM.py`, and a single size is not
+specified, the `f` plots will be duplicated within its plot that many times. 

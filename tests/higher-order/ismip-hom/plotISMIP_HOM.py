@@ -2,8 +2,15 @@
 
 """
 This script plots the results of running ISMIP-HOM experiments using Glimmer.
-Before running this script, run runISMIP_HOM.py to generate the results.  See the
-accompanying README file for more information.
+Before running this script, run runISMIP_HOM.py to generate the results.
+runISMIP_HOM.py generates a set of output files that will follow the pattern:
+ismip-hom-?[-MOD].RESO.[pPROC.]out.nc, where `?` is a POSIX metacharacter,
+[-MOD] is an optional user specified file modifier, RESO is the size of the
+experiment, and [pPROC.] is the optional number of processors used to run the model
+(prefixed by a p). This script will plot the set of experiments that follow the
+above pattern. If more than one set exists, it will plot the last modified set,
+unless a specific set is specified. See the accompanying README file for more
+information.
 """
 
 # To see all command line args.run: python plotResults.py --help
@@ -14,13 +21,13 @@ accompanying README file for more information.
 
 import os
 import sys
+import glob
 import argparse
 import numpy as np
 
 from math import sqrt, sin, cos, pi
 from netCDF import *
 from optparse import OptionParser
-from runISMIP_HOM import defaultExperiments, defaultSizes
 
 import matplotlib.figure
 from matplotlib import pyplot
@@ -33,6 +40,9 @@ plotType = '.png'
 
 # The command line options
 # ------------------------
+parser = argparse.ArgumentParser(description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
 def unsigned_int(x):
     """
     Allows argparse to understand unsigned integers. 
@@ -42,26 +52,18 @@ def unsigned_int(x):
         raise argparse.ArgumentTypeError("This argument is an unsigned int type! Should be an integer greater than zero.")
     return x
 
-def lower_case(mixed):
-    """
-    Converts a string to all lower cased. If used for a type in argparse, this 
-    conversion will be applied before the possible choices are evaluated.
-    """
-    return mixed.lower()
-
-parser = argparse.ArgumentParser(description=__doc__,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
-# args.to be mirrored from runISMIP_HOM.py
-parser.add_argument('-m', '--modifier', metavar='MOD', default='',
-        help="Add a modifier to file names. FILE.EX will become FILE.MOD.EX")
 parser.add_argument('-o', '--output-dir', default='./output',
-        help="Directory containing the run output files.")
-parser.add_argument('-r','--experiments', nargs='*', default=defaultExperiments, choices=['a','b','c','d','e','f'], type=lower_case, metavar='{a b c d e f}',
-        help="List (separated by spaces) the ISMIP-HOM experiments to run.")
+        help="Directory containing the tests output files. Warning: if there is a " \
+        +"path passed via the -f/--out-file option, this argument will be " \
+        +"ignored.")
+
+parser.add_argument('-f', '--output-file',
+        help="One of the tests output files from the set you would like to plot. If a path is " \
+        +"passed via this option, the -o/--output-dir option will be ignored.")
+
 #FIXME: do we need a valid range here?
-parser.add_argument('--sizes', nargs='*', default=defaultSizes, type=unsigned_int, metavar='KM', 
-        help="List (separated by spaces) the domain sizes to run. Recommended sizes: 5, 10, 20, 40, 80 and 160 km. "
+parser.add_argument('--sizes', nargs='*', type=unsigned_int, metavar='KM', 
+        help="List (separated by spaces) the domain sizes to plot. "
             +"Note: sizes will only be applied to experiments a though e. Experiment f has only one size (100 km). ")
 
 # Plot specific options
@@ -74,6 +76,90 @@ parser.add_argument('-a', '--all-ps', action='store_true',
 # ===========================================================
 # Define some variables and functions used in the main script
 # ===========================================================
+
+def get_file_pattern():
+    """
+    Get the search pattern for a single set of test output files. 
+    """
+    if args.output_file:
+        out_d, out_f = os.path.split(args.output_file)
+        if out_d:
+            args.output_dir = out_d
+            args.output_file = out_f
+   
+        if not out_f.endswith('.out.nc'):
+            print('\nERROR: You must select an output netCDF file (*.out.nc) with the -f/--output-file option!')
+            print('You selected: '+os.path.join(args.output_dir, args.output_file)+'\n')
+            sys.exit(1)
+
+    else:
+        outpath = os.path.join(args.output_dir, '*.out.nc')
+        matching = glob.glob(outpath)
+        if len(matching) > 0:
+            newest = max(matching, key=os.path.getmtime)
+            
+        else:
+            print('\nERROR: NO *.out.nc FILES DETECTED!')
+            print(  '==================================')
+            print(  'Either specify a location to look for the test output')
+            print(  'files with the -o/--output-dir option, or one of test output')
+            print(  'files from the set you would like to plot with the -f/--output-file option.\n')
+            sys.exit(1)
+
+        args.output_file = os.path.basename(newest)
+        
+    experiment, mod, size, processors = split_file_name(args.output_file)
+
+    pattern = os.path.join(args.output_dir, 'ismip-hom-?'+mod+'.????'+processors+'.out.nc')
+
+    print('\nFinding results to plot. Using search pattern: '+pattern+'\n')
+    return pattern
+
+
+def split_file_name(file_name):
+    """
+    Get the experiment, filename modifiers, size, and number of processors out of an out.nc filename.
+    """
+    experiment = ''
+    mod = ''
+    size = ''
+    processors = ''
+
+    file_details = file_name.replace('.out.nc','') .split('.')
+    if len(file_details) > 2:
+        processors = '.'+file_details[2]
+    size = file_details[1]
+
+    file_base = file_details[0].split('-')
+    experiment = file_base[2]
+    if len(file_base) > 3:
+        mod = '-'+'-'.join(file_base[3:])
+
+    return (experiment, mod, size, processors)
+
+def get_experiments_and_sizes(pattern):
+    """
+    Get all the experiments and sizes for a single set of test output files. 
+    """
+    matching = glob.glob(pattern)
+    
+    sizes = set()
+    experiments = set()
+    
+    # so we can ignore the size for f
+    matching_f_tests = glob.glob(pattern.replace('-?','-f'))
+    if matching_f_tests:
+        experiments.add('f')
+        matching = list(set(matching) - set(matching_f_tests))
+    
+    for match in matching:
+        mt = os.path.basename(match)
+        ex, mod, sz, pr = split_file_name(mt)
+        sizes.add(sz)
+        experiments.add(ex)
+  
+    return (list(experiments), list(sizes))
+
 
 # Lists of model classifications
 # Note: 'aas1' is skipped below -- see line ~165
@@ -168,17 +254,12 @@ def main():
     Plot the ISMIP-HOM test results.
     """
     
-    # check that file name modifier, if it exists, starts with a '-'
-    if not (args.modifier == '') and not args.modifier.startswith('-') :
-        args.modifier = '-'+args.modifier
-    
     if args.all_ps:
          nonFSmodelType='All Partial Stokes'
     else:
          nonFSmodelType='First Order'
     print 'NOTE: The category being used for models approximating Full Stokes is: '+nonFSmodelType
     print 'For more information, see details of option -a by invoking:   python plotISMIP_HOM.py --help \n'
-
 
 
     # =========================================================
@@ -189,12 +270,23 @@ def main():
     #  to use existing code, and on the off-chance it is ever
     #  necessary to generate these standard ascii ISMIP-HOM files...
     # =========================================================
-    
-    # Loop over the experiments requested on the command line
-    for experiment in args.experiments:
 
-        # Loop over the sizes requested on the command line
-        for size in map(int,args.sizes):
+    pattern = get_file_pattern() 
+
+    experiments, sizes = get_experiments_and_sizes(pattern)
+
+    if args.sizes and (set(args.sizes) < set(map(int,sizes))):
+        sizes = args.sizes
+    elif args.sizes:
+        print("ERROR: No output files found for that size!")
+        print("   Run `ls "+pattern.replace('-?','-[a-e]')+"`\non the command line to see the set of output files. (Note, test f's size is ignored.)")
+        sys.exit(1)
+
+    # Loop over the experiments
+    for experiment in experiments:
+
+        # Loop over the sizes
+        for size in map(int,sizes):
             try:
                 # Extract the output data for comparison to the other models
 
@@ -214,10 +306,9 @@ def main():
                 # Standard filename format used by both scripts
                 if experiment == 'f': 
                     size = 100
-                mod = '-'+experiment+args.modifier+'.'+str(size).zfill(4)
-                filebase = 'ismip-hom'+mod
-                print os.path.join(args.output_dir,filebase+'.out.nc')
-                netCDFfile = NetCDFFile(os.path.join(args.output_dir,filebase+'.out.nc'),'r')
+                
+                out_file = pattern.replace('-?','-'+experiment).replace('????',str(size).zfill(4))
+                netCDFfile = NetCDFFile(out_file,'r')
                 if netCDF_module == 'Scientific.IO.NetCDF':
                     velscale = netCDFfile.variables['uvel_extend'].scale_factor
                 else:
@@ -318,7 +409,7 @@ def main():
                     data = (nan, uvelSprime, vvelS, nan)
 
                 # Write a "standard" ISMIP-HOM file (example file name: "cis1a020.txt") in the "output" subdirectory 
-                ISMIP_HOMfilename = os.path.join('output',filebase+'.txt')
+                ISMIP_HOMfilename = out_file.replace('.out.nc','.txt')
                 ISMIP_HOMfile = open(ISMIP_HOMfilename,'w')
                 for i, x in enumerate(xx):
                     for j, y in enumerate(yy):
@@ -337,7 +428,7 @@ def main():
     # =========================================================
     
     # Loop over the experiments requested on the command line
-    for experiment in args.experiments:
+    for experiment in experiments:
         print 'ISMIP-HOM', experiment.upper()
 
         # Create the figure on which the plot axes will be placed
@@ -360,17 +451,17 @@ def main():
         figure.legend([Line2D,Patch],[nonFSmodelType+' Mean',nonFSmodelType+' Std. Dev.'],loc=(0.55,0.02),prop=prop).draw_frame(False)
 
         # Loop over the sizes requested on the command line
-        for i, size in enumerate(map(int,args.sizes)):
+        for i, size in enumerate(map(int,sizes)):
             try:
                 if experiment == 'f': 
-                    if size != 100 or len(args.sizes) > 1:
+                    if size != 100 or len(sizes) > 1:
                         print 'NOTE: Experiment f uses a domain size of 100 km only'
                     size = 100
-                mod = '-'+experiment+args.modifier+'.'+str(size).zfill(4)
-                filebase = 'ismip-hom'+mod
+                
+                out_file = pattern.replace('-?','-'+experiment).replace('????',str(size).zfill(4))
 
                 # Create the plot axes for this domain size
-                if len(args.sizes) == 1:
+                if len(sizes) == 1:
                     axes = figure.add_subplot(111)
                 else:
                     axes = figure.add_subplot(2,3,i+1)
@@ -381,8 +472,7 @@ def main():
                 axes.set_title('%d km' % size, size='medium')
 
                 # Get the Glimmer output data
-                filename = os.path.join('output',filebase+'.txt')
-                glimmerData = read(filename,experiment)
+                glimmerData = read(out_file.replace('.out.nc','.txt'),experiment)
                 # The Glimmer data is on a staggered grid;
                 # Interpolate to obtain the value at x=0 and x=1
                 # using periodic boundary conditions
@@ -503,19 +593,18 @@ def main():
                 print "Error in analyzing/plotting experiment ",experiment," at size ",size," km"
 
         if savePlotInFile:
-            filename = os.path.join('output','ismip-hom-'+experiment+plotType)
-            print 'Writing:', filename
-            pyplot.savefig(filename)
+            plot_file = pattern.replace('-?','-'+experiment).replace('.????','').replace('.out.nc',plotType)
+            print 'Writing:', plot_file
+            pyplot.savefig(plot_file)
 
         # Experiment f can also have a surface profile plotted
         if experiment == 'f':
             # rather than getting the data from the text file, we are going to read it directly.
-            # this is because the velocities and usrf are on different grids, so it is difficult to inlude them
+            # this is because the velocities and usrf are on different grids, so it is difficult to include them
             # both in the standard ISMIP-HOM text file format that has a single x,y coord. system
             size = 100
-            mod = '-'+experiment+args.modifier+'.'+str(size).zfill(4)
-            filebase = 'ismip-hom'+mod
-            netCDFfile = NetCDFFile(os.path.join('output',filebase+'.out.nc'),'r')
+            out_file = pattern.replace('-?','-'+experiment).replace('????',str(size).zfill(4))
+            netCDFfile = NetCDFFile(out_file,'r')
             if netCDF_module == 'Scientific.IO.NetCDF':
                 thkscale = netCDFfile.variables['thk'].scale_factor
             else:
@@ -652,9 +741,9 @@ def main():
                             axes2.fill(x,y,facecolor=color,edgecolor=color,alpha=0.25)
 
             if savePlotInFile:
-                filename = os.path.join('output',filebase+'-SurfaceElevation'+plotType)
-                print 'Writing:', filename
-                pyplot.savefig(filename)
+                plot_file = pattern.replace('-?','-'+experiment+'-SurfaceElevation').replace('.????','').replace('.out.nc',plotType)
+                print 'Writing:', plot_file
+                pyplot.savefig(plot_file)
 
         # Experiment f should be run for one size (100 km) only
         if experiment == 'f': 
