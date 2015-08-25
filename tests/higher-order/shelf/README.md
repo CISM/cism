@@ -15,6 +15,13 @@ That is, the setup is now consistent with tests 3 & 4 from the more "simple"
 (i.e. not Ross) EISMINT-shelf test cases. More info on these can be found at:
 <http://homepages.vub.ac.be/~phuybrec/eismint/iceshelf.html>
 
+You will need to either copy your executable into this directory, have the
+executable in your path, or create a symbolic link to your executable, using:
+
+```sh
+ln -s ../../../builds/platform-compiler/cism_driver/cism_driver ./
+```
+
 To run the confined shelf experiment, enter the following on a terminal 
 command line:
 

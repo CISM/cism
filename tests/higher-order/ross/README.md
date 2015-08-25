@@ -21,6 +21,13 @@ following Python modules installed:
 To plot the results (which is the usual way to view the output), the Python
 matplotlib library also must be installed.
 
+You will need to either copy your executable into this directory, have the
+executable in your path, or create a symbolic link to your executable, using:
+
+```sh
+ln -s ../../../builds/platform-compiler/cism_driver/cism_driver ./
+```
+
 RUNNING THE EXPERIMENT:
 -----------------------
 

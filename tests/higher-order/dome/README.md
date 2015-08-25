@@ -2,8 +2,17 @@ Dome test case
 ==============
 
 This directory contains a python script for running an experiment involving an
-ice sheet with an parabolic "dome" shape on a flat base.  To run the experiment,
-enter the following on a terminal command line:
+ice sheet with an parabolic "dome" shape on a flat base.  
+
+You will first need to either copy your executable into this directory, 
+have the executable in your path, or create a symbolic link to your executable,
+using:
+
+```sh
+ln -s ../../../builds/platform-compiler/cism_driver/cism_driver ./
+```
+
+To run the experiment, enter the following on a terminal command line:
 
 For a serial job: 
 

@@ -28,6 +28,13 @@ For comparison you need to download the ISMIP-HOM results from
 unzip to a directory named `ismip_all`. (Make `ismip_all` a subdirectory of the
 directory containing the ISMIP-HOM scripts.)
 
+You will need to either copy your executable into this directory, have the 
+executable in your path, or create a symbolic link to your executable, using:
+
+```sh
+ln -s ../../../builds/platform-compiler/cism_driver/cism_driver ./
+```
+
 RUNNING THE TESTS:
 ------------------
 Running the tests is a three step process.  The last two steps invoke python

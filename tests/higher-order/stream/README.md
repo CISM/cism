@@ -21,6 +21,13 @@ In both cases, the basal properties vary in the across-flow direction only and
 are symmetric about the ice stream centerline.  As a result, the velocity
 solutions are also uniform along flow and symmetric about the centerline.
 
+You will need to either copy your executable into this directory, have the
+executable in your path, or create a symbolic link to your executable, using:
+
+```sh
+ln -s ../../../builds/platform-compiler/cism_driver/cism_driver ./
+```
+
 To run the stream experiment, enter the following on a terminal command line:
 
 For a serial job: 

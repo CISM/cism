@@ -9,6 +9,12 @@ details, see:
 * Halfar, P. 1983. On the Dynamics of the Ice Sheets 2.  Journal of Geophysical
   Research, 88, 6043-6051.
 
+You will need to either copy your executable into this directory, have the
+executable in your path, or create a symbolic link to your executable, using:
+
+```sh
+ln -s ../../../builds/platform-compiler/cism_driver/cism_driver ./
+```
 
 runHalfar.py
 ---------
