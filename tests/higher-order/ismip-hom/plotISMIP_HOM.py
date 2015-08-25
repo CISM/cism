@@ -278,12 +278,16 @@ def main():
 
     experiments, sizes = get_experiments_and_sizes(pattern)
 
-    if args.sizes and (set(args.sizes) < set(map(int,sizes))):
+    if args.sizes and (set(args.sizes) <= set(map(int,sizes))):
         sizes = args.sizes
     elif args.sizes:
         print("ERROR: No output files found for that size!")
         print("   Run `ls "+pattern.replace('-?','-[a-e]')+"`\non the command line to see the set of output files. (Note, test f's size is ignored.)")
         sys.exit(1)
+
+    # sort experiments and sizes
+    sizes.sort()
+    experiments.sort()
 
     # Loop over the experiments
     for experiment in experiments:
