@@ -112,7 +112,10 @@ def get_file_pattern():
 
     pattern = os.path.join(args.output_dir, 'ismip-hom-?'+mod+'.????'+processors+'.out.nc')
 
-    print('\nFinding results to plot. Using search pattern: '+pattern+'\n')
+    print('\nFinding results to plot. Using search pattern: '+pattern)
+    print('   NOTE: there may be another set or sets of output files that do not match this search pattern. ' \
+          +'Use the `-f/--output-file` to specify any output file within a set to plot that set. See the ' \
+          +'README.md for more information.\n' )
     return pattern
 
 
