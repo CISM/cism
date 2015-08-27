@@ -1,13 +1,8 @@
-# run this script by typing: source mac-gnu-cmake
-# After this script completes, type: make -j 8
+#!/usr/bin/env bash
 
 # This cmake configuration script builds cism_driver on a Mac using the Gnu compiler suite.
 # If Trilinos is used, it relies on a build of Trilinos located in $CISM_TRILINOS_DIR (set below).
 # If BISICLES is used, it relies on a build of BISICLES located in $BISICLES_INTERFACE_DIR (set below).
-
-# This script should be run from the builds/mac-gnu subdirectory
-# of the main CISM repository (reflected in the two instances
-# of "../.." below).
 
 # BUILD OPTIONS:
 # The call to cmake below includes several input ON/OFF switch parameters, to
@@ -21,10 +16,20 @@
 # CISM_USE_GPTL_INSTRUMENTATION -- ON by default, set to OFF to not use GPTL instrumentation.
 # CISM_COUPLED -- OFF by default, set to ON to build with CESM.
 
-# Serial Build Notes:  Setting CISM_USE_TRILINOS=OFF, CISM_MPI_MODE=OFF, CISM_SERIAL_MODE=ON will
-# configure for a serial build.  (Note that the openmpi compilers will be used, but act as
-# pass-throughs to the underlying serial compilers in this case.  If MPI is not installed,
-# set the serial compilers directly.)
+# After this executes, do:
+#   make -j 8
+
+# Set path to top cism directory
+# Note, this is an easy way to build out of source.
+# In directory you want to build in, run:
+#   $ source $CISM/builds/linux-gnu-cism/linux-gnu-cism-cmake $CISM
+# where $CISM is the path to the top level cism directory.
+if [ $# -eq 0 ]
+then
+    cism_top="../.." 
+else
+    cism_top=${1}
+fi
 
 echo
 echo Run this script by typing: source mac-gnu-cmake
@@ -71,6 +76,5 @@ cmake \
   -D CMAKE_Fortran_FLAGS="-g -O2 -ffree-line-length-none" \
 \
   -D BISICLES_INTERFACE_DIR=~/BISICLES/CISM-interface/interface \
-  ../..
+  ${cism_top}
 
-# Note: last argument above  "../.."  is path to top CISM directory

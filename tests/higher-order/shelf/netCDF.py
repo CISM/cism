@@ -121,4 +121,5 @@ except ImportError:
         NCdict = {pycdf.NC.FLOAT:'f', pycdf.NC.DOUBLE:'d', pycdf.NC.INT:'i', pycdf.NC.CHAR:'c', pycdf.NC.BYTE:'b'}
         return NCdict[self.VARIABLE.inq_type()]
 
-print 'Using',netCDF_module,'for netCDF file I/O'
+#NOTE: Turning this off becuase it is printed a bajillion times when using the build_and_test structure.
+#print 'Using',netCDF_module,'for netCDF file I/O'

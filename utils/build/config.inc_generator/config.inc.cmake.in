@@ -4,7 +4,7 @@
 
 #define HAVE_2003ARGS
 
-#define VERSION "2.0.0"
+#define VERSION "2.0.5"
 
 #define GLIMMER_FCFLAGS "(Not reported in cmake build)"
 
