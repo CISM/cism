@@ -1,0 +1,38 @@
+.SUFFIXES:
+.SUFFIXES: .F .F90 .c .o
+
+FC := mpif90
+CC := mpicc
+
+CPPDEF    := -DFORTRANUNDERSCORE -DSPMD  -DHAVE_NANOTIME -DBIT64
+FFLAGS    := -O2 $(CPPDEF)
+CFLAGS    := $(CPPDEF)
+FREEFLAGS := 
+
+.F90.o:
+	$(FC) -c $(FREEFLAGS) $(FFLAGS) -I. $<
+.F.o:
+	$(FC) -c $(FFLAGS) -I. $<
+.c.o:
+	$(CC) -c $(CFLAGS) -I. $<
+
+#------------------------------------------------------------------------
+# Targets/rules that depend on architecture specific variables.
+#------------------------------------------------------------------------
+
+OBJS := GPTLget_memusage.o GPTLprint_memusage.o GPTLutil.o f_wrappers.o \
+        gptl.o gptl_papi.o perf_utils.o perf_mod.o
+RM   := rm
+AR   := ar
+ARFLAGS := -rc
+RANLIB  := ranlib
+
+all: libgptl.a
+
+libgptl.a : $(OBJS)
+	$(AR) $(ARFLAGS) $@ $(OBJS)
+	$(RANLIB) $@
+
+clean:
+	$(RM) -f *.o *.mod *.a
+

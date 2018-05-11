@@ -1,0 +1,215 @@
+Instructions for setting up and running the MISMIP experiments with CISM.
+
+Note: These instructions assume that you have access to the NCAR HPC Cheyenne,
+with an LIWG HPC account. If you do not have an account and would like one,
+please contact Gunter Leguy (gunterl@ucar.edu).
+
+See this paper for details on MISMIP:
+Pattyn,F., et al., Results of the Marine Ice Sheet Model Intercomparison Project, MISMIP, 
+The Cryosphere, 6, 573-588, doi:10.5194/tc-6-573-2012, 2012. 
+
+The MISMIP experiments consist of a set of advance and retreat experiments of the 
+grounding line. This is achieved by modifying the flow rate factor A. 
+A simulation with a new A value begins using the steady-state solution profile from
+the old A value and so on.
+
+The script used to run the experiment uses the naming convention "mismip_Aval.ext"
+where "Aval" is the value of A used in a given experiment and "ext" is the filename
+extension such as "config" (for a config file), "out.nc" for the output file or
+"restart.nc" for the restart file.
+
+The experiment can be set to run on either of two kinds of bedrock topography:
+1/ a linear bed sloping downward toward the ocean.
+2/ a polynomial bed which begins and ends by sloping downward towards the ocean but
+   include an in-between reversed sloping region meant to mimic an unstable region. 
+
+
+The files needed to run the experiment are located in directory ../tests/MISMIP/mismip.code.
+If you plan to run more than one test suite, you will likely want to keep this directory clean.
+Instead, create a new directory and make a fresh copy of the code for each test.
+For example, from ../tests/MISMIP:
+
+> cp -rf mismip3d.code mismip.test1
+> cp -rf mismip3d.code mismip.test2
+etc.
+
+Go to the directory where you are setting up and running the experiments:
+
+> cd mismip.test1
+
+This directory should contain several Python scripts, along with a template config file
+(mismip.config.template) with default settings for MISMIP and a template run file
+(runCISM.cheyenne.template) with setups to run MISMIP on Cheyenne.
+
+Put a copy or link of cism_driver in your directory. For example:
+
+> ln -s ../../../builds/mac-gnu/cism_driver/cism_driver cism_driver
+
+To create the grid topography and set the appropriate config options for each test, run the Python setup script:
+
+> python mismipSetup.py [arguments]
+
+This script has the following optional arguments:
+  -c FILE, --config=FILE
+                        config file template [default: mismip.config.template]
+  -e EXECUTABLE, --exec=EXECUTABLE
+                        Path to the CISM executable [default: cism_driver]
+  -x EXPT, --expt=EXPT  
+			MISMIP experiment(s) to set up [default: all]
+  -t TSTEP, --tstep=TSTEP
+                        time step (yr) [default: 1]
+  -r RES, --res=RES   
+			horizontal grid resolution (m) [default: 2000]
+  -v VLEVEL, --vlevel=VLEVEL
+                        no. of vertical levels [default: 3]
+  -a APPROXIMATION, --approx=APPROXIMATION
+                        Stokes approximation (SSA, DIVA, BP) [default: DIVA]
+  -b BASALFRICTION, --basal=BASALFRICTION
+                        Basal friction law (powerlaw, Schoof, Tsai) [default: powerlaw]
+  -y YEARSPINUP, --year=YEARSPINUP
+                        Length of spinup run (yr) [default: 20000]
+  --bed=BEDTOPO
+			bed topography, linear or poly [default: linear]
+  --yrun=YEARSRUN
+			run length between 2 experiments [default: 20000]
+  --hinit=INITTHICK
+			experiment initial profile [default: slab]
+
+
+Notes on optional arguments:
+- If setting up all the experiments at once, the -x argument is not needed.
+- The following resolutions (m) are supported: 8000, 4000, 2000, 1000, 500, 250.
+- The perturbation experiments (e.g., P75S) might require a shorter time step
+  than the Stnd experiment.  For instance, experiment Stnd using DIVA at 2 km is typically stable with dt = 1.0 yr.
+  With identical config settings, P75S is unstable and requires a shorter time step, e.g. dt = 0.5 yr.
+  If so, you might need to manually reduce dt in the config file for a given experiment
+  (assuming you don't want to repeat experiment Stnd).
+- Three Stokes approximations are supported for MISMIP3d: SSA, DIVA and BP.
+- Three basal BCs are supported:
+  (1) a Weertman-type power law: 'powerlaw'
+  (2) a modified power law based on Tsai (2015): 'Tsai'
+  (3) a modified power law based on Schoof (2005) and Leguy et al. (2014): 'Schoof'
+- 2 types of bed topography, linear and polynomial.
+- 2 possible initial thickness profiles: 
+  (1) a uniform 100m thick ice slab (slab)
+  (2) a profile using the semi-analytical solution form Schoof2007 with an initial grounding line guess
+      at 900. km. Note: this option requires a smaller initial time step to avoid CFL violation.
+
+The config template file includes sensible default values for a number of parameters associated with
+the Stokes approximation, the basal friction law and the MISMIP3d basal friction perturbation.
+To change any of these parameters, you need to edit the template file.
+
+If you set up all the experiments, you should have the following subdirectories after running
+the setup script:
+bedtype
+
+where bedtype = "linear" or "poly".
+Within the bedtype folder you should have 2 folders: "advance" and "retreat".
+Within each of these folders you should have one folder for each A-value. 
+
+After setup, you can run all the experiments by using the Python run script:
+
+> python mismipRun.py  
+
+Here are the optional arguments for the run script:
+  -e EXECUTABLE, --exec=EXECUTABLE
+                        Path to the CISM executable [default: ./cism_driver]
+  -x EXPT, --expt=EXPT
+			MISMIP experiment(s) to run [default: all]
+  -n NUMPROCS, --parallel=NUMPROCS
+                        Number of processors: if specified then run in parallel
+  -s STATUS, --stat=STATUS
+			Experiment status set to run [default: advance]
+  --bed=BEDTOPO
+                        bed topography, linear or poly [default: linear]
+
+Notes on optional arguments:
+- The option "-s" is only meant to be used when a single A-value is specified with the "-x" option.
+
+By default, this script will run all experiments at once. You can also run part of the experiment 
+at a time by specifying its set (advance, retreat) or a single A value:
+
+> python mismipRun.py -x advance
+
+or
+
+> python mismipRun.py -x 14.638e-18
+
+Experiments run at coarse resolutions (2 km or coarser) can be run on a single processor 
+on your personal computer. You can also run all the experiments on several processors using:
+
+> python mismipRun.py -n 4
+
+It can take a long time to run some experiment when running with a resolution finer than 2 km. 
+If for some reason you need to interrupt your run, you can restart it at a later time.
+If the restart of a given experiment is present in the directory, the script mismipRun.py
+will automatically restart from that restart file.
+For example, continuing the advance set of experiments on 4 processors:
+
+> python mismipRun.py -x advance -n 4 
+
+Note that before restarting your run you might want to save a copy of the log file of the 
+A-value experiment 'mismip_Aval.config.log' under a different name as it will be overwritten 
+on restart. The output file, mismip_Aval.out.nc, will be appended on restart and does not 
+need to be copied. Continue as needed until you have completed the experiment.
+
+Alternatively, you may want to submit a batch job.  If so, do the following:
+1/ Change to the subdirectory of the A-value you want to run.
+2/ Copy the script runCISM.cheyenne.template into the A-value directory.
+3/ Modify the script:
+    a/ Adjust the number of nodes and processors.
+    b/ Adjust the time you'd like to run on HPC.
+    c/ Modify the name of the config file to reflect the one in your current directory.
+4/ launch the job from your subdirectory by typing at the command line:
+   > qsub runCISM.cheyenne.template
+
+
+Before proceeding, you may want to confirm that the GL has reached a steady state.
+One way to do this is to list f_ground (the grounded fraction, 0 < f_ground < 1) along the x 
+direction at the center of the domain. The value of f_ground in the last (partially) 
+grounded cell should be stable within some small tolerance, e.g. ~10^{-3}.
+
+The file mismip_Aval.restart.nc in the AnewVal directory will become the input file
+for the AnewVal experiment. This file needs to be edited so that CISM's internal_time coordinate
+for the final time slice is 0. This action is done automatically when running interactively 
+with the script mismipRun.py. 
+If you are not running interactively and submitting jobs, you will need to edit it yourself.
+Suppose the final time is 20000 years. You can set internal_time = 0 with a one-line NCO command:
+
+> ncap2 -s 'internal_time=internal_time-20000' mismip+Spinup.restart.nc out.nc
+
+You may have to precede this command with 'module load nco' if NCO is not loaded automatically.
+
+To verify that the time correction worked, you can do 'ncdump -v internal_time mismip_Aval.restart.nc'.
+The final internal_time value should be 0, with negative values for earlier times.
+
+Then you can overwrite the original restart file:
+
+> cp out.nc mismip_Aval.restart.nc
+
+Once these experiments have run, the next step is to extract the grounding line i(GL) position.
+This can be done by extracting information from the CISM output files by running another Python script:
+
+> python mismipWriteGL.py
+
+Note: you need to use the option "--bed poly" at the command line in order to extract the grounding 
+line position with a run performed using the polynomial bed. 
+
+The default is to generate a netCDF file containing time dependent arrays for all the experiments among which
+xGL and yGL (the location of the grounding, note that yGL is constant for MISMIP). To see a full list 
+of available arrays, simply type "ncdump -h Aval_cism.nc" at the command line.
+you can make a GL file for the set of advance or retreat experiment by adding an optional argument:
+
+> python mismipWriteGL.py -x advance
+
+The resulting GL files in the various subdirectories are called [Aval]_cism.nc, 
+where [Aval] is he numerical A value.
+
+Finally, you can create the summary grounding line plots in a file called mismipPlotGL.pdf:
+
+> python mismipPlotGL.py
+
+The plot shows the grounding line position at the end of each stage of the experiment.
+In order to plot the results using the polynomial bed topography, run:
+
+> python mismipPlotGL.py --bed poly

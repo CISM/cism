@@ -1,0 +1,76 @@
+[grid]
+upn = 3
+ewn = 1000
+nsn = 5
+dew = 2000
+dns = 2000
+
+[time]
+tstart = 0.
+tend = 20000.
+dt = 1.
+adaptive_cfl_threshold = 0.5
+
+[options]
+dycore = 2              # 0 = glide, 1 = glam, 2=glissade
+evolution = 3           # 3 = remapping, 4 = first order upwind
+flow_law = 0            # 0 = constant, 2 = Paterson-Budd
+temperature = 0         # 1 = prognostic, 3 = enthalpy
+bmlt_float = 0          # 0 = no melting of floating ice
+marine_margin = 4       # 4 = topographic threshold, 5 = calving mask
+restart_extend_velo = 1 # 1 = write uvel/vvel on extended grid
+# restart = 0
+
+[ho_options]
+which_ho_babc = 9              # 4 = no-slip at bed, 10 = Coulomb friction law, 11 = Coulomb w/const basal flwa
+which_ho_effecpress = 3         # 3 = ocean connection
+which_ho_flotation_function = 0  # 0 = fpattyn, 1 = 1/fpattyn, 2 = ocean cavity thickness
+which_ho_efvs = 2               # 0 = constant, 2 = nonlinear eff. visc. w/ n=3
+which_ho_sparse = 3             # 1 = SLAP GMRES, 3 = Fortran PCG, 4 = Trilinos for linear solver
+which_ho_nonlinear = 0          # 0 = Picard, 1 = JFNK
+which_ho_precond = 1            # 1 = diagonal precond, 2 = shallow ice preconditioner
+which_ho_approx = 1             # 1 = SSA, 2 = Blatter-Pattyn, 3 = L1L2, 4 = DIVA
+which_ho_gradient_margin = 2    # 2 = marine BC
+which_ho_gradient = 0            # 0 = centered, 1 = upstream
+which_ho_assemble_beta = 1       # 0 = standard FE, 1 = local
+which_ho_assemble_taud = 1       # 0 = standard FE, 1 = local
+which_ho_ground = 1              # 0 = no GLP, 1 = GLP
+which_ho_resid = 4               # 3 = absolute, 4 = relative
+glissade_maxiter = 50
+
+[parameters]
+rhoi = 900.0            # MISMIP ice density
+rhoo = 1000.0           # MISMIP ocean density
+grav = 9.80             # MISMIP gravitational acceleration
+flow_factor = 1.
+ice_limit = 1.                 ; min thickness (m) for dynamics
+default_flwa = 1.0e-17
+marine_limit = -1250           ; depth past which ice is lost
+powerlaw_c = 2.4131e4
+powerlaw_m = 3
+coulomb_c = 0.1778
+coulomb_bump_max_slope = 0.5    ; maximum bed obstacle slope
+coulomb_bump_wavelength = 2.0
+flwa_basal = 1.0e-16
+p_ocean_penetration = 0      ; p values for coulomb friction law
+
+
+[CF default]
+comment = created with mismipInit.py 
+title = MISMIP experiment using CISM2
+
+[CF input]
+name = mismipInit.restart.nc 
+time = 1
+
+[CF output]
+#variables = restart effec_press beta resid_u resid_v f_ground f_flotation btractx btracty taudx taudy tau_xx
+variables = thk usurf uvel vvel temp beta_internal topg flwa effec_press beta resid_u resid_v f_ground f_flotation floating_mask grounded_mask usfc vsfc ubas vbas uvel_mean vvel_mean stagthk ivol imass_above_flotation iareag btractx btracty taudx taudy tau_xx
+frequency = 500
+name = mismip.out.nc
+
+[CF restart]
+variables = restart
+xtype = double
+frequency = 1000
+name = mismip.restart.nc

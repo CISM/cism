@@ -1,0 +1,83 @@
+[grid]
+upn = 3
+ewn = 324
+nsn = 40
+dew = 2000
+dns = 2000
+
+[time]
+tstart = 0.
+tend = 20000.0
+dt = 0.5
+dt_diag = 0.5
+#idiag = 5
+#jdiag = 5
+
+[options]
+dycore = 2              # 0 = glide, 1 = glam, 2 = glissade
+evolution = 3           # 3 = remapping, 4 = first order upwind
+flow_law = 0            # 0 = constant, 2 = Paterson-Budd
+temperature = 0         # 0 = sfc air temp, 1 = prognostic, 3 = enthalpy
+basal_mass_balance = 1  # 1 = include basal mass balance in continuity eqn
+bmlt_float = 0          # 0 = no melting of floating ice, 1 = Ice1 melting, 2 = Ice2 melting
+marine_margin = 5       # 4 = topographic threshold, 5 = calving mask
+restart_extend_velo = 1 # 1 = write uvel/vvel on extended grid
+#restart = 1            # uncomment for a restart run
+
+[ho_options]
+which_ho_babc = 11                # 11 = Coulomb w/const basal flwa, 12 = Tsai law, 9 = power law
+which_ho_effecpress = 3           # 3 = ocean connection
+which_ho_efvs = 2                 # 0 = constant, 2 = nonlinear eff. visc. w/ n=3
+which_ho_sparse = 3               # 1 = SLAP GMRES, 3 = Fortran PCG, 4 = Trilinos for linear solver
+which_ho_nonlinear = 0            # 0 = Picard, 1 = JFNK
+which_ho_approx = 4               # 1 = SSA, 2 = Blatter-Pattyn, 3 = L1L2, 4 = DIVA
+which_ho_precond = 1              # 1 = diagonal precond, 2 = shallow ice preconditioner
+which_ho_gradient_margin = 2      # 2 = marine BC
+which_ho_gradient = 0             # 0 = centered, 1 = upstream
+which_ho_assemble_beta = 1        # 0 = standard FE, 1 = local
+which_ho_assemble_taud = 1        # 0 = standard FE, 1 = local
+which_ho_assemble_bfric = 1       # 0 = standard FE, 1 = local
+which_ho_ground = 1               # 0 = no GLP, 1 = GLP
+which_ho_resid = 4                # 3 = absolute, 4 = relative
+which_ho_flotation_function = 2   # 0 = f_pattyn, 2 = linear
+glissade_maxiter = 50
+
+[parameters]
+rhoi = 918.0            # MISMIP+ ice density
+rhoo = 1028.0           # MISMIP+ ocean density
+grav = 9.8              # MISMIP+ gravitational acceleration
+flow_factor = 1.
+ice_limit = 1.                  #min thickness (m) for dynamics
+default_flwa = 2.0e-17
+beta_grounded_min = 10.
+calving_front_x = 640000.       # 640 km for mismip+
+p_ocean_penetration = 1.        # p value for Coulomb friction law
+coulomb_c = 0.5
+powerlaw_c = 1.e4               # constant for the power law stress
+powerlaw_m = 3                  # exponent for the power law stress
+bmlt_float_omega = 0.2          # parameter for Ice1
+bmlt_float_z0 = -100.           # parameter for Ice1
+bmlt_float_h0 = 75.             # parameter for Ice1
+bmlt_float_const = 100.         # parameter for Ice2
+bmlt_float_xlim = 480000.       # parameter for Ice2
+
+[CF default]
+comment = created with mismip+Init.py 
+title = MISMIP+ experiment using CISM
+
+[CF input]
+name = mismip+Init.nc
+time = 1
+
+[CF output]
+variables = thk topg usurf uvel vvel beta_internal effecpress f_ground f_flotation floating_mask grounded_mask usfc vsfc ubas vbas uvel_mean vvel_mean stagthk ivol imass_above_flotation iareag calving_thck
+frequency = 1000
+name = mismip+.out.nc
+
+[CF restart]
+variables = restart
+xtype = double
+frequency = 1000
+name = mismip+.restart.nc
+write_init = F
+

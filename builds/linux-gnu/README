@@ -1,0 +1,31 @@
+This directory contains posix-compliant CMake build scripts (*-cmake.sh) and
+shell agnostic build scripts (*-cmake), which are mostly intended for csh/tcsh
+users. 
+
+The posix scripts are recommended because they support out of source builds by
+using the first command-line argument to set the (top-level) CISM source
+directory. For example, to build in this directory, you may run the command:
+
+source PLATFORM-COMPILER-cmake.sh
+
+Likewise, if your CISM source is located in $CISM, you may build in a $BUILD
+subdirectory by:
+
+mkdir -p $BUILD && cd $BUILD source
+$CISM/builds/PLATFORM-COMPILER/PLATFORM-COMPILER-cmake.sh $CISM
+
+This functionality is necessary for using the build and test structure (BATS,
+located in $CISM/tests/regression/), will allow you to build multiple versions
+of CISM for testing, and make cleaning up the build directory easier.
+
+Because there isn't a reasonable way to make out-of-source capable build
+scripts work across both posix-compliant shells (sh, bash, zsh, etc.) and
+non-compliant shells (csh, tcsh), a shell agnostic build script is also
+available for csh/tcsh users. 
+
+NOTE: If you edit one of these script, please reflect your changes in the other
+script! 
+
+WARNING: It is possible these scripts will have diverged, so if you're having
+build problems, first check the differences between the two scripts. 
+

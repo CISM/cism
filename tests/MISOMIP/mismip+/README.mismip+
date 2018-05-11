@@ -1,0 +1,215 @@
+Instructions for setting up and running the MISMIP+ experiments with CISM.
+
+See this paper for details on MISMIP+:
+
+X. S. Asay-Davis et al. (2016), Experimental design for three interrelated
+marine ice sheet and ocean model intercomparison projects:
+MISMIP v. 3 (MISMIP+), ISOMIP v. 2 (ISOMIP+) and MISOMIP v. 1 (MISOMIP1),
+Geosci. Model Devel., 9, 2471-2497, doi: 10.5194/gmd-9-2471-2016.
+
+The following experiments are included in MISMIP+:
+
+Ice0 	      100-year control simulation with no melting 
+Ice1r 	      100-year run with melt-induced retreat
+Ice1ra	      100-year (or optionally up to 900-year) simulation from end of Ice1r with no melting
+Ice1rr 	      Continue Ice1r for a further 900 years (optional) 
+Ice2r 	      100-year “calving-event” simulation
+Ice2ra	      100-year (or optionally up to 900-year) simulation from end of Ice2r with no melting
+Ice2rr 	      Continue Ice2r for a further 900 years (optional)
+
+The Ice0, Ice1r and Ice2r experiments start from a spun-up state with a stable grounding line (GL).
+Reaching a stable state typically requires ~20,000 years.
+
+The optional extensions are divided into two parts with different output frequencies
+ (every 10 years until t = 200 yr, and every 100 years thereafter).
+The experiment we call Ice1ra runs from t = 100 yr to t = 200 yr. Its optional 800-year extension 
+ (years 200-1000) is called Ice1rax.
+Experiments Ice1rr/Ice1rrx, Ice2ra/Ice2rax and Ice2rr/Ice2rrx are similarly defined.
+
+The spin-up experiment is called Spinup.
+
+The files needed to run the experiment are located in directory ../tests/MISOMIP/mismip+.
+If you plan to run more than one test suite, you will likely want to keep this directory clean,
+ and make a fresh copy for each test.  For example, from ../tests/MISOMIP:
+
+> cp -rf mismip+ mismip+.test1
+> cp -rf mismip+ mismip+.test2
+etc.
+
+Go to the directory where you are setting up and running the experiments:
+
+> cd mismip+.test1
+
+This directory should contain several Python scripts, along with a template config file
+(mismip+.config.template) with default settings for MISMIP+.
+
+Put a copy or link of cism_driver in your directory. For example:
+
+> ln -s ../../../builds/mac-gnu/cism_driver/cism_driver cism_driver
+
+To create the grid topography and set the appropriate config options for each test, run the Python setup script:
+
+> python mismip+Setup.py [arguments]
+
+This script has the following optional arguments:
+  -c FILE, --config=FILE
+                        config file template [default: mismip+.config.template]
+  -e EXECUTABLE, --exec=EXECUTABLE
+                        Path to the CISM executable [default: cism_driver]
+  -x EXPT, --expt=EXPT  MISMIP+ experiment(s) to set up [default: all]
+  -t TSTEP, --tstep=TSTEP
+                        time step (yr) [default: 0.5]
+  -r RES, --res=RES     horizontal grid resolution (m) [default: 2000]
+  -v VLEVEL, --vlevel=VLEVEL
+                        no. of vertical levels [default: 3]
+  -a APPROXIMATION, --approx=APPROXIMATION
+                        Stokes approximation (SSA, DIVA, BP) [default: DIVA]
+  -b BASALFRICTION, --basal=BASALFRICTION
+                        Basal friction law (Schoof, Tsai, powerlaw) [default: Schoof]
+  -y YEARSSPINUP, --year=YEARSSPINUP
+                        Length of spinup run (yr) [default: 20000]
+
+Notes on optional arguments:
+- If setting up all the experiments at once, the -x argument is not needed.
+- The following resolutions (m) are supported: 8000, 4000, 2000, 1000, 500, 250.
+- Some of the sensitivity experiments (e.g., Ice1r) might require a shorter time step
+  than the Spinup experiment.  For instance, a spin-up using DIVA at 2 km is typically stable with dt = 1.0 yr.
+  With identical config settings, Ice1r is unstable and requires a shorter time step, e.g. dt = 0.5 yr.
+  If so, you might need to manually reduce dt in the config file for a given experiment
+  (assuming you don't want to repeat the Spinup). Alternatively you might choose to run all Ice1 
+  or Ice2 experiments with this shorter time step. In that case simply setup those experiments
+  separately from the Spinup and Ice0 experiment using (for res = 2km and Ice1 only):
+  > python mismip+Setup -r 2000 -t 0.5 -x Ice1
+- Three Stokes approximations are supported for MISMIP+: SSA, DIVA and BP.
+- Three basal BCs are supported:
+  (1) a Weertman-type power law: 'powerlaw'
+  (2) a modified power law based on Tsai (2015): 'Tsai'
+  (3) a modified power law based on Schoof (2005) and Leguy et al. (2014): 'Schoof'
+
+The config template file includes sensible default values for a number of parameters 
+associated with the Stokes approximation, the basal friction law and the MISMIP+ basal melting
+parameterization. To change any of these parameters, you need to edit the template file.
+
+If you set up all the experiments, you should have the following subdirectories after running
+the setup script:
+Spinup, Ice0, Ice1r, Ice1ra, Ice1rr, Ice1rax, Ice1rrx, Ice2r, Ice2ra, Ice2rr, Ice2rax, Ice2rrx.
+
+After setup, you should first run the Spinup experiment.  You can do this using the Python run 
+script: mismip+Run.py.
+To run the Spinup experiment on 16 processors:
+
+> python mismip+Run.py -x Spinup -n 16
+
+Here are the optional arguments for the run script:
+  -e EXECUTABLE, --exec=EXECUTABLE
+                        Path to the CISM executable [default: ./cism_driver]
+  -x EXPT,     --expt=EXPT  MISMIP+ experiment(s) to run [default: all]
+  -n NUMPROCS, --parallel=NUMPROCS
+                        Number of processors: if specified then run in parallel
+
+If the run is interrupted for any reason and you need to restart it in order to finish your
+experiment, simply relaunch your experiment using the same command line used originally. Using 
+the same previous example of the Spinup run:
+
+> python mismip+Run.py -x Spinup -n 16
+
+The script will automatically read the restart file name, modify the config file and restart 
+the run from the latest time saved in the restart file.
+
+
+Continue as needed until you have completed the spin-up period.
+
+Alternatively, you may want to submit a batch job.  If so, do the following:
+1/ Change to the subdirectory of the experiment you want to run. For example, if you'd like
+   to submit a job for the "Spinup" experiment, type: "cd Spinup".
+2/ Copy the script runCISM.cheyenne.template into the directory.
+3/ Modify the script:
+    a/ Adjust the number of nodes and processors.
+    b/ Adjust the time you'd like to run on HPC.
+    c/ Modify the name of the config file to reflect the one in your current directory.
+4/ launch the job from your subdirectory by typing at the command line:
+   > qsub runCISM.cheyenne.template
+
+
+Before proceeding, you may want to confirm that the GL has reached a steady state.
+One way to do this is to list f_ground (the grounded fraction, 0 < f_ground < 1) along the x direction at y ~ 40 km.
+The value of f_ground in the last (partially) grounded cell should be stable within some small tolerance, e.g. ~10^{-3}.
+
+If the spin-up cannot be completed with one job submission, you can finish it by initializing
+subsequent runs from the restart file, mismip+Spinup.restart.nc.  To do this, simply edit
+the config file (mismip+Spinup.config) by uncommenting the line 'restart = 1' under [options].
+If this option is not present, simply add it under this configuration segment.
+(You may want to save a copy of the log file under a different name so that it will not
+be overwritten on restart.  The output file, mismip+Spinup.out.nc, will be appended on restart
+and does not need to be copied.)
+
+Continue as needed until you have completed the spin-up period.
+
+The file mismip+Spinup.restart.nc in the Spinup directory will become the input file
+for the Ice0, Ice1r and Ice2r experiments. However, it needs to edited so that CISM's
+internal_time coordinate for the final time slice is 0. If you are running interactively, 
+the script mismip+Run.py will do this automatically and you simply need to launch your 
+next experiment.
+If you are not running interactively and submitting jobs, you will need to edit it yourself.
+You can check on the maximum internal_time value by typing at the command line:
+
+> ncdump -v internal_time mismip+Spinup.restart.nc
+
+Suppose the final time is 20000 years. You can set internal_time = 0 with a one-line NCO command:
+
+> ncap2 -s 'internal_time=internal_time-20000' mismip+Spinup.restart.nc out.nc
+
+You may have to precede this command with 'module load nco' if NCO is not loaded automatically.
+
+To verify that the time correction worked, you can do 'ncdump -v internal_time out.nc'.
+The final internal_time value should be 0, with negative values for earlier times.
+
+Then you can overwrite the original restart file:
+> cp out.nc mismip+Spinup.restart.nc
+
+Next, you can run the Ice0, Ice1 and Ice2 experiments.
+You can do this with one command using the Python run script, for example:
+
+> python mismip+Run.py -x allIce -n 16
+
+Then each Ice0, Ice1 and Ice2 experiment will be run in turn, starting with Ice0.
+The '-x allIce' argument is optional, since this is the default setting.
+You can also run a single experiment, say
+
+> python mismip+Run.py -x Ice0 -n 16
+
+Or all the Ice1 experiments without Ice0 or Ice2:
+
+> python mismip+Run.py -x Ice1 -n 16
+
+Once these experiments have run, the next step is to convert the results
+to the format specified by Asay-Davis et al.  Compulsory output consists of the 
+following scalars and field written at 10-year intervals:
+
+* iceVolume [m^3]
+* iceVAF = volume above flotation [m^3]
+* groundedArea [m^2]
+* xGL, yGL = x/y coordinates [m] of points on the GL
+* iceThicknessGL [m]
+* uBaseGL, vBaseGL [m/yr]
+* uSurfaceGL, vSurfaceGL [m/yr]
+* uMeanGL, vMeanGL [m/yr]
+
+These data can be extracted from the CISM output files by running another Python script:
+
+> python mismip+WriteGL.py
+
+The default is to generate this file for all the experiments, but you can
+make a GL file for a single experiment by adding an optional argument:
+
+> python mismip+WriteGL.py -x Ice1r
+
+The resulting GL files in the various subdirectories are called [EXPT]_cism.nc, 
+where [EXPT] is Ice0, Ice1r, etc. There are also simple plots called [EXPT]_plot.pdf.
+
+Finally, you can create two useful summary plots in a file called mismip+PlotGL.pdf:
+
+> python mismip+PlotGL.py
+
+The upper panel shows the grounding line at different stages of the various experiments.
+The bottom panel shows the evolution of grounded ice area as in Fig. 4 of Asay-Davis et al.

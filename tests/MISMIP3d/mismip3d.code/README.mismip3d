@@ -1,0 +1,178 @@
+Instructions for setting up and running the MISMIP3d experiments with CISM.
+
+Note: part of the instruction assumes that you have access to the NCAR HPC
+ Cheyenne and have access to the LIWG HPC spending account.
+
+See this paper for details on MISMIP3d:
+Pattyn,F., et al. (2013), Grounding-line migration in plan-view marine 
+ice-sheet models: results of the ice2sea MISMIP3d intercomparison, 
+J. Glaciol., 59, doi:10.3189/2013JoG12J129, 2013. 
+
+The following experiments are included in MISMIP3d:
+
+Stnd 	    Standard spinup of the model to steady state
+P75S        100-year with basal friction perturbation
+P75R        Steady state run undoing basal friction perturbation
+
+Experiment P75S starts from the spun-up state at the end of experiment Stnd.
+Reaching a stable state typically requires ~20,000 years.
+Experiment P75R is similar to experiment Stnd. 
+
+The files needed to run the experiment are located in directory ../tests/MISMMIP3d/mismip3d.code.
+If you plan to run more than one test suite, you will likely want to keep this directory clean. Instead
+create a new directory and make a fresh copy of the code for each test. For example, from ../tests/MISMMIP3d:
+
+> cp -rf mismip3d.code mismip3d.test1
+> cp -rf mismip3d.code mismip3d.test2
+etc.
+
+Go to the directory where you are setting up and running the experiments:
+
+> cd mismip3d.test1
+
+This directory should contain several Python scripts, along with a template config file
+(mismip3d.config.template) with default settings for MISMIP3d and a template run file
+(runCISM.cheyenne.template) with setups to run MISMIP3d on the Cheyenne super computer.
+
+Put a copy or link of cism_driver in your directory. For example:
+
+> ln -s ../../../builds/mac-gnu/cism_driver/cism_driver cism_driver
+
+To create the grid topography and set the appropriate config options for each test, run the Python setup script:
+
+> python mismip3dSetup.py [arguments]
+
+This script has the following optional arguments:
+  -c FILE, --config=FILE
+                        config file template [default: mismip3d.config.template]
+  -e EXECUTABLE, --exec=EXECUTABLE
+                        Path to the CISM executable [default: cism_driver]
+  -x EXPT, --expt=EXPT  MISMIP3d experiment(s) to set up [default: all]
+  -t TSTEP, --tstep=TSTEP
+                        time step (yr) [default: 1]
+  -r RES, --res=RES   horizontal grid resolution (m) [default: 2000]
+  -v VLEVEL, --vlevel=VLEVEL
+                        no. of vertical levels [default: 3]
+  -a APPROXIMATION, --approx=APPROXIMATION
+                        Stokes approximation (SSA, DIVA, BP) [default: DIVA]
+  -b BASALFRICTION, --basal=BASALFRICTION
+                        Basal friction law (powerlaw, Schoof, Tsai) [default: powerlaw]
+  -y YEARSSPINUP, --year=YEARSPINUP
+                        Length of spinup run (yr) [default: 20000]
+
+Notes on optional arguments:
+- If setting up all the experiments at once, the -x argument is not needed.
+- The following resolutions (m) are supported: 8000, 4000, 2000, 1000, 500, 250.
+- The perturbation experiments (e.g., P75S) might require a shorter time step
+  than the Stnd experiment.  For instance, experiment Stnd using DIVA at 2 km is typically stable with dt = 1.0 yr.
+  With identical config settings, P75S is unstable and requires a shorter time step, e.g. dt = 0.5 yr.
+  If so, you might need to manually reduce dt in the config file for a given experiment
+  (assuming you don't want to repeat experiment Stnd).
+- Three Stokes approximations are supported for MISMIP3d: SSA, DIVA and BP.
+- Three basal BCs are supported:
+  (1) a Weertman-type power law: 'powerlaw'
+  (2) a modified power law based on Tsai (2015): 'Tsai'
+  (3) a modified power law based on Schoof (2005) and Leguy et al. (2014): 'Schoof'
+
+The config template file includes sensible default values for a number of parameters 
+associated with the Stokes approximation, the basal friction law and the MISMIP3d basal friction
+perturbation. To change any of these parameters, you need to edit the template file.
+
+If you set up all the experiments, you should have the following subdirectories after running
+the setup script:
+Stnd, P75S, P75R.
+
+After setup, you can run all the experiments by using the Python run script:
+
+> python mismip3dRun.py  
+
+Here are the optional arguments for the run script:
+  -e EXECUTABLE, --exec=EXPT
+                        Path to the CISM executable [default: ./cism_driver]
+  -x EXPT, --expt=experiment  MISMIP3d experiment(s) to run [default: allIce]
+  -n NUMPROCS, --parallel=NUMPROCS
+                        Number of processors: if specified then run in parallel
+  --job,     if present at the command line, creates a batch job submission script for a 
+             given experiment
+  --submit,  if present at the command line, submit the job created with the --job option  
+
+Experiments with coarse resolution (2km or coarser) can be run on your personal computer.
+
+By default this script will run all 3 experiments at once. You can also run one experiment 
+at a time by specifying its name (Stnd, P75S or P75R) using for example:
+
+> python mismip3dRun.py -x Stnd
+
+Experiments run at coarse resolutions (2km or coarser) can be run on a single processor 
+on your personal computer. You can also run all the experiments on several processor using:
+
+> python mismip3dRun.py -n 4
+
+It can take a long time to run some experiment when running with a resolution of 2km and 
+higher. If for some reason you need to interrupt your run, you can restart it at a later 
+time. If the restart of a given experiment is present in the directory, the script 
+mismip3dRun.py will atumatically restart from that restart file. For example, continuiing
+the Stnd experiment on 4 processors:
+
+> python mismip3dRun.py -x Stnd -n 4 
+
+Note that before restarting your run you might want to save a copy of the log file  
+'mismip3dStnd.config.log' under a different name as it will be overwritten on restart.
+The output file, mismip3dStnd.out.nc, will be appended on restart and does not need to 
+be copied. Continue as needed until you have completed the full Stnd period.
+Alternatively, you may want to submit a batch job.  If so, run the following:
+
+> python mismip3dRun.py -x Stnd --job
+
+This will setup a batch job script called runCISM.cheyenne.Stnd in the 'Stnd' directory using 
+the default setting from the mismip3dRun.py script. 
+NOTE: If you want to run each experiment by submitting of batch job script you will need to 
+setup each script one at a time, meaning that even with '-x all' option, the run script will 
+only setup a batch job script for the 'Stnd' experiment. 
+
+Once a batch job script is created, you can edit the script and modify the time
+and number of processors manually and submit the job yourself using the command:
+
+> qsub runCISM.cheyenne.Stnd
+
+You can also directly submit the batch job automatically by running:
+
+> python mismip3dRun.py -x Stnd --job --submit
+
+Before proceeding, you may want to confirm that the GL has reached a steady state.
+One way to do this is to list f_ground (the grounded fraction, 0 < f_ground < 1) along the x 
+direction at y ~ 50 km. The value of f_ground in the last (partially) grounded cell should be 
+stable within some small tolerance, e.g. ~10^{-3}.
+
+The file mismipSdStnd.restart.nc in the Stnd directory will become the input file
+for the P75S experiment. This file needs to be edited so that CISM's internal_time coordinate
+for the final time slice is 0 and that the basal friction parameter gets adjusted for the perturbation
+experiment by modifying the 'C_space_factor' parameter. This action is done automatically when running 
+with the script mismip3dRun.py and the experiment 'P75S' is present in the command line option (either 
+when using 'all', 'allP75' or 'P75S'). 
+
+To verify that the time correction worked, you can do 'ncdump -v Stnd/internal_time mismip3dStnd.restart.nc'.
+The final internal_time value should be 0, with negative values for earlier times. Similarly, you can do
+the same for C_space_factor by making sure the values of the field are not all 1 or by plotting the field
+using you preferred display software.
+
+
+Once these experiments have run, the next step is to extract the grounding line i(GL) position.
+This can be done by extracting information from the CISM output files by running another Python script:
+
+> python mismip3dWriteGL.py
+
+The default is to generate a netCDF file containing the 2 arrays xGL and yGL (the location of the 
+grounding line along the x and y coordinates) for all the experiments, but you can make a GL file 
+for a single experiment by adding an optional argument:
+
+> python mismip3dWriteGL.py -x P75S
+
+The resulting GL files in the various subdirectories are called [EXPT]_cism.nc, 
+where [EXPT] is Stnd, P75S, and P75R.
+
+Finally, you can create the summary grounding line plots in a file called mismip3dPlotGL.pdf:
+
+> python mismip3dPlotGL.py
+
+The plot shows the grounding line position at the end of each stage of the experiment.

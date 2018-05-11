@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+#PBS -N MISMIP3d
+#PBS -A P93300601
+#PBS -l walltime=00:01:00
+#PBS -q economy
+#PBS -j oe
+#PBS -m abe
+#PBS -l select=1:ncpus=1:mpiprocs=1
+
+mpiexec_mpt ./cism_driver mismip3d.config
