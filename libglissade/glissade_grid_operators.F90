@@ -657,10 +657,6 @@ contains
     ! At land-terminating margins the gradient is nonzero (except for nunataks), and at marine-terminating
     !  margins the gradient is zero.
     !
-    ! TODO: Update this subroutine to be consistent with the logic in glissade_surface_elevation_gradient.
-    !       I.e., add the case of ice-covered land over ice-free ocean, and incorporate thck_gradient_ramp.
-    !       For now, this subroutine is used only by the glissade SIA solver (which is not run with marine
-    !        boundaries) and the L1L2 solver (which is no longer supported), so the differences should not matter.
     !----------------------------------------------------------------
 
     !----------------------------------------------------------------
@@ -764,15 +760,15 @@ contains
     !  for ice shelves with a sharp drop in ice thickness and surface elevation at the margin.
     !
     ! HO_GRADIENT_MARGIN_HYBRID = 1: The gradient is computed at edges where either
+    !
     ! (1) Both adjacent cells are ice-covered.
     ! (2) One cell is ice-covered (land or marine-based) and lies above ice-free land.
-    ! (3) One cell is ice-covered land and lies above ice-free ocean.
     !
     ! This method sets the gradient to zero at edges where
-    ! (1) An ice-covered marine-based cell (grounded or floating) lies above ice-free ocean.
+    ! (1) An ice-covered cell (grounded or floating) lies above ice-free ocean.
     !     Note: Inactive calving-front cells are treated as ice-free ocean.
     ! (2) An ice-covered land cell lies below an ice-free land cell (i.e., a nunatak).
-    !
+
     ! The aim is to give a reasonable gradient at both land-terminating and marine-terminating margins.
     ! At land-terminating margins the gradient is nonzero (except for nunataks), and at marine-terminating
     !  margins the gradient is zero.
@@ -934,11 +930,6 @@ contains
                 ! upper cell has active ice, and ice-free lower cell is land; compute the gradient
                 ds_dx_edge(i,j) = edge_factor * sign_factor * (usrf(iu,j) - usrf(il,j)) / dx
 
-             elseif (active_ice_mask(iu,j) == 1 .and. land_mask(iu,j) == 1 .and. land_mask(il,j) == 0) then
-
-                ! upper cell has active ice on land, and ice-free lower cell is ocean; compute the gradient
-                ds_dx_edge(i,j) = edge_factor * sign_factor * (usrf(iu,j) - usrf(il,j)) / dx
-
              endif  ! both cells have ice
 
           enddo   ! i
@@ -977,11 +968,6 @@ contains
              elseif (active_ice_mask(i,ju) == 1 .and. land_mask(i,jl) == 1) then
 
                 ! upper cell has active ice, and ice-free lower cell is land; compute the gradient
-                ds_dy_edge(i,j) = edge_factor * sign_factor * (usrf(i,ju) - usrf(i,jl)) / dy
-
-             elseif (active_ice_mask(i,ju) == 1 .and. land_mask(i,ju) == 1 .and. land_mask(i,jl) == 0) then
-
-                ! upper cell has active ice on land, and ice-free lower cell is ocean; compute the gradient
                 ds_dy_edge(i,j) = edge_factor * sign_factor * (usrf(i,ju) - usrf(i,jl)) / dy
 
              endif  ! both cells have ice

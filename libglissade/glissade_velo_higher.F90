@@ -802,8 +802,6 @@
        xVertex, yVertex,    & ! x and y coordinates of each vertex (m)
        stagusrf,            & ! upper surface averaged to vertices, for active cells (m)
        stagthck,            & ! ice thickness averaged to vertices, for active cells (m)
-       stagusrf_marine,     & ! upper surface averaged to vertices, for active marine cells only (m)
-       stagthck_marine,     & ! ice thickness averaged to vertices, for active marine cells only (m)
        dusrf_dx, dusrf_dy,  & ! gradient of upper surface elevation (m/m)
        ubas, vbas             ! basal ice velocity (m/yr); input to calcbeta 
 
@@ -1514,18 +1512,6 @@
        active_marine_mask = 0
     endwhere
 
-    ! Compute marine version of stagthck and stagusrf, used for lateral shelf BCs
-
-    call glissade_stagger(nx,       ny,               &
-                          thck,     stagthck_marine,  &
-                          active_marine_mask,         &
-                          stagger_margin_in = 1)
-
-    call glissade_stagger(nx,       ny,               &
-                          usrf,     stagusrf_marine,  &
-                          active_marine_mask,         &
-                          stagger_margin_in = 1)
-
     if (verbose_gridop .and. this_rank == rtest) then
        print*, ' '
        print*, 'thck, itest, jtest, rank =', itest, jtest, rtest
@@ -1545,15 +1531,6 @@
           enddo
           write(6,*) ' '
        enddo
-       print*, ' '
-       print*, 'stagthck_marine, itest, jtest, rank =', itest, jtest, rtest
-       do j = jtest+3, jtest-3, -1
-          write(6,'(i6)',advance='no') j
-          do i = itest-3, itest+3
-             write(6,'(f10.3)',advance='no') stagthck_marine(i,j)
-          enddo
-          write(6,*) ' '
-       enddo
     endif
 
     !------------------------------------------------------------------------------
@@ -1569,9 +1546,8 @@
     !  if ice-free.  This is what Glide does, but is not appropriate if we have ice-covered
     !  marine-based cells lying above ice-free ocean cells, because the gradient is too big.
     ! gradient_margin_in = 1 computes gradients at edges with
-    !  (1) ice-covered cells on either side,
-    !  (2) ice-covered cells (land or marine-based) above ice-free land, or
-    !  (3) ice-covered land cells above ice-free ocean.
+    !  (1) ice-covered cells on either side, or
+    !  (2) ice-covered cell (land or marine-based) above ice-free land
     !  This option is designed for both land- and ocean-terminating boundaries. It is the default.
     ! gradient_margin_in = 2 computes gradients only at edges with ice-covered cells
     !  on each side.  This is appropriate for problems with ice shelves, but is
@@ -2131,7 +2107,7 @@
                                 calving_front_mask,                &
                                 active_cell,                       &
                                 xVertex,          yVertex,         &
-                                stagusrf_marine,  stagthck_marine, &
+                                stagusrf,         stagthck,        &
                                 loadu,            loadv)
     call t_stopf('glissade_load_vector_lateral_bc')
 
@@ -4565,7 +4541,7 @@
                                     calving_front_mask,                &
                                     active_cell,                       &
                                     xVertex,          yVertex,         &
-                                    stagusrf_marine,  stagthck_marine, &
+                                    stagusrf,         stagthck,        &
                                     loadu,            loadv)
 
     integer, intent(in) ::      &
@@ -4590,8 +4566,8 @@
        xVertex, yVertex     ! x and y coordinates of vertices
 
     real(dp), dimension(nx-1,ny-1), intent(in) ::  &
-       stagusrf_marine, & ! upper surface elevation (m) on staggered grid, for marine-based cells only
-       stagthck_marine    ! ice thickness (m) on staggered grid, for marine-based cells only
+       stagusrf,        & ! upper surface elevation (m) on staggered grid
+       stagthck           ! ice thickness (m) on staggered grid
 
     real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::  &
        loadu, loadv       ! load vector, divided into u and v components
@@ -4605,8 +4581,7 @@
     ! Sum over elements in active cells 
     ! Loop over cells that contain locally owned vertices
 
-    ! Note: Lateral shelf BCs are applied to active cells (either floating cells or
-    !        marine-based grounded cells) that border the ocean.
+    ! Note: Lateral shelf BCs are applied to active cells (either floating or grounded) that border the ocean.
     !       Inactive calving_front cells are treated as if they were ocean cells.
 
     do j = nhalo+1, ny-nhalo+1
@@ -4620,10 +4595,9 @@
           print*, 'calving_front_mask (i-1:i,j-1)=', calving_front_mask(i-1:i, j-1)
        endif
 
-       !WHL - Old method is to compute the spreading term only for active floating cells.
-       !      New method is to compute the spreading term for all active marine-based cells that border the ocean.
-!!       if (active_cell(i,j) .and. floating_mask(i,j) == 1) then   ! ice is active and floating
-       if (active_cell(i,j) .and. land_mask(i,j) == 0) then
+       ! Compute the spreading term for all active cells that share an edge with an ice-free ocean cell.
+
+       if (active_cell(i,j)) then
 
           if ( ocean_mask(i-1,j) == 1 .or.  &
               (calving_front_mask(i-1,j) == 1 .and. .not.active_cell(i-1,j)) ) then ! compute lateral BC for west face
@@ -4632,7 +4606,7 @@
                                    nz,              sigma,           &
                                    'west',                           &
                                    i,               j,               &
-                                   stagusrf_marine, stagthck_marine, &
+                                   stagusrf,        stagthck,        &
                                    xVertex,         yVertex,         &
                                    loadu,           loadv)
           endif
@@ -4644,7 +4618,7 @@
                                    nz,              sigma,           &
                                    'east',                           &
                                    i,               j,               &
-                                   stagusrf_marine, stagthck_marine, &
+                                   stagusrf,        stagthck,        &
                                    xVertex,         yVertex,         &
                                    loadu,           loadv)
           endif
@@ -4656,7 +4630,7 @@
                                    nz,              sigma,           &
                                    'south',                          &
                                    i,               j,               &
-                                   stagusrf_marine, stagthck_marine, &
+                                   stagusrf,        stagthck,        &
                                    xVertex,         yVertex,         &
                                    loadu,           loadv)
           endif
@@ -4668,7 +4642,7 @@
                                    nz,              sigma,           &
                                    'north',                          &
                                    i,               j,               &
-                                   stagusrf_marine, stagthck_marine, &
+                                   stagusrf,        stagthck,        &
                                    xVertex,         yVertex,         &
                                    loadu,           loadv)
           endif
@@ -4686,7 +4660,7 @@
                               nz,                  sigma,           &
                               face,                                 &
                               iCell,               jCell,           &
-                              stagusrf_marine,     stagthck_marine, &
+                              stagusrf,            stagthck,        &
                               xVertex,             yVertex,         &
                               loadu,               loadv)
 
@@ -4740,8 +4714,8 @@
        xVertex, yVertex   ! x and y coordinates of vertices
 
     real(dp), dimension(nx-1,ny-1), intent(in) ::  &
-       stagusrf_marine,   &  ! upper surface elevation (m) on staggered grid, for marine-based cells only
-       stagthck_marine       ! ice thickness (m) on staggered grid (m), for marine-based cells only
+       stagusrf,          &  ! upper surface elevation (m) on staggered grid
+       stagthck              ! ice thickness (m) on staggered grid (m)
 
     real(dp), dimension(nz,nx-1,ny-1), intent(inout) ::  &
        loadu, loadv          ! load vector, divided into u and v components
@@ -4855,13 +4829,13 @@
     x(3) = x(2)
     x(4) = x(1)
 
-    s(1) = stagusrf_marine(iNode(1), jNode(1))
-    s(2) = stagusrf_marine(iNode(2), jNode(2))
+    s(1) = stagusrf(iNode(1), jNode(1))
+    s(2) = stagusrf(iNode(2), jNode(2))
     s(3) = s(2)
     s(4) = s(1)
 
-    h(1) = stagthck_marine(iNode(1), jNode(1))
-    h(2) = stagthck_marine(iNode(2), jNode(2))
+    h(1) = stagthck(iNode(1), jNode(1))
+    h(2) = stagthck(iNode(2), jNode(2))
     h(3) = h(2)
     h(4) = h(1)
 
@@ -6217,7 +6191,7 @@
     ! Setting gradient_margin_in = 0 takes the gradient over both neighboring cells,
     !  including ice-free cells.
     ! Setting gradient_margin_in = 1 computes a gradient if both neighbor cells are
-    !  either ice-covered cells or land cells; else gradient = 0.
+    !  ice-covered, or an ice-covered cell sits above ice-free land; else gradient = 0
     ! Setting gradient_margin_in = 2 computes a gradient only if both neighbor cells
     !  are ice-covered.
     ! At a land margin, either 0 or 1 is appropriate, but 2 is inaccurate.
