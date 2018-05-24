@@ -57,6 +57,7 @@ contains
     ! read netCDF I/O related configuration file
     use glide_types
     use glimmer_config
+    use glimmer_global, only : fname_length
 
     implicit none
 
@@ -71,8 +72,8 @@ contains
 
     integer :: pos
     integer :: ierr
-    character(len=100) :: restart_filename
-    character(len=100) :: message
+    character(len=fname_length) :: restart_filename
+    character(len=256) :: message
 
     ! Note on restart files:
     ! If a file is listed in the 'CF restart' section, then it is added to the glimmer_nc_output data structure
