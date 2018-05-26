@@ -119,7 +119,7 @@ module glide_types
   integer, parameter :: BMLT_FLOAT_NONE = 0
   integer, parameter :: BMLT_FLOAT_MISMIP = 1
   integer, parameter :: BMLT_FLOAT_CONSTANT = 2
-  integer, parameter :: BMLT_FLOAT_CAVITY_THCK = 3
+  integer, parameter :: BMLT_FLOAT_DEPTH = 3
   integer, parameter :: BMLT_FLOAT_EXTERNAL = 4
 
   integer, parameter :: BASAL_MBAL_NO_CONTINUITY = 0
@@ -417,7 +417,7 @@ module glide_types
     !> \item[0] Basal melt rate = 0 for floating ice
     !> \item[1] Depth-dependent basal melt rate for floating ice as specified for MISMIP+
     !> \item[2] Basal melt rate = constant for floating ice (with option to selectively mask out melting)
-    !> \item[3] Basal melt rate based on thickness of sub-shelf cavity
+    !> \item[3] Depth-dependent basal melt rate for floating ice
     !> \item[4] External basal melt rate field (from input file or coupler)
     !> \end{description}
 
@@ -1282,11 +1282,16 @@ module glide_types
                                                     !> set to 100 m/yr for MISMIP+ Ice2r
      real(dp) :: bmlt_float_xlim = 0.d0             !> melting is allowed only for abs(x1) > bmlt_float_xlim
                                                     !> set to 480 km for MISMIP+ Ice2r
-
-     ! parameters for BMLT_FLOAT_CAVITY_THCK
-     real(dp) :: bmlt_float_cavity_meltmax = 20.d0   !> max melt rate in cavity (m/yr)
-     real(dp) :: bmlt_float_cavity_hmeltmax = 100.d0 !> cavity thickness (m) below which bmlt_float = meltmax
-     real(dp) :: bmlt_float_cavity_hmelt0 = 300.d0   !> cavity thickness (m) above which bmlt_float = 0
+     ! parameters for BMLT_FLOAT_DEPTH
+     ! The sub-shelf melt rate is piecewise linear, generally with greater melting at depth.
+     ! The maximum melting and freezing rates are set independently.
+     ! The melting/freezing rates fall linearly from the max values to zero over ranges defined by
+     !  zmeltmax, zmelt0 and zfrzmax.
+     real(dp) :: bmlt_float_depth_meltmax = 10.d0     !> max melt rate at depth (m/yr)
+     real(dp) :: bmlt_float_depth_frzmax = 0.d0       !> max freezing rate near surface (m/yr)
+     real(dp) :: bmlt_float_depth_zmeltmax = -500.d0  !> depth (m) below which bmlt_float = meltmax
+     real(dp) :: bmlt_float_depth_zmelt0 = -200.d0    !> depth (m) where bmlt_float = 0
+     real(dp) :: bmlt_float_depth_zfrzmax = -100.d0   !> depth (m) above which bmlt_float = -frzmax
 
      ! initMIP-Antarctica parameters
      real(dp) :: bmlt_anomaly_timescale = 0.0d0     !> number of years over which the bmlt_float anomaly is phased in linearly

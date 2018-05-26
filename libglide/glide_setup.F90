@@ -204,7 +204,8 @@ contains
     ! scale basal melting parameters (1/yr -> 1/s, or m/yr -> m/s)
     model%basal_melt%bmlt_float_omega = model%basal_melt%bmlt_float_omega / scyr
     model%basal_melt%bmlt_float_const = model%basal_melt%bmlt_float_const / scyr
-    model%basal_melt%bmlt_float_cavity_meltmax = model%basal_melt%bmlt_float_cavity_meltmax / scyr
+    model%basal_melt%bmlt_float_depth_meltmax = model%basal_melt%bmlt_float_depth_meltmax / scyr
+    model%basal_melt%bmlt_float_depth_frzmax = model%basal_melt%bmlt_float_depth_frzmax / scyr
 
     ! scale SMB/acab parameters
     model%climate%overwrite_acab_value = model%climate%overwrite_acab_value*tim0/(scyr*thk0)
@@ -736,7 +737,7 @@ contains
          'none                                 ', &
          'MISMIP+ melt rate profile            ', &
          'constant melt rate                   ', &
-         'melt rate from ocean cavity thickness', &
+         'depth-dependent melt rate            ', &
          'melt rate from external file         ' /)
 
     character(len=*), dimension(0:1), parameter :: smb_input = (/ &
@@ -1626,9 +1627,11 @@ contains
     call GetValue(section,'bmlt_float_z0', model%basal_melt%bmlt_float_z0)
     call GetValue(section,'bmlt_float_const', model%basal_melt%bmlt_float_const)
     call GetValue(section,'bmlt_float_xlim', model%basal_melt%bmlt_float_xlim)
-    call GetValue(section,'bmlt_float_cavity_meltmax', model%basal_melt%bmlt_float_cavity_meltmax)
-    call GetValue(section,'bmlt_float_cavity_hmelt0', model%basal_melt%bmlt_float_cavity_hmelt0)
-    call GetValue(section,'bmlt_float_cavity_hmeltmax', model%basal_melt%bmlt_float_cavity_hmeltmax)
+    call GetValue(section,'bmlt_float_depth_meltmax', model%basal_melt%bmlt_float_depth_meltmax)
+    call GetValue(section,'bmlt_float_depth_frzmax', model%basal_melt%bmlt_float_depth_frzmax)
+    call GetValue(section,'bmlt_float_depth_zmeltmax', model%basal_melt%bmlt_float_depth_zmeltmax)
+    call GetValue(section,'bmlt_float_depth_zmelt0', model%basal_melt%bmlt_float_depth_zmelt0)
+    call GetValue(section,'bmlt_float_depth_zfrzmax', model%basal_melt%bmlt_float_depth_zfrzmax)
 
   end subroutine handle_parameters
 
@@ -2005,6 +2008,17 @@ contains
        write(message,*) 'bmlt_float_h0 (m)        :  ', model%basal_melt%bmlt_float_h0
        call write_log(message)
        write(message,*) 'bmlt_float_z0 (m)        :  ', model%basal_melt%bmlt_float_z0
+       call write_log(message)
+    elseif (model%options%whichbmlt_float == BMLT_FLOAT_DEPTH) then
+       write(message,*) 'bmlt_float_depth_meltmax (m/yr):  ', model%basal_melt%bmlt_float_depth_meltmax
+       call write_log(message)
+       write(message,*) 'bmlt_float_depth_frzmax (m/yr) :  ', model%basal_melt%bmlt_float_depth_frzmax
+       call write_log(message)
+       write(message,*) 'bmlt_float_depth_zmeltmax (m)  :  ', model%basal_melt%bmlt_float_depth_zmeltmax
+       call write_log(message)
+       write(message,*) 'bmlt_float_depth_zmelt0 (m)    :  ', model%basal_melt%bmlt_float_depth_zmelt0
+       call write_log(message)
+       write(message,*) 'bmlt_float_depth_zfrzmax (m)  :  ', model%basal_melt%bmlt_float_depth_zfrzmax
        call write_log(message)
     endif
 
