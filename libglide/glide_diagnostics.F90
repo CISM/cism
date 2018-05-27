@@ -847,8 +847,8 @@ contains
              load_diag = model%isostasy%load(i,j)*thk0
           endif
           artm_diag = model%climate%artm(i,j)
-          acab_diag = model%climate%acab(i,j) * thk0*scyr/tim0
-          bmlt_diag = model%basal_melt%bmlt(i,j) * thk0*scyr/tim0
+          acab_diag = model%climate%acab_applied(i,j) * thk0*scyr/tim0
+          bmlt_diag = model%basal_melt%bmlt_applied(i,j) * thk0*scyr/tim0
           bwat_diag = model%temper%bwat(i,j) * thk0
           bheatflx_diag = model%temper%bheatflx(i,j)
        
@@ -912,7 +912,7 @@ contains
        write(message,'(a25,f24.16)') 'Sfc mass balance (m/yr)  ', acab_diag
        call write_log(trim(message), type = GM_DIAGNOSTIC)
 
-       write(message,'(a25,f24.16)') 'Basal melt rate (m/yr)   ', bmlt_diag
+       write(message,'(a25,f24.16)') 'Basal mass balance (m/yr)', -bmlt_diag
        call write_log(trim(message), type = GM_DIAGNOSTIC)
 
        write(message,'(a25,f24.16)') 'Basal water depth (m)    ', bwat_diag

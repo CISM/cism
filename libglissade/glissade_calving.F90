@@ -826,7 +826,7 @@ contains
        !
        ! The thinning rate applied to the mean cell thickness (thck) is given by
        !
-       !    dH/dt = max(H/H_e, 1) * dH_e/dt
+       !    dH/dt = min(H/H_e, 1) * dH_e/dt
        !
        ! Thus, any ice with H_e < Hc_min is removed on a time scale given by tau_c.
 

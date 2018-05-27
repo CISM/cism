@@ -134,6 +134,9 @@ contains
     real(dp) :: h_cavity        ! depth of ice cavity beneath floating ice (m)
     real(dp) :: z_draft         ! elevation of lower surface of floating ice (m)
 
+    real(dp) :: frz_ramp_factor    ! multiplying factor for linear ramp at depths with basal freezing
+    real(dp) :: melt_ramp_factor   ! multiplying factor for linear ramp at depths with basal melting
+
     logical, parameter :: verbose_bmlt = .false.
 
     !-----------------------------------------------------------------
@@ -230,7 +233,7 @@ contains
           print*, 'thck (m):'
           do j = jtest+3, jtest-3, -1
              do i = itest-3, itest+3
-                write(6,'(f12.5)',advance='no') thck(i,j)
+                write(6,'(f10.2)',advance='no') thck(i,j)
              enddo
              write(6,*) ' '
           enddo
@@ -238,22 +241,39 @@ contains
           print*, 'bmlt_float (m/yr), rank =', rtest
           do j = jtest+3, jtest-3, -1
              do i = itest-3, itest+3
-                write(6,'(f12.5)',advance='no') bmlt_float(i,j)*scyr
+                write(6,'(f10.2)',advance='no') bmlt_float(i,j)*scyr
              enddo
              write(6,*) ' '
           enddo
        endif
 
-    elseif (whichbmlt_float == BMLT_FLOAT_CAVITY_THCK) then
+    elseif (whichbmlt_float == BMLT_FLOAT_DEPTH) then
 
-       ! Compute melt rates based on the cavity thickness, with larger melt rates for thinner cavities.
-       ! Cavity thickness is taken as a rough proxy for distance from the grounding line;
-       !  the goal is to focus the melting near the GL.
-       ! The melt rate is set to a maximum value where h_cavity < cavity_hmeltmax,
-       !  then decreases linearly to 0 as h_cavity increases from cavity_hmeltmax to cavity_hmelt0.
-       ! In addition, if bmlt_float_h0 > 0 (see the MISMIP scheme above), the melt rate can be tapered
-       !  for very thin cavities.  Typically, cavity_hmeltmax > bmlt_float_h0.
-       ! This scheme is available for testing and tuning, but has not been scientifically validated.
+       ! Compute melt rates as a piecewise linear function of depth, generally with greater melting at depth.
+       ! This scheme is similar to the MISMIP scheme, with the additional option of near-surface freezing.
+       ! The maximum melting and freezing rates are set independently, with melting usually of greater magnitude.
+       ! The melting/freezing rates fall linearly from their max values to zero over ranges defined by
+       !  zmeltmax, zmelt0 and zfrzmax.
+       ! The melt rate is set to a maximum value where z_draft <= zmeltmax,
+       !  then decreases linearly to 0 as z_draft increases from zmeltmax to zmelt0.
+       ! The freezing rate is set to a maximum value where z_draft >= zfrzmax,
+       !  then decreases linearly to 0 as z_draft decreases from zfrzmax to zmelt0.
+       ! (Here, z_draft < 0 by definition.)
+
+       ! Compute ramp factors
+       ! These factors are set to avoid divzero whe zmelt0 = zmeltmax, or zmelt0 = zfrzmax
+
+       if (basal_melt%bmlt_float_depth_zfrzmax > basal_melt%bmlt_float_depth_zmelt0) then
+          frz_ramp_factor = 1.0d0 / (basal_melt%bmlt_float_depth_zfrzmax - basal_melt%bmlt_float_depth_zmelt0)
+       else
+          frz_ramp_factor = 0.0d0
+       endif
+
+       if (basal_melt%bmlt_float_depth_zmelt0 > basal_melt%bmlt_float_depth_zmeltmax) then
+          melt_ramp_factor = 1.0d0 / (basal_melt%bmlt_float_depth_zmelt0 - basal_melt%bmlt_float_depth_zmeltmax)
+       else
+          melt_ramp_factor = 0.0d0
+       endif
 
        do j = 1, nsn
           do i = 1, ewn
@@ -261,20 +281,27 @@ contains
              ! compute basal melt in ice-free ocean cells, in case ice is advected to those cells by the transport scheme
              if (floating_mask(i,j) == 1 .or. ocean_mask(i,j) == 1) then   ! ice is present and floating, or ice-free ocean
 
-                h_cavity = max(lsrf(i,j) - topg(i,j), 0.0d0)
+                z_draft = lsrf(i,j) - eus
 
-                if (h_cavity > basal_melt%bmlt_float_cavity_hmelt0) then
-                   ! do nothing; bmlt_float = 0
-                elseif (h_cavity < basal_melt%bmlt_float_cavity_hmeltmax) then
-                   bmlt_float(i,j) = basal_melt%bmlt_float_cavity_meltmax
-                else
-                   bmlt_float(i,j) = basal_melt%bmlt_float_cavity_meltmax * &
-                        (basal_melt%bmlt_float_cavity_hmelt0 - h_cavity) / &
-                        (basal_melt%bmlt_float_cavity_hmelt0 - basal_melt%bmlt_float_cavity_hmeltmax)
+                if (z_draft > basal_melt%bmlt_float_depth_zfrzmax) then
+                   ! max freezing
+                   bmlt_float(i,j) = -basal_melt%bmlt_float_depth_frzmax   ! frzmax >=0 by definition
+                elseif (z_draft > basal_melt%bmlt_float_depth_zmelt0) then
+                   ! freezing with a linear taper from frzmax to zero
+                   bmlt_float(i,j) = -basal_melt%bmlt_float_depth_frzmax * &
+                        frz_ramp_factor * (z_draft - basal_melt%bmlt_float_depth_zmelt0)
+                elseif (z_draft > basal_melt%bmlt_float_depth_zmeltmax) then
+                   ! melting with a linear taper from meltmax to zero
+                   bmlt_float(i,j) = basal_melt%bmlt_float_depth_meltmax * &
+                        melt_ramp_factor * (basal_melt%bmlt_float_depth_zmelt0 - z_draft)
+                elseif (z_draft <= basal_melt%bmlt_float_depth_meltmax) then
+                   ! max melting
+                   bmlt_float(i,j) = basal_melt%bmlt_float_depth_meltmax
                 endif
 
-                ! Following the MISMIP+ scheme, reduce the melting as the cavity thickness approaches zero.
+                ! As with the MISMIP scheme, reduce the melting as the cavity thickness approaches zero.
                 ! A small value of bmlt_float_h0 allows more melting in very thin cavities.
+                h_cavity = max(lsrf(i,j) - topg(i,j), 0.0d0)
                 bmlt_float(i,j) = bmlt_float(i,j) * tanh(h_cavity/basal_melt%bmlt_float_h0)
 
              endif   ! ice is present and floating
@@ -289,7 +316,23 @@ contains
           print*, 'topg (m):'
           do j = jtest+3, jtest-3, -1
              do i = itest-3, itest+3
-                write(6,'(f12.5)',advance='no') topg(i,j)
+                write(6,'(f10.2)',advance='no') topg(i,j)
+             enddo
+             write(6,*) ' '
+          enddo
+          print*, ' '
+          print*, 'thck (m):'
+          do j = jtest+3, jtest-3, -1
+             do i = itest-3, itest+3
+                write(6,'(f10.2)',advance='no') thck(i,j)
+             enddo
+             write(6,*) ' '
+          enddo
+          print*, ' '
+          print*, 'z_draft (m):'
+          do j = jtest+3, jtest-3, -1
+             do i = itest-3, itest+3
+                write(6,'(f10.2)',advance='no') min(lsrf(i,j) - eus, 0.0d0)
              enddo
              write(6,*) ' '
           enddo
@@ -297,7 +340,7 @@ contains
           print*, 'h_cavity (m):'
           do j = jtest+3, jtest-3, -1
              do i = itest-3, itest+3
-                write(6,'(f12.5)',advance='no') max(lsrf(i,j) - topg(i,j), 0.0d0)
+                write(6,'(f10.2)',advance='no') max(lsrf(i,j) - topg(i,j), 0.0d0)
              enddo
              write(6,*) ' '
           enddo
@@ -305,7 +348,7 @@ contains
           print*, 'bmlt_float (m/yr), rank =', rtest
           do j = jtest+3, jtest-3, -1
              do i = itest-3, itest+3
-                write(6,'(f12.5)',advance='no') bmlt_float(i,j)*scyr
+                write(6,'(f10.2)',advance='no') bmlt_float(i,j)*scyr
              enddo
              write(6,*) ' '
           enddo

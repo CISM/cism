@@ -1833,7 +1833,8 @@
     ! local variables
  
     integer :: i, j, k, k1, k2
- 
+    integer :: iglobal, jglobal
+
     real(dp), dimension(nlyr+1) ::  &
          z1,        &! layer interfaces in old coordinate system
                      ! z1(1) = 0. = value at upper surface
@@ -1862,7 +1863,7 @@
 
     real(dp) :: zlo, zhi, dz, zav, hovlp
 
-    character(len=100) :: message
+    character(len=256) :: message
 
     !WHL - debug
     integer :: nt
@@ -2039,10 +2040,15 @@
              enddo
           
              ! compute new tracer values
-             ! Note: Since thck > 0, must have hlyr > 0 for all k
+             ! Note: Since thck > 0, we should have hlyr > 0 for all k.
+             !       But to be safe, allow for thck very slightly > 0 (e.g., 1.e-300) and hlyr  = 0.0.
              
              do k = 1, nlyr
-                trcr(i,j,:,k) = htsum(:,k) / hlyr(i,j,k)
+                if (hlyr(i,j,k) > 0.0d0) then
+                   trcr(i,j,:,k) = htsum(:,k) / hlyr(i,j,k)
+                else
+                   trcr(i,j,:,k) = 0.0d0
+                endif
              enddo
 
           else   ! thck = 0.0
@@ -2061,7 +2067,9 @@
           do j = 1, ny
              do i = 1, nx
                 if (trcr(i,j,nt,k) /= trcr(i,j,nt,k)) then
-                   write(message,*) 'ERROR: Vertical remap, i, j, k, hlyr, temp:', i, j, k, hlyr(i,j,k), trcr(i,j,nt,k)
+                   call parallel_globalindex(i, j, iglobal, jglobal)
+                   write(message,*) 'ERROR: Vertical remap, iglobal, jglobal, k, hlyr, trcr:', &
+                        iglobal, jglobal, k, hlyr(i,j,k), trcr(i,j,nt,k)
                    call write_log(trim(message), GM_FATAL) 
                 endif
              enddo
