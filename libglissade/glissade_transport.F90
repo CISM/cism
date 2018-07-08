@@ -1022,6 +1022,8 @@
 
       real(dp) :: maxuvel, maxvvel, maxvel ! maximum velocity in either direction and in both
       real(dp) :: allowable_dt_diff_here ! temporary calculation at each cell of allowable_dt_diff
+      real(dp) :: my_allowable_dt_adv  ! allowable_dt_adv on this processor
+      real(dp) :: my_allowable_dt_diff ! allowable_dt_diff on this processor
       integer :: i, j
       real(dp) :: slopemag  ! the magnitude of the surface slope
       real(dp) :: slopedirx, slopediry  ! the unit vector of the slope direction
@@ -1030,6 +1032,8 @@
       integer :: procnum  ! processor on which minimum allowable time step occurs
       integer, dimension(3) :: indices_adv  ! z,x,y indices (stag. grid) of where the min. allow. time step occurs for the advective CFL
       integer, dimension(2) :: indices_diff  ! x and y indices (stag. grid) of where the min. allow. time step occurs for  the  diffusive CFL
+      integer, dimension(3) :: indices_adv_global  ! z,x,y indices (stag. grid) corresponding to indices_adv, but in global rather than local index space
+      integer, dimension(2) :: indices_diff_global ! x,y indices (stag. grid) corresponding to indices_diff, but in global rather than local index space
       character(len=12)  :: dt_string, xpos_string, ypos_string
       character(len=300) :: message
       ierr = 0
@@ -1077,7 +1081,7 @@
       endif
       indices_adv(2:3) = indices_adv(2:3) + staggered_lhalo  ! want the i,j coordinates WITH the halo present - we got indices into the slice of owned cells
       ! Finally, determine maximum allowable time step based on advectice CFL condition.
-      allowable_dt_adv = dew / (maxvel + 1.0d-20)
+      my_allowable_dt_adv = dew / (maxvel + 1.0d-20)
 
       ! ------------------------------------------------------------------------
       ! Diffusive CFL
@@ -1087,7 +1091,7 @@
       !TODO - Modify this loop to consider only grounded ice.  The diffusive CFL computed for floating ice
       !       usually is unnecessarily small for HO problems.
 
-      allowable_dt_diff = 1.0d20  ! start with a huge value
+      my_allowable_dt_diff = 1.0d20  ! start with a huge value
       indices_diff(:) = 1 ! Initialize these to something, on the off-chance they never get set... (e.g., no ice on this processor)
       ! Loop over locally-owned cells only!
       do j = ys, ye
@@ -1101,12 +1105,12 @@
                 flux_downslope = flux_ew(i,j) * (-1.0d0) * slopedirx + flux_ns(i,j) * (-1.0d0) * slopediry  ! TODO check signs here - they seem ok
                 !!! Estimate diffusivity in the downslope direction only
                 !!diffu = flux_downslope / slopemag
-                !!allowable_dt_diff = 0.5d0 * dew**2 / (diffu + 1.0e-20)  ! Note: assuming diffu is isotropic here.
+                !!my_allowable_dt_diff = 0.5d0 * dew**2 / (diffu + 1.0e-20)  ! Note: assuming diffu is isotropic here.
                 ! DCFL: dt = 0.5 * dx**2 / D = 0.5 * dx**2 * slopemag / flux_downslope
                 allowable_dt_diff_here = 0.5d0 * dew**2 * slopemag / (flux_downslope + 1.0e-20)  ! Note: assuming diffu is isotropic here.  assuming dx=dy
                 if (allowable_dt_diff_here < 0.0d0) allowable_dt_diff_here = 1.0d20 ! ignore negative dt's (upgradient flow due to membrane stresses)
-                if (allowable_dt_diff_here < allowable_dt_diff) then
-                   allowable_dt_diff = allowable_dt_diff_here
+                if (allowable_dt_diff_here < my_allowable_dt_diff) then
+                   my_allowable_dt_diff = allowable_dt_diff_here
                    indices_diff(1) = i
                    indices_diff(2) = j
                 endif
@@ -1115,32 +1119,33 @@
       enddo
 
       ! Determine location limiting the DCFL
-!      print *, 'diffu dt', allowable_dt_diff, indices_diff(1), indices_diff(2)
+!      print *, 'diffu dt', my_allowable_dt_diff, indices_diff(1), indices_diff(2)
 
       ! Optional print of local limiting dt on each procesor
-      !print *,'LOCAL ADV DT, POSITION', allowable_dt_adv, indices_adv(2), indices_adv(3)
-      !print *,'LOCAL DIFF DT, POSITION', allowable_dt_diff, indices_diff(1), indices_diff(2)
+      !print *,'LOCAL ADV DT, POSITION', my_allowable_dt_adv, indices_adv(2), indices_adv(3)
+      !print *,'LOCAL DIFF DT, POSITION', my_allowable_dt_diff, indices_diff(1), indices_diff(2)
 
       ! ------------------------------------------------------------------------
       ! Now check for errors
 
       ! Perform global reduce for advective time step and determine where in the domain it occurs
-      call parallel_reduce_minloc(xin=allowable_dt_adv, xout=allowable_dt_adv, xprocout=procnum)
+      call parallel_reduce_minloc(xin=my_allowable_dt_adv, xout=allowable_dt_adv, xprocout=procnum)
 
       if (deltat > allowable_dt_adv) then
           ierr = 1  ! Advective CFL violation is a fatal error
 
           ! Get position of the limiting location - do this only if an error message is needed to avoid 2 MPI comms
-          call parallel_globalindex(indices_adv(2), indices_adv(3), indices_adv(2), indices_adv(3))  
+          indices_adv_global(1) = indices_adv(1)
+          call parallel_globalindex(indices_adv(2), indices_adv(3), indices_adv_global(2), indices_adv_global(3))  
           ! Note: This subroutine assumes the scalar grid, but should work fine for the stag grid too
-          ! indices_adv now has i,j on the global grid for this proc's location
-          call broadcast(indices_adv(2), proc=procnum)
-          call broadcast(indices_adv(3), proc=procnum)
-          ! indices_adv now has i,j on the global grid for the limiting proc's location
+          ! indices_adv_global now has i,j on the global grid for this proc's location
+          call broadcast(indices_adv_global(2), proc=procnum)
+          call broadcast(indices_adv_global(3), proc=procnum)
+          ! indices_adv_global now has i,j on the global grid for the limiting proc's location
 
           write(dt_string,'(f12.6)') allowable_dt_adv
-          write(xpos_string,'(i12)') indices_adv(2)
-          write(ypos_string,'(i12)') indices_adv(3)
+          write(xpos_string,'(i12)') indices_adv_global(2)
+          write(ypos_string,'(i12)') indices_adv_global(3)
           write(message,*) 'Advective CFL violation!  Maximum allowable time step for advective CFL condition is ' &
                // trim(adjustl(dt_string)) // ' yr, limited by global position i=' &
                // trim(adjustl(xpos_string)) // ' j=' //trim(adjustl(ypos_string))
@@ -1149,20 +1154,20 @@
       endif
 
       ! Perform global reduce for diffusive time step and determine where in the domain it occurs
-      call parallel_reduce_minloc(xin=allowable_dt_diff, xout=allowable_dt_diff, xprocout=procnum)
+      call parallel_reduce_minloc(xin=my_allowable_dt_diff, xout=allowable_dt_diff, xprocout=procnum)
 
       if (deltat > allowable_dt_diff) then
           ! Get position of the limiting location - do this only if an error message is needed to avoid 2 MPI comms
-          call parallel_globalindex(indices_diff(1), indices_diff(2), indices_diff(1), indices_diff(2))  
+          call parallel_globalindex(indices_diff(1), indices_diff(2), indices_diff_global(1), indices_diff_global(2))  
           ! Note: this subroutine assumes the scalar grid, but should work fine for the stag grid too
-          ! indices_diff now has i,j on the global grid for this proc's location
-          call broadcast(indices_diff(1), proc=procnum)
-          call broadcast(indices_diff(2), proc=procnum)
-          ! indices_diff now has i,j on the global grid for the limiting proc's location
+          ! indices_diff_global now has i,j on the global grid for this proc's location
+          call broadcast(indices_diff_global(1), proc=procnum)
+          call broadcast(indices_diff_global(2), proc=procnum)
+          ! indices_diff_global now has i,j on the global grid for the limiting proc's location
 
           write(dt_string,'(f12.6)') allowable_dt_diff
-          write(xpos_string,'(i12)') indices_diff(1)
-          write(ypos_string,'(i12)') indices_diff(2)
+          write(xpos_string,'(i12)') indices_diff_global(1)
+          write(ypos_string,'(i12)') indices_diff_global(2)
 
           !WHL - Commenting out this warning for now, because the diffusive CFL violation is rarely meaningful for HO runs
 !!          write(message,*) 'Diffusive CFL violation!  Maximum allowable time step for diffusive CFL condition is ' &

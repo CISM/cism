@@ -3208,7 +3208,7 @@ contains
     ! Calculates the local i,j indices and rank from the global i,j indices
     integer,intent(IN) :: iglobal, jglobal 
     integer,intent(OUT)  :: ilocal, jlocal, rlocal
-    integer :: flag 
+    integer :: flag, flag_out
 
     flag = 0   ! This flag will be flipped on exactly one processor if the global point is valid
     ilocal = iglobal + lhalo - global_col_offset
@@ -3222,9 +3222,9 @@ contains
        flag = 1
     endif
 
-    call parallel_reduce_maxloc(flag, flag, rlocal)
+    call parallel_reduce_maxloc(flag, flag_out, rlocal)
 
-    if (flag==1) then
+    if (flag_out==1) then
        call broadcast(ilocal, rlocal)
        call broadcast(jlocal, rlocal)
     else ! global indices are invalid
